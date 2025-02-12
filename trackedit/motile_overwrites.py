@@ -12,11 +12,24 @@ Attrs: TypeAlias = Mapping[str, AttrValues]
 Node: TypeAlias = int
 Edge: TypeAlias = tuple[Node, Node]
 
+def convert_to_int(obj):
+    """Recursively converts numpy.uint16 to int in lists, tuples, and dicts, used for printing."""
+    if isinstance(obj, (np.integer, np.uint16, np.int32, np.int64)):  # Handles all numpy integer types
+        return int(obj)
+    elif isinstance(obj, list):
+        return [convert_to_int(item) for item in obj]
+    elif isinstance(obj, tuple):
+        return tuple(convert_to_int(item) for item in obj)
+    elif isinstance(obj, dict):
+        return {key: convert_to_int(value) for key, value in obj.items()}
+    return obj  # Return unchanged if not a numpy type
+
+
 def create_db_add_nodes(DB_handler):
     def db_add_nodes(self):
         # don't use full old function, because it includes painting pixels in segmentation
         self.tracks.add_nodes(self.nodes, self.times, self.positions, attrs=self.attributes)
-        print('AddNodes:',self.nodes)
+        print('AddNodes:',convert_to_int(self.nodes))
         for n in self.nodes:
             DB_handler.change_value(index = n,
                         field = NodeDB.selected,
@@ -27,7 +40,7 @@ def create_db_delete_nodes(DB_handler):
     def db_delete_nodes(self):
         # don't use full old function, because it includes painting pixels in segmentation
         self.tracks.remove_nodes(self.nodes)
-        print('DeleteNodes:',self.nodes)
+        print('DeleteNodes:',convert_to_int(self.nodes))
         for n in self.nodes:
             DB_handler.change_value(index = n,
                         field = NodeDB.selected,
@@ -38,7 +51,7 @@ _old_add_edges_apply = AddEdges._apply
 def create_db_add_edges(DB_handler):
     def db_add_edges(self):
         _old_add_edges_apply(self)
-        print('AddEdges:',self.edges)
+        print('AddEdges:',convert_to_int(self.edges))
         for e in self.edges:
             DB_handler.change_value(index = e[1],
                         field = NodeDB.parent_id,
@@ -49,7 +62,7 @@ _old_delete_edges_apply = DeleteEdges._apply
 def create_db_delete_edges(DB_handler):
     def db_delete_edges(self):
         _old_delete_edges_apply(self)
-        print('DeleteEdges:',self.edges)
+        print('DeleteEdges:',convert_to_int(self.edges))
         for e in self.edges:
             DB_handler.change_value(index = e[1],
                         field = NodeDB.parent_id,
