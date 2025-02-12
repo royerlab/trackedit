@@ -32,25 +32,25 @@ Issues = "https://github.com/TeunHuijben/trackedit/issues"
 Source = "https://github.com/TeunHuijben/trackedit"
 
 [tool.hatch.version]
-path = "src/trackedit/__about__.py"
+path = "trackedit/__about__.py"
 
 [tool.hatch.envs.types]
 extra-dependencies = [
   "mypy>=1.0.0",
 ]
 [tool.hatch.envs.types.scripts]
-check = "mypy --install-types --non-interactive {args:src/trackedit tests}"
+check = "mypy --install-types --non-interactive {args:trackedit tests}"
 
 [tool.coverage.run]
 source_pkgs = ["trackedit", "tests"]
 branch = true
 parallel = true
 omit = [
-  "src/trackedit/__about__.py",
+  "trackedit/__about__.py",
 ]
 
 [tool.coverage.paths]
-trackedit = ["src/trackedit", "*/trackedit/src/trackedit"]
+trackedit = ["trackedit", "*/trackedit/trackedit"]
 tests = ["tests", "*/trackedit/tests"]
 
 [tool.coverage.report]

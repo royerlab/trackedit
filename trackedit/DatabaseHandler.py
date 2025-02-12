@@ -2,7 +2,7 @@ import re
 import os
 import shutil
 from pathlib import Path
-from typing import List, Tuple, Optional, Dict
+from typing import List, Tuple, Dict
 
 from ultrack.config import MainConfig
 from ultrack.core.database import *
@@ -11,17 +11,17 @@ from ultrack.tracks.graph import add_track_ids_to_tracks_df
 from ultrack.core.export import tracks_layer_to_networkx
 from motile_toolbox.candidate_graph import NodeAttr
 
-from functions.DatabaseArray import DatabaseArray
-from functions.TrackEdit_functions import remove_past_parents_from_df
+from trackedit.DatabaseArray import DatabaseArray
 
-class database_handler():
+class DatabaseHandler():
     def __init__(self, 
                  db_filename_old: str,
                  working_directory: Path, 
                  data_shape_full: List[int],        #T(Z)YX
                  z_scale: tuple,
+                 name: str,
                  time_chunk: int = 0,
-                 time_chunk_length: int = 100,
+                 time_chunk_length: int = 105,
                  time_chunk_overlap: int = 5,
                  allow_overwrite: bool =False):
 
@@ -30,6 +30,7 @@ class database_handler():
         self.working_directory = working_directory
         self.data_shape_full = data_shape_full
         self.z_scale = z_scale
+        self.name = name
         self.allow_overwrite = allow_overwrite
         self.time_chunk = time_chunk
         self.time_chunk_length = time_chunk_length
@@ -39,8 +40,7 @@ class database_handler():
         self.time_window = self.calc_time_window()
         self.data_shape_chunk = self.data_shape_full.copy()
         self.data_shape_chunk[0] = time_chunk_length
-        self.num_time_chunks = int(np.floor(self.data_shape_full[0]/self.time_chunk_length))
-        print('shapes full/chunk/length',self.data_shape_full,self.data_shape_chunk,self.time_chunk_length,self.num_time_chunks)
+        self.num_time_chunks = int(np.ceil(self.data_shape_full[0]/self.time_chunk_length))
 
         #Filenames / directories
         self.db_filename_new, self.log_filename_new = self.copy_database(
@@ -55,7 +55,7 @@ class database_handler():
         #DatabaseArray()
         self.segments = DatabaseArray(database_path=self.db_path_new, 
                                  shape=self.data_shape_chunk,
-                                 time_offset = self.time_window[0])
+                                 time_window = self.time_window)
         self.nxgraph = self.db_to_nxgraph()
         self.log(f"Log file created")
 
@@ -154,7 +154,7 @@ class database_handler():
                     indices=index,
                     values=field)
         message = f"db: setting {field.name}[id={index}] = {new_val} (was {old_val})"
-        print(' '+message)
+        # print(' '+message)
         self.log(message)
 
     def calc_time_window(self):
@@ -164,14 +164,16 @@ class database_handler():
         time_window = (int(time_chunk_starts[self.time_chunk]),int(time_chunk_stops[self.time_chunk]))
         return time_window
     
+
     def set_time_chunk(self, time_chunk):
+        #ToDo: separate into two functions, one for setting time chunk and one for updating the graph/segments > maybe not necessary!
         if time_chunk >= self.num_time_chunks:
             raise ValueError(f"Time chunk {time_chunk} out of range. Maximum time chunk is {self.num_time_chunks-1}")
         else:
             self.time_chunk = time_chunk
             self.time_window = self.calc_time_window()
-            self.segments.time_offset = self.time_window[0]
-            print('new time window:',self.time_window)
+            self.segments.set_time_window(self.time_window)
+            self.nxgraph = self.db_to_nxgraph()
 
     def db_to_nxgraph(self,
         include_parents: bool = True,
@@ -211,7 +213,7 @@ class database_handler():
             max_time = self.time_window[1]
             df = df[(df.t >= min_time) & (df.t < max_time)].copy()
 
-        df = remove_past_parents_from_df(df)
+        df = self.remove_past_parents_from_df(df)
 
         if ndim == 4:
             df.loc[:,"z"] = df.z * self.z_scale   #apply scale
@@ -244,3 +246,21 @@ class database_handler():
             nxgraph.nodes[node][NodeAttr.TRACK_ID.value] = int(nxgraph.nodes[node]['track_id'])
 
         return nxgraph        
+
+    def remove_past_parents_from_df(self, df2):
+
+        df2.loc[:,"t"] = df2["t"] - df2["t"].min()
+
+        #find the first time point
+        min_time = 0
+
+        # Set all parent_id values to -1 for the first time point
+        df2.loc[df2["t"] == min_time, "parent_id"] = -1
+
+        #find the tracks with parents at the first time point
+        tracks_with_parents = df2.loc[(df2["t"] == min_time) & (df2["parent_track_id"] != -1), "track_id"]
+        track_ids_to_update = set(tracks_with_parents)
+
+        # update the parent_track_id to -1 for the tracks with parents at the first time point
+        df2.loc[df2["track_id"].isin(track_ids_to_update), "parent_track_id"] = -1
+        return df2
