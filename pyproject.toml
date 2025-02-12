@@ -7,7 +7,7 @@ name = "trackedit"
 dynamic = ["version"]
 description = ''
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 license = "MIT"
 keywords = []
 authors = [
@@ -16,15 +16,15 @@ authors = [
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.8",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
-dependencies = []
+dependencies = [
+  "mip >= 1.16rc0"
+, "ultrack>=0.6.3,<0.7"]
 
 [project.urls]
 Documentation = "https://github.com/TeunHuijben/trackedit#readme"
@@ -59,3 +59,18 @@ exclude_lines = [
   "if __name__ == .__main__.:",
   "if TYPE_CHECKING:",
 ]
+
+[tool.pixi.project]
+channels = ["conda-forge", "numba","gurobi","funkelab"]
+platforms = ["linux-64", "win-64", "osx-arm64"]
+preview = ["pixi-build"]
+
+[tool.pixi.pypi-dependencies]
+trackedit = { path = ".", editable = true }
+
+[tool.pixi.tasks]
+
+[tool.pixi.dependencies]
+higra = ">=0.6.12,<0.7"
+numba = { version = ">=0.60.0,<0.61", channel = "numba" }
+llvmlite = { version = ">=0.44.0,<0.45", channel = "numba" }
