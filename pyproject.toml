@@ -67,6 +67,7 @@ preview = ["pixi-build"]
 
 [tool.pixi.pypi-dependencies]
 trackedit = { path = ".", editable = true }
+motile_tracker = { git = "https://github.com/funkelab/motile_tracker" }
 
 [tool.pixi.tasks]
 
@@ -74,3 +75,11 @@ trackedit = { path = ".", editable = true }
 higra = ">=0.6.12,<0.7"
 numba = { version = ">=0.60.0,<0.61", channel = "numba" }
 llvmlite = { version = ">=0.44.0,<0.45", channel = "numba" }
+ilpy = ">=0.4.0,<0.5"
+napari-ome-zarr = ">=0.6.1,<0.7"
+
+[tool.pixi.feature.test.dependencies]
+pytest = "*"
+
+[tool.pixi.environments]
+test = { features = ["test"], solve-group = "default" }
