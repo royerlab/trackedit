@@ -77,6 +77,8 @@ numba = { version = ">=0.60.0,<0.61", channel = "numba" }
 llvmlite = { version = ">=0.44.0,<0.45", channel = "numba" }
 ilpy = ">=0.4.0,<0.5"
 napari-ome-zarr = ">=0.6.1,<0.7"
+psycopg2-binary = ">=2.9.6"
+pyqt = ">=5.15.9,<6"
 
 [tool.pixi.feature.test.dependencies]
 pytest = "*"
