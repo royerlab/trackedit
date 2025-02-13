@@ -44,12 +44,12 @@ class TrackEditSidebar(QWidget):
 
         #Define entire widget
         main_layout = QVBoxLayout()
-        main_layout.addWidget(self._title_widget())
+        main_layout.addWidget(QLabel(r"""<h2>Navigation</h2>""" ))
         main_layout.addLayout(label_layout)
         main_layout.addLayout(button_layout)
 
         self.setLayout(main_layout)
-        # self.setMaximumHeight(100)
+        self.setMaximumHeight(100)
 
     def press_prev(self):
         self.change_chunk.emit('prev')
@@ -63,20 +63,19 @@ class TrackEditSidebar(QWidget):
         time_window = self.tracks_viewer.tracks.segmentation.time_window
         label = f"time window ({time_window[0]} : {time_window[1]-1})"
         self.chunk_label.setText(label)
-
-
-    def _title_widget(self) -> QWidget:
-        """Create the title and intro paragraph widget, with links to docs
-
-        Returns:
-            QWidget: A widget introducing the motile tracker and linking to docs
-        """
-        richtext = r"""<h2>Tracking with blablabla</h2>""" 
-        label = QLabel(richtext)
-        label.setWordWrap(True)
-        label.setOpenExternalLinks(True)
-        return label
     
+class CustomEditingMenu(EditingMenu):
+    def __init__(self, viewer: napari.Viewer):
+        super().__init__(viewer)  # Call the original init method
+
+        # Create the label
+        nav_label = QLabel(r"""<h2>Edit tracks</h2>""")
+
+        # Get the existing layout
+        layout = self.layout()  # This retrieves the QVBoxLayout from EditingMenu
+
+        # Insert the label at the beginning
+        layout.insertWidget(0, nav_label)
 
 class TrackEditClass():
     def __init__(self, viewer: napari.Viewer, databasehandler: DatabaseHandler):
@@ -84,7 +83,7 @@ class TrackEditClass():
 
         self.TreeWidget = TreeWidget(self.viewer)
         self.TrackEditSidebar = TrackEditSidebar(self.viewer)
-        self.EditingMenu = EditingMenu(self.viewer)
+        self.EditingMenu = CustomEditingMenu(self.viewer)
 
         self.viewer.window.add_dock_widget(self.TreeWidget, area="bottom",name="TreeWidget")
         self.viewer.window.add_dock_widget(self.TrackEditSidebar, area='right', name='TrackEditSidebar')

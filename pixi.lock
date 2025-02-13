@@ -373,7 +373,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/c7/d3/39e276363e9afb5c80336addf903a133b458dcc130a4d0f5e60bc9e881e7/mip-1.16rc0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/11/bc/d1b84419cec33e1350238488afc75f19bf92cae2eeb624dda5a937f45f63/motile-0.3.0-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/14/f1/af9f46636bacfdc2feed95e3949b2eb7873da2b9ce5a415d42807fe3f48f/motile_toolbox-0.4.0-py3-none-any.whl
-      - pypi: git+https://github.com/funkelab/motile_tracker#2c5dac2422a35a7207c5a417ca7073c58a08d5ae
       - pypi: https://files.pythonhosted.org/packages/43/e3/7d92a15f894aa0c9c4b49b8ee9ac9850d6e63b03c9c32c0367a13ae62209/mpmath-1.3.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/15/fc/420680ad8b0cf81372eee7a213a7b7173ec5a628f0d5b2426047fe55c3b3/narwhals-1.26.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/51/2d/bfc284ecc9b24acb916f5d04a69357ae56e0b6073286eaa71cf54bf0b136/ndindex-1.9.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
@@ -416,6 +415,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/fe/42/f8dbc2b9ad59e927940325a22d6d3931d630c3644dae7e2369ef5d9ba230/zope.event-5.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/9f/aa/1a28c02815fe1ca282b54f6705b9ddba20328fabdc37b8cf73fc06b172f0/zope.interface-7.2-cp311-cp311-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl
       - pypi: .
+      - pypi: /home/teun.huijben/Documents/code/github/motile_tracker
       osx-arm64:
       - conda: https://conda.anaconda.org/conda-forge/noarch/aiohappyeyeballs-2.4.6-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/aiohttp-3.11.12-py311h4921393_0.conda
@@ -729,7 +729,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/c7/d3/39e276363e9afb5c80336addf903a133b458dcc130a4d0f5e60bc9e881e7/mip-1.16rc0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/11/bc/d1b84419cec33e1350238488afc75f19bf92cae2eeb624dda5a937f45f63/motile-0.3.0-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/14/f1/af9f46636bacfdc2feed95e3949b2eb7873da2b9ce5a415d42807fe3f48f/motile_toolbox-0.4.0-py3-none-any.whl
-      - pypi: git+https://github.com/funkelab/motile_tracker#2c5dac2422a35a7207c5a417ca7073c58a08d5ae
       - pypi: https://files.pythonhosted.org/packages/43/e3/7d92a15f894aa0c9c4b49b8ee9ac9850d6e63b03c9c32c0367a13ae62209/mpmath-1.3.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/15/fc/420680ad8b0cf81372eee7a213a7b7173ec5a628f0d5b2426047fe55c3b3/narwhals-1.26.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/77/f6/8ff749841f6f8f4096184e8e158e48d572358d4ad0ba1055728e4f7e0f44/ndindex-1.9.2-cp311-cp311-macosx_11_0_arm64.whl
@@ -758,6 +757,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/fe/42/f8dbc2b9ad59e927940325a22d6d3931d630c3644dae7e2369ef5d9ba230/zope.event-5.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a0/2a/0c03c7170fe61d0d371e4c7ea5b62b8cb79b095b3d630ca16719bf8b7b18/zope.interface-7.2-cp311-cp311-macosx_11_0_arm64.whl
       - pypi: .
+      - pypi: /home/teun.huijben/Documents/code/github/motile_tracker
       win-64:
       - conda: https://conda.anaconda.org/conda-forge/win-64/_libavif_api-1.1.1-h57928b3_2.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/_openmp_mutex-4.5-2_gnu.conda
@@ -1050,7 +1050,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/c7/d3/39e276363e9afb5c80336addf903a133b458dcc130a4d0f5e60bc9e881e7/mip-1.16rc0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/11/bc/d1b84419cec33e1350238488afc75f19bf92cae2eeb624dda5a937f45f63/motile-0.3.0-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/14/f1/af9f46636bacfdc2feed95e3949b2eb7873da2b9ce5a415d42807fe3f48f/motile_toolbox-0.4.0-py3-none-any.whl
-      - pypi: git+https://github.com/funkelab/motile_tracker#2c5dac2422a35a7207c5a417ca7073c58a08d5ae
       - pypi: https://files.pythonhosted.org/packages/43/e3/7d92a15f894aa0c9c4b49b8ee9ac9850d6e63b03c9c32c0367a13ae62209/mpmath-1.3.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/15/fc/420680ad8b0cf81372eee7a213a7b7173ec5a628f0d5b2426047fe55c3b3/narwhals-1.26.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/01/e3/c87442ba34a76e3d778135e967b625e5bb2217773a8c0be751e1537231b7/ndindex-1.9.2-cp312-cp312-win_amd64.whl
@@ -1079,6 +1078,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/fe/42/f8dbc2b9ad59e927940325a22d6d3931d630c3644dae7e2369ef5d9ba230/zope.event-5.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/5f/c7/3c67562e03b3752ba4ab6b23355f15a58ac2d023a6ef763caaca430f91f2/zope.interface-7.2-cp312-cp312-win_amd64.whl
       - pypi: .
+      - pypi: /home/teun.huijben/Documents/code/github/motile_tracker
   test:
     channels:
     - url: https://conda.anaconda.org/conda-forge/
@@ -1455,7 +1455,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/c7/d3/39e276363e9afb5c80336addf903a133b458dcc130a4d0f5e60bc9e881e7/mip-1.16rc0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/11/bc/d1b84419cec33e1350238488afc75f19bf92cae2eeb624dda5a937f45f63/motile-0.3.0-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/14/f1/af9f46636bacfdc2feed95e3949b2eb7873da2b9ce5a415d42807fe3f48f/motile_toolbox-0.4.0-py3-none-any.whl
-      - pypi: git+https://github.com/funkelab/motile_tracker#2c5dac2422a35a7207c5a417ca7073c58a08d5ae
       - pypi: https://files.pythonhosted.org/packages/43/e3/7d92a15f894aa0c9c4b49b8ee9ac9850d6e63b03c9c32c0367a13ae62209/mpmath-1.3.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/15/fc/420680ad8b0cf81372eee7a213a7b7173ec5a628f0d5b2426047fe55c3b3/narwhals-1.26.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/51/2d/bfc284ecc9b24acb916f5d04a69357ae56e0b6073286eaa71cf54bf0b136/ndindex-1.9.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
@@ -1498,6 +1497,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/fe/42/f8dbc2b9ad59e927940325a22d6d3931d630c3644dae7e2369ef5d9ba230/zope.event-5.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/9f/aa/1a28c02815fe1ca282b54f6705b9ddba20328fabdc37b8cf73fc06b172f0/zope.interface-7.2-cp311-cp311-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl
       - pypi: .
+      - pypi: /home/teun.huijben/Documents/code/github/motile_tracker
       osx-arm64:
       - conda: https://conda.anaconda.org/conda-forge/noarch/aiohappyeyeballs-2.4.6-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/aiohttp-3.11.12-py311h4921393_0.conda
@@ -1814,7 +1814,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/c7/d3/39e276363e9afb5c80336addf903a133b458dcc130a4d0f5e60bc9e881e7/mip-1.16rc0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/11/bc/d1b84419cec33e1350238488afc75f19bf92cae2eeb624dda5a937f45f63/motile-0.3.0-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/14/f1/af9f46636bacfdc2feed95e3949b2eb7873da2b9ce5a415d42807fe3f48f/motile_toolbox-0.4.0-py3-none-any.whl
-      - pypi: git+https://github.com/funkelab/motile_tracker#2c5dac2422a35a7207c5a417ca7073c58a08d5ae
       - pypi: https://files.pythonhosted.org/packages/43/e3/7d92a15f894aa0c9c4b49b8ee9ac9850d6e63b03c9c32c0367a13ae62209/mpmath-1.3.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/15/fc/420680ad8b0cf81372eee7a213a7b7173ec5a628f0d5b2426047fe55c3b3/narwhals-1.26.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/77/f6/8ff749841f6f8f4096184e8e158e48d572358d4ad0ba1055728e4f7e0f44/ndindex-1.9.2-cp311-cp311-macosx_11_0_arm64.whl
@@ -1843,6 +1842,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/fe/42/f8dbc2b9ad59e927940325a22d6d3931d630c3644dae7e2369ef5d9ba230/zope.event-5.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a0/2a/0c03c7170fe61d0d371e4c7ea5b62b8cb79b095b3d630ca16719bf8b7b18/zope.interface-7.2-cp311-cp311-macosx_11_0_arm64.whl
       - pypi: .
+      - pypi: /home/teun.huijben/Documents/code/github/motile_tracker
       win-64:
       - conda: https://conda.anaconda.org/conda-forge/win-64/_libavif_api-1.1.1-h57928b3_2.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/_openmp_mutex-4.5-2_gnu.conda
@@ -2138,7 +2138,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/c7/d3/39e276363e9afb5c80336addf903a133b458dcc130a4d0f5e60bc9e881e7/mip-1.16rc0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/11/bc/d1b84419cec33e1350238488afc75f19bf92cae2eeb624dda5a937f45f63/motile-0.3.0-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/14/f1/af9f46636bacfdc2feed95e3949b2eb7873da2b9ce5a415d42807fe3f48f/motile_toolbox-0.4.0-py3-none-any.whl
-      - pypi: git+https://github.com/funkelab/motile_tracker#2c5dac2422a35a7207c5a417ca7073c58a08d5ae
       - pypi: https://files.pythonhosted.org/packages/43/e3/7d92a15f894aa0c9c4b49b8ee9ac9850d6e63b03c9c32c0367a13ae62209/mpmath-1.3.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/15/fc/420680ad8b0cf81372eee7a213a7b7173ec5a628f0d5b2426047fe55c3b3/narwhals-1.26.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/01/e3/c87442ba34a76e3d778135e967b625e5bb2217773a8c0be751e1537231b7/ndindex-1.9.2-cp312-cp312-win_amd64.whl
@@ -2167,6 +2166,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/fe/42/f8dbc2b9ad59e927940325a22d6d3931d630c3644dae7e2369ef5d9ba230/zope.event-5.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/5f/c7/3c67562e03b3752ba4ab6b23355f15a58ac2d023a6ef763caaca430f91f2/zope.interface-7.2-cp312-cp312-win_amd64.whl
       - pypi: .
+      - pypi: /home/teun.huijben/Documents/code/github/motile_tracker
 packages:
 - conda: https://conda.anaconda.org/conda-forge/win-64/_libavif_api-1.1.1-h57928b3_2.conda
   sha256: b99b8948a170ff721ea958ee04a4431797070e85dd6942cb27b73ac3102e5145
@@ -8061,9 +8061,10 @@ packages:
   - pytest-unordered ; extra == 'dev'
   - ruff ; extra == 'dev'
   requires_python: '>=3.10'
-- pypi: git+https://github.com/funkelab/motile_tracker#2c5dac2422a35a7207c5a417ca7073c58a08d5ae
+- pypi: /home/teun.huijben/Documents/code/github/motile_tracker
   name: motile-tracker
   version: 3.0.1
+  sha256: e8d89178f11e606033ac1e6841c749b3f28d510baa7e0d17b438688f05208e5c
   requires_dist:
   - napari[all]
   - numpy
@@ -8091,6 +8092,7 @@ packages:
   - pre-commit ; extra == 'dev'
   - motile-tracker[dev,docs,testing] ; extra == 'all'
   requires_python: '>=3.10'
+  editable: true
 - conda: https://conda.anaconda.org/conda-forge/linux-64/mpfr-4.2.1-h90cbb55_3.conda
   sha256: f25d2474dd557ca66c6231c8f5ace5af312efde1ba8290a6ea5e1732a4e669c0
   md5: 2eeb50cab6652538eee8fc0bc3340c81
@@ -11958,7 +11960,7 @@ packages:
 - pypi: .
   name: trackedit
   version: 0.0.1
-  sha256: 2c7ac888be670b2d6c2336e81d15294aa07af6912c54bd9e7df1ac56616daf16
+  sha256: 95da738ac6d2bfbd393bcc845b5857bc8334b991736aad917b8d00842f07aeca
   requires_dist:
   - mip>=1.16rc0
   requires_python: '>=3.10'
