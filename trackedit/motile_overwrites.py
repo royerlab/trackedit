@@ -2,9 +2,13 @@ from typing import Any, Iterable, TypeAlias, Sequence, Mapping
 from motile_toolbox.candidate_graph import NodeAttr, EdgeAttr
 from motile_tracker.data_model.solution_tracks import SolutionTracks
 from motile_tracker.data_views import TracksViewer   
+from motile_tracker.data_views.views.tree_view.tree_widget import TreePlot
 from motile_tracker.data_model.tracks_controller import TracksController
 from motile_tracker.data_model.actions import AddEdges, DeleteEdges, ActionGroup
 from ultrack.core.database import *
+
+import pyqtgraph as pg
+from qtpy.QtGui import QColor
 
 AttrValue: TypeAlias = Any
 AttrValues: TypeAlias = Sequence[AttrValue]
@@ -106,3 +110,17 @@ def my_delete_nodes(self,nodes: Iterable[None]):
     self.action_history.add_new_action(action_group_together)
     self.tracks.refresh.emit()
 TracksController.delete_nodes = my_delete_nodes
+
+_old_create_pyqtgraph_content = TreePlot._create_pyqtgraph_content
+def patched_create_pyqtgraph_content(self, track_df, feature):
+    """Patched version of _create_pyqtgraph_content to modify outline_pen."""
+    # Call the original method
+    _old_create_pyqtgraph_content(self, track_df, feature)
+
+    # Overwrite the last line with transparency (alpha = 0)
+    self.outline_pen = np.array(
+        [pg.mkPen(QColor(150, 150, 150, 0)) for _ in range(len(self._pos))]
+    )
+
+# Monkey-patch the method
+TreePlot._create_pyqtgraph_content = patched_create_pyqtgraph_content
