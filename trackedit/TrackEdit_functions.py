@@ -49,7 +49,7 @@ class TrackEditSidebar(QWidget):
         main_layout.addLayout(button_layout)
 
         self.setLayout(main_layout)
-        self.setMaximumHeight(100)
+        # self.setMaximumHeight(100)
 
     def press_prev(self):
         self.change_chunk.emit('prev')
@@ -71,7 +71,7 @@ class TrackEditSidebar(QWidget):
         Returns:
             QWidget: A widget introducing the motile tracker and linking to docs
         """
-        richtext = r"""<h3>Tracking with blablabla</h3>""" 
+        richtext = r"""<h2>Tracking with blablabla</h2>""" 
         label = QLabel(richtext)
         label.setWordWrap(True)
         label.setOpenExternalLinks(True)

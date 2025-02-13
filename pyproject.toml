@@ -69,7 +69,7 @@ preview = ["pixi-build"]
 trackedit = { path = ".", editable = true }
 motile_tracker = { git = "https://github.com/funkelab/motile_tracker" }
 # ultrack = { git = "https://github.com/royerlab/ultrack.git", rev = "04763200bf2fd4c67f699752362618998f0d2f6a", subdirectory = "" }
-ultrack = { git = "https://github.com/royerlab/ultrack.git", rev = "04763200bf2fd4c67f699752362618998f0d2f6a" }
+ultrack = { git = "https://github.com/royerlab/ultrack.git", rev = "6f994d27a28deef543da5f5be4d318173b790299" }
 
 [tool.pixi.tasks]
 
