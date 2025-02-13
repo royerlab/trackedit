@@ -25,23 +25,26 @@ class TrackEditSidebar(QWidget):
 
         self.tracks_viewer = TracksViewer.get_instance(viewer)
 
-        main_layout = QVBoxLayout()
-        button_layout = QHBoxLayout()
-        label_layout = QVBoxLayout()
-
         #Define the buttons
         self.time_prev_btn = QPushButton("prev (<)")
         self.time_prev_btn.clicked.connect(self.press_prev)
         self.time_next_btn = QPushButton("next (>)")
         self.time_next_btn.clicked.connect(self.press_next)
         
+        button_layout = QHBoxLayout()
         button_layout.addWidget(self.time_prev_btn)
         button_layout.addWidget(self.time_next_btn)
 
+        #Define the time window label
         label = "temp. label"
         self.chunk_label = QLabel(label)
+
+        label_layout = QVBoxLayout()
         label_layout.addWidget(self.chunk_label, alignment=Qt.AlignCenter)
 
+        #Define entire widget
+        main_layout = QVBoxLayout()
+        main_layout.addWidget(self._title_widget())
         main_layout.addLayout(label_layout)
         main_layout.addLayout(button_layout)
 
@@ -61,6 +64,19 @@ class TrackEditSidebar(QWidget):
         label = f"time window ({time_window[0]} : {time_window[1]-1})"
         self.chunk_label.setText(label)
 
+
+    def _title_widget(self) -> QWidget:
+        """Create the title and intro paragraph widget, with links to docs
+
+        Returns:
+            QWidget: A widget introducing the motile tracker and linking to docs
+        """
+        richtext = r"""<h3>Tracking with blablabla</h3>""" 
+        label = QLabel(richtext)
+        label.setWordWrap(True)
+        label.setOpenExternalLinks(True)
+        return label
+    
 
 class TrackEditClass():
     def __init__(self, viewer: napari.Viewer, databasehandler: DatabaseHandler):

@@ -179,7 +179,7 @@ docs/source/docker
 # ultrack files
 metadata.toml
 data.db
-*.lock
+# *.lock
 # pixi environments
 .pixi
 *.egg-info
