@@ -1,8 +1,9 @@
 import re
 import os
 import shutil
+import networkx as nx
 from pathlib import Path
-from typing import List, Tuple, Dict
+from typing import List
 
 from ultrack.config import MainConfig
 from ultrack.core.database import *
@@ -56,7 +57,8 @@ class DatabaseHandler():
         self.segments = DatabaseArray(database_path=self.db_path_new, 
                                  shape=self.data_shape_chunk,
                                  time_window = self.time_window)
-        self.nxgraph = self.db_to_nxgraph()
+        self.df = self.db_to_df()
+        self.nxgraph = self.df_to_nxgraph()
         self.log(f"Log file created")
 
 
@@ -173,34 +175,29 @@ class DatabaseHandler():
             self.time_chunk = time_chunk
             self.time_window = self.calc_time_window()
             self.segments.set_time_window(self.time_window)
-            self.nxgraph = self.db_to_nxgraph()
+            self.df = self.db_to_df()
+            self.nxgraph = self.df_to_nxgraph()
 
-    def db_to_nxgraph(self,
-        include_parents: bool = True,
-        include_node_ids: bool = True,
-    ) -> Tuple[pd.DataFrame, Dict[int, List[int]]]:
-        """Exports solution from database to napari tracks layer format.
-
+    def db_to_df(self,       
+                entire_database: bool = False, 
+                include_parents: bool = True,
+                include_node_ids: bool = True
+        ) -> pd.DataFrame:
+        """Exports solution from database to pandas dataframe.
+        
         Parameters
         ----------
-        db_path : str
-            Path to the database file.
-        shape : Tuple[int, ...]
-            Shape of the dataset [T,(Z,),Y,X].
-        z_scale : float
-            Scale factor for the z-dimension, assuming x_scale and y_scale are both 1
+        entire_database : bool
+            Flag to include all time points in the database. By default, only the time window is included.
         include_parents : bool
             Flag to include parents track id for each track id.
         include_ids : bool
             Flag to include node ids for each unit.
-        time_window : Tuple[int]
-            Time window to extract tracks from the database. [0,100] will extract tracks from time 0 up to 100, excluding t=100
 
         Returns
-        nx.DiGraph
-            Networkx graph.
         -------
-
+        pd.DataFrame
+            Dataframe with columns: track_id, t, z, y, x
         """
         ndim = len(self.data_shape_full)
 
@@ -208,10 +205,11 @@ class DatabaseHandler():
         df = add_track_ids_to_tracks_df(df)
         df.sort_values(by=["track_id", "t"], inplace=True)
 
-        if self.time_window is not None:
-            min_time = self.time_window[0]
-            max_time = self.time_window[1]
-            df = df[(df.t >= min_time) & (df.t < max_time)].copy()
+        if not entire_database:
+            if self.time_window is not None:
+                min_time = self.time_window[0]
+                max_time = self.time_window[1]
+                df = df[(df.t >= min_time) & (df.t < max_time)].copy()
 
         df = self.remove_past_parents_from_df(df)
 
@@ -235,11 +233,18 @@ class DatabaseHandler():
                 columns.append("parent_id")
 
         df = df[columns]
+        return df
 
-        # display(df[df.t==6])
 
-        # df.rename(columns={"t": "time"}, inplace=True) #not necessary anymore after solution Caroline
-        nxgraph = tracks_layer_to_networkx(df)
+    def df_to_nxgraph(self) -> nx.DiGraph:
+        """Exports solution from tracks dataframe to networkx graph.
+
+        Returns
+        nx.DiGraph
+            Networkx graph.
+
+        """
+        nxgraph = tracks_layer_to_networkx(self.df)
 
         # add/modify attributes to fit motile viewer assumptions
         for node in nxgraph.nodes:
@@ -251,14 +256,11 @@ class DatabaseHandler():
 
         df2.loc[:,"t"] = df2["t"] - df2["t"].min()
 
-        #find the first time point
-        min_time = 0
-
         # Set all parent_id values to -1 for the first time point
-        df2.loc[df2["t"] == min_time, "parent_id"] = -1
+        df2.loc[df2["t"] == 0, "parent_id"] = -1
 
         #find the tracks with parents at the first time point
-        tracks_with_parents = df2.loc[(df2["t"] == min_time) & (df2["parent_track_id"] != -1), "track_id"]
+        tracks_with_parents = df2.loc[(df2["t"] == 0) & (df2["parent_track_id"] != -1), "track_id"]
         track_ids_to_update = set(tracks_with_parents)
 
         # update the parent_track_id to -1 for the tracks with parents at the first time point
