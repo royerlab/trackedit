@@ -6,7 +6,6 @@ from trackedit.TrackEdit_functions import *
 from trackedit.DatabaseHandler import DatabaseHandler
 from motile_tracker.data_model.actions import AddEdges, DeleteNodes, DeleteEdges, AddNodes
 
-
 #**********INPUTS*********
 working_directory = Path('/home/teun.huijben/Documents/data/Akila/20241003/neuromast4_t851/adjusted/')
 # working_directory = Path('/Users/teun.huijben/Documents/data/Akila/20241003_neuromast4/adjusted/')
