@@ -30,6 +30,7 @@ class DatabaseHandler():
         self.db_filename_old = db_filename_old
         self.working_directory = working_directory
         self.data_shape_full = data_shape_full
+        self.Tmax = self.data_shape_full[0]
         self.z_scale = z_scale
         self.name = name
         self.allow_overwrite = allow_overwrite
@@ -160,9 +161,8 @@ class DatabaseHandler():
         self.log(message)
 
     def calc_time_window(self):
-        Tmax = self.data_shape_full[0]
-        time_chunk_starts = np.arange(0,Tmax,self.time_chunk_length-self.time_chunk_overlap)
-        time_chunk_stops = np.array([(s + self.time_chunk_length) if (s + self.time_chunk_length < Tmax) else Tmax for s in time_chunk_starts]).astype(int)
+        time_chunk_starts = np.arange(0,self.Tmax,self.time_chunk_length-self.time_chunk_overlap)
+        time_chunk_stops = np.array([(s + self.time_chunk_length) if (s + self.time_chunk_length < self.Tmax) else self.Tmax for s in time_chunk_starts]).astype(int)
         time_window = (int(time_chunk_starts[self.time_chunk]),int(time_chunk_stops[self.time_chunk]))
         return time_window, time_chunk_starts
 

@@ -34,13 +34,11 @@ def main():
     AddNodes._apply = create_db_add_nodes(DB_handler)
     TracksViewer._refresh = create_tracks_viewer_and_segments_refresh(layer_name=layer_name)
 
-
     #open napari with TrackEdit
     viewer = napari.Viewer()
     trackeditclass = TrackEditClass(viewer, databasehandler = DB_handler)
     viewer.dims.ndisplay = 3    #3D view
     napari.run()
-
 
 if __name__ == "__main__":
     main()
