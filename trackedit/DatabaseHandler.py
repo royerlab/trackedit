@@ -62,8 +62,8 @@ class DatabaseHandler():
         self.df = self.db_to_df()
         self.nxgraph = self.df_to_nxgraph()
         self.red_flags = self.find_all_red_flags()
+        self.red_flags_ignore_list = []
         self.log(f"Log file created")
-
 
     def initialize_logfile(self, log_filename_new):
         """Initialize the logger with a file path. Raises an error if the file already exists."""
@@ -159,7 +159,6 @@ class DatabaseHandler():
                     indices=index,
                     values=field)
         message = f"db: setting {field.name}[id={index}] = {new_val} (was {old_val})"
-        # print(' '+message)
         self.log(message)
 
     def calc_time_window(self):
@@ -356,3 +355,14 @@ class DatabaseHandler():
                 })
 
         return pd.DataFrame(events)
+
+    def seg_ignore_red_flag(self, id):
+        self.red_flags_ignore_list.append(id)
+
+        message = f"ignore red flag: cell {id} {self.red_flags.loc[self.red_flags['id'] == id, 'event'].values[0]} at time {self.red_flags.loc[self.red_flags['id'] == id, 't'].values[0]} "
+        self.log(message)
+
+        #remove the ignores red flag from the red flags 
+        self.red_flags = self.red_flags[~self.red_flags['id'].isin(self.red_flags_ignore_list)]
+
+

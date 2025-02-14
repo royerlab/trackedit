@@ -86,7 +86,7 @@ class TrackEditSidebar(QWidget):
         red_flag_layout_row1 = QHBoxLayout()
 
         red_flag_layout_row1.addWidget(self.red_flag_prev_btn)
-        
+
         red_flag_layout_row1.addWidget(self.red_flag_counter)
         red_flag_layout_row1.addWidget(self.red_flag_next_btn)
         red_flag_layout_row1.addWidget(self.red_flag_ignore_btn)
@@ -180,10 +180,11 @@ class TrackEditClass():
     def update_red_flag_counter_and_info(self):
         """Update the red flag label to show the current red flag index and total count."""
         total = len(self.databasehandler.red_flags)
+        print(' RF: total = ', total, 'current index', self.current_red_flag_index)
         if total > 0:
             # Display indices as 1-indexed (e.g., "3/80")
             self.TrackEditSidebar.red_flag_counter.setText(f"{self.current_red_flag_index + 1}/{total}")
-            df_rf = self.databasehandler.red_flags.loc[[self.current_red_flag_index]]
+            df_rf = self.databasehandler.red_flags.iloc[[self.current_red_flag_index]]
             text = f"{df_rf.iloc[0].id} {df_rf.iloc[0].event} at t={df_rf.iloc[0].t}"
             self.TrackEditSidebar.red_flag_info.setText(text)
         else:
@@ -211,7 +212,6 @@ class TrackEditClass():
     def goto_red_flag(self):
         """Jump to the time of the current red flag."""
         red_flag_time = int(self.databasehandler.red_flags.iloc[self.current_red_flag_index]["t"])
-
         self.update_chunk_from_frame(red_flag_time)
 
         #update the selected nodes in the TreeWidget
@@ -225,7 +225,12 @@ class TrackEditClass():
 
     def ignore_red_flag(self):
         """Ignore the current red flag and remove it from the list."""
-        print('RF: ignore ', self.databasehandler.red_flags.loc[[self.current_red_flag_index]])
+        id = self.databasehandler.red_flags.iloc[self.current_red_flag_index]["id"]
+        self.databasehandler.seg_ignore_red_flag(id)
+
+        if self.current_red_flag_index >= len(self.databasehandler.red_flags):
+            self.current_red_flag_index = self.current_red_flag_index - 1
+        self.goto_red_flag()
 
     def add_tracks(self):
         """Add a solution set of tracks to the tracks viewer results list
