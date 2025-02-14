@@ -16,6 +16,13 @@ from PyQt5.QtCore import Qt
 from qtpy.QtCore import Signal
 from trackedit.DatabaseHandler import DatabaseHandler
 
+class ClickableLabel(QLabel):
+    clicked = Signal()
+
+    def mousePressEvent(self, event):
+        super().mousePressEvent(event)
+        self.clicked.emit()
+
 class TrackEditSidebar(QWidget):
 
     change_chunk = Signal(str)
@@ -25,6 +32,10 @@ class TrackEditSidebar(QWidget):
         super().__init__()
 
         self.tracks_viewer = TracksViewer.get_instance(viewer)
+
+        # ===============================
+        # TIME INTERACTION UI ELEMENTS
+        # ===============================
 
         #Define the buttons
         self.time_prev_btn = QPushButton("prev (<)")
@@ -51,15 +62,51 @@ class TrackEditSidebar(QWidget):
         time_input_layout.addWidget(time_input_label)
         time_input_layout.addWidget(self.time_input)
 
+        # ===============================
+        # RED FLAG SECTION UI ELEMENTS
+        # ===============================
+
+        # Label showing which red flag is currently active (e.g., "3/80")
+        self.red_flag_counter = ClickableLabel("0/0")  # Will be updated later with actual counts
+
+        # Button to go to the previous red flag ("<")
+        self.red_flag_prev_btn = QPushButton("<")
+        self.red_flag_prev_btn.setFixedWidth(30)  
+
+        # Button to go to the next red flag (">")
+        self.red_flag_next_btn = QPushButton(">")
+        self.red_flag_next_btn.setFixedWidth(30)  
+
+        # Button to ignore the current red flag ("ignore")
+        self.red_flag_ignore_btn = QPushButton("ignore")
+        self.red_flag_info = QLabel("info")
+
+        # Create a horizontal layout to contain the red flag controls
+        red_flag_layout = QVBoxLayout()
+        red_flag_layout_row1 = QHBoxLayout()
+
+        red_flag_layout_row1.addWidget(self.red_flag_prev_btn)
+        
+        red_flag_layout_row1.addWidget(self.red_flag_counter)
+        red_flag_layout_row1.addWidget(self.red_flag_next_btn)
+        red_flag_layout_row1.addWidget(self.red_flag_ignore_btn)
+
+        red_flag_layout.addLayout(red_flag_layout_row1)
+        red_flag_layout.addWidget(self.red_flag_info)
+
+        # ===============================
+
         #Define entire widget
         main_layout = QVBoxLayout()
         main_layout.addWidget(QLabel(r"""<h2>Navigation</h2>""" ))
         main_layout.addLayout(time_input_layout)
         main_layout.addLayout(button_layout)
         main_layout.addWidget(self.chunk_label, alignment=Qt.AlignCenter)
+        main_layout.addWidget(QLabel(r"""<h2>Red Flags</h2>""" ))
+        main_layout.addLayout(red_flag_layout)
 
         self.setLayout(main_layout)
-        self.setMaximumHeight(150)
+        # self.setMaximumHeight(250)
 
     def press_prev(self):
         self.change_chunk.emit('prev')
@@ -118,8 +165,67 @@ class TrackEditClass():
         #Connect to napari's time slider (dims) event)
         self.viewer.dims.events.current_step.connect(self.on_dims_changed)
 
+        #Connect red flag UI buttons
+        self.current_red_flag_index = 0
+        self.TrackEditSidebar.red_flag_prev_btn.clicked.connect(self.go_to_prev_red_flag)
+        self.TrackEditSidebar.red_flag_next_btn.clicked.connect(self.go_to_next_red_flag)
+        self.TrackEditSidebar.red_flag_ignore_btn.clicked.connect(self.ignore_red_flag)
+        self.TrackEditSidebar.red_flag_counter.clicked.connect(self.goto_red_flag)
+
         self.add_tracks()
         self.TrackEditSidebar.update_chunk_label()
+        self.update_red_flag_counter_and_info()
+
+
+    def update_red_flag_counter_and_info(self):
+        """Update the red flag label to show the current red flag index and total count."""
+        total = len(self.databasehandler.red_flags)
+        if total > 0:
+            # Display indices as 1-indexed (e.g., "3/80")
+            self.TrackEditSidebar.red_flag_counter.setText(f"{self.current_red_flag_index + 1}/{total}")
+            df_rf = self.databasehandler.red_flags.loc[[self.current_red_flag_index]]
+            text = f"{df_rf.iloc[0].id} {df_rf.iloc[0].event} at t={df_rf.iloc[0].t}"
+            self.TrackEditSidebar.red_flag_info.setText(text)
+        else:
+            self.TrackEditSidebar.red_flag_counter.setText("0/0")
+            self.TrackEditSidebar.red_flag_info.setText("-")
+
+    def go_to_next_red_flag(self):
+        """Navigate to the next red flag in the list and jump to that timepoint."""
+        total = len(self.databasehandler.red_flags)
+        if total == 0:
+            return
+        # Increment index (wrap around if needed)
+        self.current_red_flag_index = (self.current_red_flag_index + 1) % total
+        self.goto_red_flag()
+
+    def go_to_prev_red_flag(self):
+        """Navigate to the previous red flag in the list and jump to that timepoint."""
+        total = len(self.databasehandler.red_flags)
+        if total == 0:
+            return
+        # Decrement index (wrap around if needed)
+        self.current_red_flag_index = (self.current_red_flag_index - 1) % total
+        self.goto_red_flag()
+
+    def goto_red_flag(self):
+        """Jump to the time of the current red flag."""
+        red_flag_time = int(self.databasehandler.red_flags.iloc[self.current_red_flag_index]["t"])
+
+        self.update_chunk_from_frame(red_flag_time)
+
+        #update the selected nodes in the TreeWidget
+        tv = TracksViewer.get_instance(self.viewer)
+        label = self.databasehandler.red_flags.iloc[self.current_red_flag_index]["id"]
+        tv.selected_nodes._list = []
+        tv.selected_nodes._list.append(label)
+        tv.selected_nodes.list_updated.emit()
+
+        self.update_red_flag_counter_and_info()
+
+    def ignore_red_flag(self):
+        """Ignore the current red flag and remove it from the list."""
+        print('RF: ignore ', self.databasehandler.red_flags.loc[[self.current_red_flag_index]])
 
     def add_tracks(self):
         """Add a solution set of tracks to the tracks viewer results list
@@ -128,7 +234,6 @@ class TrackEditClass():
             tracker (ultrack.Tracker): the ultrack tracker containing the solution
             name (str): the display name of the solution tracks
         """
-        print(' add tracks')
 
         # create tracks object
         tracks = SolutionTracks(
@@ -144,7 +249,7 @@ class TrackEditClass():
         tracksviewer.tracks_list.add_tracks(tracks,name=self.databasehandler.name)
         self.viewer.layers.selection.active = self.viewer.layers[self.databasehandler.name+'_seg']   #select segmentation layer
 
-        self.check_button_validity()
+        self.check_navigation_button_validity()
 
         #ToDo: check if all tracks are added or overwritten
 
@@ -174,7 +279,6 @@ class TrackEditClass():
             desired_chunk_time = self.databasehandler.time_chunk_length - self.databasehandler.time_chunk_overlap + current_slider_position - 1
         else:
             desired_chunk_time = -self.databasehandler.time_chunk_length + self.databasehandler.time_chunk_overlap + current_slider_position + 1
-        print(f"current slide pos {current_slider_position},desired_chunk_time: {desired_chunk_time}")
 
         self.set_time_slider(desired_chunk_time)       
         self.TrackEditSidebar.update_chunk_label()
@@ -222,7 +326,7 @@ class TrackEditClass():
 
         self.TrackEditSidebar.time_input.setText(str(cur_world_time))
 
-    def check_button_validity(self):
+    def check_navigation_button_validity(self):
         #enable/disable buttons if on first/last chunk
         chunk = self.databasehandler.time_chunk
         if chunk == 0:

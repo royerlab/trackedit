@@ -4,6 +4,7 @@ import shutil
 import networkx as nx
 from pathlib import Path
 from typing import List
+from collections import Counter
 
 from ultrack.config import MainConfig
 from ultrack.core.database import *
@@ -60,6 +61,7 @@ class DatabaseHandler():
                                  time_window = self.time_window)
         self.df = self.db_to_df()
         self.nxgraph = self.df_to_nxgraph()
+        self.red_flags = self.find_all_red_flags()
         self.log(f"Log file created")
 
 
@@ -270,3 +272,87 @@ class DatabaseHandler():
         # update the parent_track_id to -1 for the tracks with parents at the first time point
         df2.loc[df2["track_id"].isin(track_ids_to_update), "parent_track_id"] = -1
         return df2
+    
+
+    def find_all_red_flags(self) -> pd.DataFrame:
+        """
+        Identify tracking red flags ('added' or 'removed') from one timepoint to the next,
+        while taking cell divisions into account. A cell's appearance is not flagged if:
+        - It has a parent (parent_id != -1) that is present in the previous timepoint.
+        Similarly, a cell's disappearance is not flagged if:
+        - In the next timepoint, there are at least two cells having this cell's id as their parent_id.
+        
+        Parameters
+        ----------
+        df : pd.DataFrame
+            DataFrame containing at least the following columns:
+            't', 'track_id', 'id', 'parent_id', and 'parent_track_id'.
+        
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with columns: 'Timepoint', 'track_id', 'event', and 'id'.
+        """
+        df = self.db_to_df(entire_database=True)
+
+        # Define a continuous range of timepoints.
+        time_range = range(df['t'].min(), df['t'].max() + 1)
+        
+        # Precompute the set of track_ids for each timepoint.
+        track_sets = df.groupby('t')['track_id'].agg(set).reindex(time_range, fill_value=set())
+        # Precompute the set of cell ids for each timepoint.
+        id_sets = df.groupby('t')['id'].agg(set).reindex(time_range, fill_value=set())
+        
+        # Precompute mappings from (t, track_id) to the cell's own id and parent_id.
+        id_mapping = df.set_index(['t', 'track_id'])['id'].to_dict()
+        parent_mapping = df.set_index(['t', 'track_id'])['parent_id'].to_dict()
+        
+        # For each timepoint, count how many times a given id appears as a parent_id (i.e. number of daughters).
+        daughter_counts = {t: {} for t in time_range}
+        for t, group in df.groupby('t'):
+            daughter_counts[t] = group['parent_id'].value_counts().to_dict()
+        
+        events = []
+        timepoints = list(time_range)
+        
+        for i, t in enumerate(timepoints):
+            current_tracks = track_sets[t]
+            # For t=0, use the current set as the "previous" set.
+            prev_tracks = track_sets[timepoints[i - 1]] if i > 0 else current_tracks
+            # For the last timepoint, use the current set as the "next" set.
+            next_tracks = track_sets[timepoints[i + 1]] if i < len(timepoints) - 1 else current_tracks
+            
+            # Detect "added" events: cells present now but not in the previous timepoint.
+            added_tracks = current_tracks - prev_tracks
+            for track in added_tracks:
+                # Check if this row has a valid parent.
+                par = parent_mapping.get((t, track), -1)
+                # If the cell has a parent (par != -1) and that parent exists in the previous timepoint,
+                # then it is likely due to a division. In that case, skip flagging it.
+                if par != -1 and (i > 0 and par in id_sets[timepoints[i - 1]]):
+                    continue
+                events.append({
+                    't': t,
+                    'track_id': track,
+                    'id': id_mapping.get((t, track)),
+                    'event': 'added',
+                })
+                
+            # Detect "removed" events: cells present now but not in the next timepoint.
+            removed_tracks = current_tracks - next_tracks
+            for track in removed_tracks:
+                cell_id = id_mapping.get((t, track))
+                # Check for division: in the next timepoint, if there are 2 or more cells
+                # with parent_id equal to this cell's id, skip flagging.
+                if i < len(timepoints) - 1:
+                    daughters = daughter_counts.get(timepoints[i + 1], {})
+                    if daughters.get(cell_id, 0) >= 2:
+                        continue
+                events.append({
+                    't': t,
+                    'track_id': track,
+                    'id': cell_id,
+                    'event': 'removed',
+                })
+
+        return pd.DataFrame(events)
