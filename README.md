@@ -5,6 +5,11 @@
 
 -----
 
+Current UI:
+
+![TrackEdit_Feb13](https://github.com/user-attachments/assets/6633076e-0eb8-4af8-b6a3-9ad033edea58)
+
+
 ## Table of Contents
 
 - [Installation](#installation)
