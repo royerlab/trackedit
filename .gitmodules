@@ -1,0 +1,3 @@
+[submodule "motile_tracker"]
+	path = motile_tracker
+	url = https://github.com/funkelab/motile_tracker.git
