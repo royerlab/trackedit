@@ -11,6 +11,7 @@ from qtpy.QtWidgets import (
     QVBoxLayout,
     QWidget,
     QLabel,
+    QLineEdit,
 )
 from PyQt5.QtCore import Qt
 from qtpy.QtCore import Signal
@@ -19,6 +20,7 @@ from trackedit.DatabaseHandler import DatabaseHandler
 class TrackEditSidebar(QWidget):
 
     change_chunk = Signal(str)
+    goto_frame = Signal(int)
 
     def __init__(self, viewer: napari.Viewer):
         super().__init__()
@@ -36,11 +38,18 @@ class TrackEditSidebar(QWidget):
         button_layout.addWidget(self.time_next_btn)
 
         #Define the time window label
-        label = "temp. label"
-        self.chunk_label = QLabel(label)
+        self.chunk_label = QLabel("temp. label")
+
+        # Define an input field that shows the current time frame
+        # and allows the user to type a new frame number.
+        self.time_input = QLineEdit()
+        self.time_input.setPlaceholderText("Enter time")
+        self.time_input.returnPressed.connect(self.on_time_input_entered)
+
 
         label_layout = QVBoxLayout()
         label_layout.addWidget(self.chunk_label, alignment=Qt.AlignCenter)
+        label_layout.addWidget(self.time_input, alignment=Qt.AlignCenter)
 
         #Define entire widget
         main_layout = QVBoxLayout()
@@ -49,7 +58,7 @@ class TrackEditSidebar(QWidget):
         main_layout.addLayout(button_layout)
 
         self.setLayout(main_layout)
-        self.setMaximumHeight(100)
+        self.setMaximumHeight(150)
 
     def press_prev(self):
         self.change_chunk.emit('prev')
@@ -59,11 +68,25 @@ class TrackEditSidebar(QWidget):
         self.change_chunk.emit('next')
         # self.update_label()
 
+    def on_time_input_entered(self):
+        """Called when the user presses Enter in the time_input field."""
+        try:
+            frame = int(self.time_input.text())
+            print('frame entered:',frame)
+            self.goto_frame.emit(frame)
+        except ValueError:
+            # If conversion fails, you might want to notify the user.
+            # For now, we simply refresh the field to the current time.
+            self.update_label()
+        pass
+
+
     def update_label(self):
         time_window = self.tracks_viewer.tracks.segmentation.time_window
         label = f"time window ({time_window[0]} : {time_window[1]-1})"
         self.chunk_label.setText(label)
     
+# overwrite EditingMenu to make sure outlines of points in TreePlot are transparent
 class CustomEditingMenu(EditingMenu):
     def __init__(self, viewer: napari.Viewer):
         super().__init__(viewer)  # Call the original init method
@@ -92,6 +115,7 @@ class TrackEditClass():
         #Todo: provide entire DB_handler
         self.databasehandler = databasehandler
         self.TrackEditSidebar.change_chunk.connect(self.update_chunk)
+        self.TrackEditSidebar.goto_frame.connect(self.update_chunk_from_frame)
 
         self.add_tracks()
 
@@ -142,6 +166,32 @@ class TrackEditClass():
 
         self.databasehandler.set_time_chunk(new_chunk)
         self.add_tracks()
+
+    def update_chunk_from_frame(self, frame: int):
+        """Handle navigation by a user-entered time frame.
+        
+        This calculates the chunk containing the given frame.
+        For example, if each chunk is 100 frames, frame 235 belongs in chunk 2.
+        """
+        print('update chunk from frame:',frame)
+        # chunk_size = self.databasehandler.time_chunk_length  # adjust if your chunk size differs
+        # new_chunk = frame // chunk_size
+        new_chunk = self.databasehandler.find_chunk_from_frame(frame)
+
+        if new_chunk < 0:
+            new_chunk = 0
+        elif new_chunk >= self.databasehandler.num_time_chunks:
+            new_chunk = self.databasehandler.num_time_chunks - 1
+
+        # cur_frame = self.viewer.dims.current_step[0]
+        # cur_world_time = cur_frame + self.databasehandler.time_chunk_starts[new_chunk]
+
+        print('new_chunk:',new_chunk)
+
+        self.databasehandler.set_time_chunk(new_chunk)
+        # self.TrackEditSidebar.time_input.setText(str('cur_world_time'))
+        self.add_tracks()
+
 
     def check_button_validity(self):
         #enable/disable buttons if on first/last chunk

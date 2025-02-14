@@ -38,7 +38,7 @@ class DatabaseHandler():
         self.time_chunk_overlap = time_chunk_overlap
 
         #calculate time chunk
-        self.time_window = self.calc_time_window()
+        self.time_window, self.time_chunk_starts = self.calc_time_window()
         self.data_shape_chunk = self.data_shape_full.copy()
         self.data_shape_chunk[0] = time_chunk_length
         self.num_time_chunks = int(np.ceil(self.data_shape_full[0]/self.time_chunk_length))
@@ -164,8 +164,7 @@ class DatabaseHandler():
         time_chunk_starts = np.arange(0,Tmax,self.time_chunk_length-self.time_chunk_overlap)
         time_chunk_stops = np.array([(s + self.time_chunk_length) if (s + self.time_chunk_length < Tmax) else Tmax for s in time_chunk_starts]).astype(int)
         time_window = (int(time_chunk_starts[self.time_chunk]),int(time_chunk_stops[self.time_chunk]))
-        return time_window
-    
+        return time_window, time_chunk_starts
 
     def set_time_chunk(self, time_chunk):
         #ToDo: separate into two functions, one for setting time chunk and one for updating the graph/segments > maybe not necessary!
@@ -173,10 +172,15 @@ class DatabaseHandler():
             raise ValueError(f"Time chunk {time_chunk} out of range. Maximum time chunk is {self.num_time_chunks-1}")
         else:
             self.time_chunk = time_chunk
-            self.time_window = self.calc_time_window()
+            self.time_window, _ = self.calc_time_window()
             self.segments.set_time_window(self.time_window)
             self.df = self.db_to_df()
             self.nxgraph = self.df_to_nxgraph()
+
+    def find_chunk_from_frame(self, frame):
+        """Find the chunk index for a given frame. Since the chunks have an overlap, this function is not trivial"""
+        chunk = np.where(frame >= self.time_chunk_starts)[0][-1]
+        return chunk
 
     def db_to_df(self,       
                 entire_database: bool = False, 
