@@ -215,6 +215,8 @@ class DatabaseHandler():
                 min_time = self.time_window[0]
                 max_time = self.time_window[1]
                 df = df[(df.t >= min_time) & (df.t < max_time)].copy()
+        else:
+            df = df[df.t < self.Tmax].copy()
 
         df = self.remove_past_parents_from_df(df)
 

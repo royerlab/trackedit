@@ -11,12 +11,11 @@ from motile_tracker.data_model.actions import AddEdges, DeleteNodes, DeleteEdges
 working_directory = Path('/home/teun.huijben/Documents/data/Akila/20241003/neuromast4_t851/adjusted/')
 # working_directory = Path('/Users/teun.huijben/Documents/data/Akila/20241003_neuromast4/adjusted/')
 db_filename_old = 'data.db'
-data_shape_full = [851,73,1024,1024]      #T,(Z),Y,X       (851,73,1024,1024)
+data_shape_full = [350,73,1024,1024]      #T,(Z),Y,X       (851,73,1024,1024)
 scale = (4,1,1)
 layer_name = 'ultrack'
 allow_overwrite = True      #overwrite existing database/changelog
 #*************************
-
 
 def main():
     DB_handler = DatabaseHandler(

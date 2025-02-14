@@ -106,7 +106,7 @@ class TrackEditSidebar(QWidget):
         main_layout.addLayout(red_flag_layout)
 
         self.setLayout(main_layout)
-        # self.setMaximumHeight(250)
+        self.setMaximumHeight(250)
 
     def press_prev(self):
         self.change_chunk.emit('prev')
