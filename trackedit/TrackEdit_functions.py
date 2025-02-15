@@ -13,6 +13,7 @@ from qtpy.QtWidgets import (
     QLineEdit,
     QTabWidget,
     QGroupBox,
+    QDockWidget,
 )
 from PyQt5.QtCore import Qt
 from qtpy.QtCore import Signal
@@ -162,7 +163,7 @@ class CustomEditingMenu(EditingMenu):
         # Insert the label at the beginning
         layout.insertWidget(0, nav_label)
 
-        # self.setMaximumHeight(200)
+        self.setMaximumHeight(350)
 
 
 class TrackEditClass():
@@ -175,15 +176,11 @@ class TrackEditClass():
 
         self.viewer.window.add_dock_widget(self.TreeWidget, area="bottom",name="TreeWidget")
 
-        # self.viewer.window.add_dock_widget(self.NavigationWidget, area='right', name='NavigationWidget')
-        # self.viewer.window.add_dock_widget(self.EditingMenu,area="right",name="EditingMenu")
-
-
         tabwidget = QTabWidget()
         tabwidget.addTab(self.NavigationWidget, "Navigation")
         tabwidget.addTab(self.EditingMenu, "Edit Tracks")
 
-        self.viewer.window.add_dock_widget(tabwidget, area='right', name='NavigationWidget')
+        self.viewer.window.add_dock_widget(tabwidget, area='right', name='TrackEdit Widgets')
 
         #Todo: provide entire DB_handler
         self.databasehandler = databasehandler
@@ -371,3 +368,49 @@ class TrackEditClass():
             self.NavigationWidget.time_next_btn.setEnabled(False)
         else:
             self.NavigationWidget.time_next_btn.setEnabled(True)
+
+def wrap_default_widgets_in_tabs(viewer):
+    # -- 1) Identify the two default widgets
+    layer_controls_widget = viewer.window.qt_viewer.controls
+    layer_list_widget = viewer.window.qt_viewer.layers
+
+    # -- 2) Find their QDockWidget parents
+    # layer_controls has a direct parent that is a QtViewerDockWidget:
+    controls_dock = layer_controls_widget.parentWidget()  # QtViewerDockWidget
+    # layer_list has an intermediate QWidget, whose parent is the QtViewerDockWidget:
+    intermediate_list_parent = layer_list_widget.parentWidget()
+    list_dock = intermediate_list_parent.parentWidget() if intermediate_list_parent else None
+
+    # -- 3) Remove each dock from the main window (if they're valid docks)
+    main_window = viewer.window._qt_window  # The QMainWindow
+
+    for dock in [controls_dock, list_dock]:
+        if dock is not None and hasattr(main_window, "removeDockWidget"):
+            main_window.removeDockWidget(dock)  # remove from layout
+            dock.close()                       # close it so it's not visible
+            dock.deleteLater()                 # mark it for deletion
+
+    # -- 4) Detach the actual layer widgets from any parents
+    layer_list_widget.setParent(None)
+    layer_controls_widget.setParent(None)
+
+    # -- 5) Create a tab widget
+    tab_widget = QTabWidget()
+
+    # Tab for "Layer List"
+    tab_controls = QWidget()
+    layout1 = QVBoxLayout(tab_controls)
+    layout1.setContentsMargins(0, 0, 0, 0)
+    layout1.addWidget(layer_controls_widget)
+    tab_widget.addTab(tab_controls, "Layer Controls")
+
+    # Tab for "Layer Controls"
+    tab_list = QWidget()
+    layout2 = QVBoxLayout(tab_list)
+    layout2.setContentsMargins(0, 0, 0, 0)
+    layout2.addWidget(layer_list_widget)
+    tab_widget.addTab(tab_list, "Layer List")
+
+
+    # -- 6) Add our new tab widget as a single dock
+    viewer.window.add_dock_widget(tab_widget, area="left")

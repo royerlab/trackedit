@@ -6,6 +6,10 @@ from trackedit.TrackEdit_functions import *
 from trackedit.DatabaseHandler import DatabaseHandler
 from motile_tracker.data_model.actions import AddEdges, DeleteNodes, DeleteEdges, AddNodes
 
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning, message=".*qt_viewer.*")
+
+
 #**********INPUTS*********
 # working_directory = Path('/home/teun.huijben/Documents/data/Akila/20241003/neuromast4_t851/adjusted/')
 working_directory = Path('/Users/teun.huijben/Documents/data/Akila/20241003_neuromast4/adjusted/')
@@ -36,6 +40,7 @@ def main():
     viewer = napari.Viewer()
     trackeditclass = TrackEditClass(viewer, databasehandler = DB_handler)
     viewer.dims.ndisplay = 3    #3D view
+    wrap_default_widgets_in_tabs(viewer)
     napari.run()
 
 if __name__ == "__main__":
