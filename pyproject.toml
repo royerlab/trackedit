@@ -71,6 +71,7 @@ motile_tracker = { path = "./motile_tracker", editable = true }
 # motile_tracker = { path = "/home/teun.huijben/Documents/code/github/motile_tracker", editable = true }
 # motile_tracker = { git = "https://github.com/funkelab/motile_tracker" }
 ultrack = { git = "https://github.com/royerlab/ultrack.git", rev = "6f994d27a28deef543da5f5be4d318173b790299" }
+# ultrack = { git = "https://github.com/royerlab/ultrack-dev.git", branch = "ultrack-array" }
 
 [tool.pixi.tasks]
 
