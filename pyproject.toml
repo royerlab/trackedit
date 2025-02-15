@@ -73,7 +73,6 @@ motile_tracker = { path = "./motile_tracker", editable = true }
 ultrack = { git = "https://github.com/royerlab/ultrack.git", rev = "6f994d27a28deef543da5f5be4d318173b790299" }
 
 [tool.pixi.tasks]
-# run_script = "PYTHONPATH=$PYTHONPATH:/home/teun.huijben/Documents/code/github/trackedit/motile_tracker/src python scripts/demo_neuromast.py"
 
 [tool.pixi.dependencies]
 higra = ">=0.6.12,<0.7"
@@ -84,9 +83,6 @@ napari-ome-zarr = ">=0.6.1,<0.7"
 psycopg2-binary = ">=2.9.6"
 pyqt = ">=5.15.9,<6"
 numpy = "<2.2"
-# pyqtgraph = "*"
-# fonticon-fontawesome6 = "*"
-
 
 [tool.pixi.feature.test.dependencies]
 pytest = "*"
