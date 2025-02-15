@@ -11,6 +11,8 @@ from qtpy.QtWidgets import (
     QWidget,
     QLabel,
     QLineEdit,
+    QTabWidget,
+    QGroupBox,
 )
 from PyQt5.QtCore import Qt
 from qtpy.QtCore import Signal
@@ -23,7 +25,7 @@ class ClickableLabel(QLabel):
         super().mousePressEvent(event)
         self.clicked.emit()
 
-class TrackEditSidebar(QWidget):
+class NavigationWidget(QWidget):
 
     change_chunk = Signal(str)
     goto_frame = Signal(int)
@@ -36,6 +38,9 @@ class TrackEditSidebar(QWidget):
         # ===============================
         # TIME INTERACTION UI ELEMENTS
         # ===============================
+
+        time_box = QGroupBox("Time")
+        time_box_layout = QVBoxLayout()
 
         #Define the buttons
         self.time_prev_btn = QPushButton("prev (<)")
@@ -62,9 +67,19 @@ class TrackEditSidebar(QWidget):
         time_input_layout.addWidget(time_input_label)
         time_input_layout.addWidget(self.time_input)
 
+        time_box_layout.addWidget(QLabel(r"""<h2>Time navigation</h2>""" ))
+        time_box_layout.addLayout(time_input_layout)
+        time_box_layout.addLayout(button_layout)
+        time_box_layout.addWidget(self.chunk_label, alignment=Qt.AlignCenter)
+        time_box.setLayout(time_box_layout)
+
+
         # ===============================
         # RED FLAG SECTION UI ELEMENTS
         # ===============================
+
+        redflag_box = QGroupBox("Time")
+        redflag_box_layout = QVBoxLayout()
 
         # Label showing which red flag is currently active (e.g., "3/80")
         self.red_flag_counter = ClickableLabel("0/0")  # Will be updated later with actual counts
@@ -86,7 +101,6 @@ class TrackEditSidebar(QWidget):
         red_flag_layout_row1 = QHBoxLayout()
 
         red_flag_layout_row1.addWidget(self.red_flag_prev_btn)
-
         red_flag_layout_row1.addWidget(self.red_flag_counter)
         red_flag_layout_row1.addWidget(self.red_flag_next_btn)
         red_flag_layout_row1.addWidget(self.red_flag_ignore_btn)
@@ -94,19 +108,22 @@ class TrackEditSidebar(QWidget):
         red_flag_layout.addLayout(red_flag_layout_row1)
         red_flag_layout.addWidget(self.red_flag_info)
 
+        redflag_box_layout.addWidget(QLabel(r"""<h2>Red Flags</h2>""" ))
+        redflag_box_layout.addLayout(red_flag_layout)
+        redflag_box.setLayout(redflag_box_layout)
         # ===============================
 
         #Define entire widget
         main_layout = QVBoxLayout()
-        main_layout.addWidget(QLabel(r"""<h2>Navigation</h2>""" ))
-        main_layout.addLayout(time_input_layout)
-        main_layout.addLayout(button_layout)
-        main_layout.addWidget(self.chunk_label, alignment=Qt.AlignCenter)
-        main_layout.addWidget(QLabel(r"""<h2>Red Flags</h2>""" ))
-        main_layout.addLayout(red_flag_layout)
+        main_layout.addWidget(time_box)
+        main_layout.addWidget(redflag_box)
+        # main_layout.addLayout(time_input_layout)
+        # main_layout.addLayout(button_layout)
+        # main_layout.addWidget(self.chunk_label, alignment=Qt.AlignCenter)
+
 
         self.setLayout(main_layout)
-        self.setMaximumHeight(250)
+        # self.setMaximumHeight(250)
 
     def press_prev(self):
         self.change_chunk.emit('prev')
@@ -145,35 +162,46 @@ class CustomEditingMenu(EditingMenu):
         # Insert the label at the beginning
         layout.insertWidget(0, nav_label)
 
+        # self.setMaximumHeight(200)
+
+
 class TrackEditClass():
     def __init__(self, viewer: napari.Viewer, databasehandler: DatabaseHandler):
         self.viewer = viewer
 
         self.TreeWidget = TreeWidget(self.viewer)
-        self.TrackEditSidebar = TrackEditSidebar(self.viewer)
+        self.NavigationWidget = NavigationWidget(self.viewer)
         self.EditingMenu = CustomEditingMenu(self.viewer)
 
         self.viewer.window.add_dock_widget(self.TreeWidget, area="bottom",name="TreeWidget")
-        self.viewer.window.add_dock_widget(self.TrackEditSidebar, area='right', name='TrackEditSidebar')
-        self.viewer.window.add_dock_widget(self.EditingMenu,area="right",name="EditingMenu")
+
+        # self.viewer.window.add_dock_widget(self.NavigationWidget, area='right', name='NavigationWidget')
+        # self.viewer.window.add_dock_widget(self.EditingMenu,area="right",name="EditingMenu")
+
+
+        tabwidget = QTabWidget()
+        tabwidget.addTab(self.NavigationWidget, "Navigation")
+        tabwidget.addTab(self.EditingMenu, "Edit Tracks")
+
+        self.viewer.window.add_dock_widget(tabwidget, area='right', name='NavigationWidget')
 
         #Todo: provide entire DB_handler
         self.databasehandler = databasehandler
-        self.TrackEditSidebar.change_chunk.connect(self.update_chunk_from_button)
-        self.TrackEditSidebar.goto_frame.connect(self.update_chunk_from_frame)
+        self.NavigationWidget.change_chunk.connect(self.update_chunk_from_button)
+        self.NavigationWidget.goto_frame.connect(self.update_chunk_from_frame)
 
         #Connect to napari's time slider (dims) event)
         self.viewer.dims.events.current_step.connect(self.on_dims_changed)
 
         #Connect red flag UI buttons
         self.current_red_flag_index = 0
-        self.TrackEditSidebar.red_flag_prev_btn.clicked.connect(self.go_to_prev_red_flag)
-        self.TrackEditSidebar.red_flag_next_btn.clicked.connect(self.go_to_next_red_flag)
-        self.TrackEditSidebar.red_flag_ignore_btn.clicked.connect(self.ignore_red_flag)
-        self.TrackEditSidebar.red_flag_counter.clicked.connect(self.goto_red_flag)
+        self.NavigationWidget.red_flag_prev_btn.clicked.connect(self.go_to_prev_red_flag)
+        self.NavigationWidget.red_flag_next_btn.clicked.connect(self.go_to_next_red_flag)
+        self.NavigationWidget.red_flag_ignore_btn.clicked.connect(self.ignore_red_flag)
+        self.NavigationWidget.red_flag_counter.clicked.connect(self.goto_red_flag)
 
         self.add_tracks()
-        self.TrackEditSidebar.update_chunk_label()
+        self.NavigationWidget.update_chunk_label()
         self.update_red_flag_counter_and_info()
 
 
@@ -183,13 +211,13 @@ class TrackEditClass():
         print(' RF: total = ', total, 'current index', self.current_red_flag_index)
         if total > 0:
             # Display indices as 1-indexed (e.g., "3/80")
-            self.TrackEditSidebar.red_flag_counter.setText(f"{self.current_red_flag_index + 1}/{total}")
+            self.NavigationWidget.red_flag_counter.setText(f"{self.current_red_flag_index + 1}/{total}")
             df_rf = self.databasehandler.red_flags.iloc[[self.current_red_flag_index]]
             text = f"{df_rf.iloc[0].id} {df_rf.iloc[0].event} at t={df_rf.iloc[0].t}"
-            self.TrackEditSidebar.red_flag_info.setText(text)
+            self.NavigationWidget.red_flag_info.setText(text)
         else:
-            self.TrackEditSidebar.red_flag_counter.setText("0/0")
-            self.TrackEditSidebar.red_flag_info.setText("-")
+            self.NavigationWidget.red_flag_counter.setText("0/0")
+            self.NavigationWidget.red_flag_info.setText("-")
 
     def go_to_next_red_flag(self):
         """Navigate to the next red flag in the list and jump to that timepoint."""
@@ -286,7 +314,7 @@ class TrackEditClass():
             desired_chunk_time = -self.databasehandler.time_chunk_length + self.databasehandler.time_chunk_overlap + current_slider_position + 1
 
         self.set_time_slider(desired_chunk_time)       
-        self.TrackEditSidebar.update_chunk_label()
+        self.NavigationWidget.update_chunk_label()
 
 
     def update_chunk_from_frame(self, frame: int):
@@ -315,7 +343,7 @@ class TrackEditClass():
 
         chunk_frame = frame - self.databasehandler.time_chunk_starts[self.databasehandler.time_chunk]
         self.set_time_slider(chunk_frame)
-        self.TrackEditSidebar.update_chunk_label()
+        self.NavigationWidget.update_chunk_label()
         self.update_time_label()
 
     def set_time_slider(self, chunk_frame):
@@ -329,17 +357,17 @@ class TrackEditClass():
         cur_frame = self.viewer.dims.current_step[0]
         cur_world_time = cur_frame + self.databasehandler.time_chunk_starts[chunk]
 
-        self.TrackEditSidebar.time_input.setText(str(cur_world_time))
+        self.NavigationWidget.time_input.setText(str(cur_world_time))
 
     def check_navigation_button_validity(self):
         #enable/disable buttons if on first/last chunk
         chunk = self.databasehandler.time_chunk
         if chunk == 0:
-            self.TrackEditSidebar.time_prev_btn.setEnabled(False)
+            self.NavigationWidget.time_prev_btn.setEnabled(False)
         else:
-            self.TrackEditSidebar.time_prev_btn.setEnabled(True)
+            self.NavigationWidget.time_prev_btn.setEnabled(True)
 
         if chunk == self.databasehandler.num_time_chunks - 1:
-            self.TrackEditSidebar.time_next_btn.setEnabled(False)
+            self.NavigationWidget.time_next_btn.setEnabled(False)
         else:
-            self.TrackEditSidebar.time_next_btn.setEnabled(True)
+            self.NavigationWidget.time_next_btn.setEnabled(True)
