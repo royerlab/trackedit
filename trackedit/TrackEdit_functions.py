@@ -3,6 +3,8 @@ from napari.utils.notifications import show_warning
 from motile_tracker.application_menus.editing_menu import EditingMenu
 from motile_tracker.data_views import TracksViewer, TreeWidget   
 from motile_tracker.data_model.solution_tracks import SolutionTracks
+from trackedit.hierarchy_viz_widget import HierarchyVizWidget
+from trackedit.UltrackArray import UltrackArray
 
 from qtpy.QtWidgets import (
     QPushButton,
@@ -165,10 +167,10 @@ class CustomEditingMenu(EditingMenu):
 
         self.setMaximumHeight(350)
 
-
 class TrackEditClass():
     def __init__(self, viewer: napari.Viewer, databasehandler: DatabaseHandler):
         self.viewer = viewer
+        self.databasehandler = databasehandler
 
         self.TreeWidget = TreeWidget(self.viewer)
         self.NavigationWidget = NavigationWidget(self.viewer)
@@ -180,10 +182,19 @@ class TrackEditClass():
         tabwidget.addTab(self.NavigationWidget, "Navigation")
         tabwidget.addTab(self.EditingMenu, "Edit Tracks")
 
+        # UA = UltrackArray(self.databasehandler.config_adjusted)
+        # self.hier_widget.ultrack_array = UA
+        
         self.viewer.window.add_dock_widget(tabwidget, area='right', name='TrackEdit Widgets')
 
+        self.hier_widget = HierarchyVizWidget(viewer = viewer,scale=self.databasehandler.scale, config = self.databasehandler.config_adjusted)
+        hier_shape = self.hier_widget.ultrack_array.shape
+        tmax = self.databasehandler.data_shape_chunk[0]
+        self.hier_widget.ultrack_array.shape = (tmax, *hier_shape[1:])
+        self.viewer.window.add_dock_widget(self.hier_widget, area='bottom')
+
+
         #Todo: provide entire DB_handler
-        self.databasehandler = databasehandler
         self.NavigationWidget.change_chunk.connect(self.update_chunk_from_button)
         self.NavigationWidget.goto_frame.connect(self.update_chunk_from_frame)
 
@@ -198,9 +209,9 @@ class TrackEditClass():
         self.NavigationWidget.red_flag_counter.clicked.connect(self.goto_red_flag)
 
         self.add_tracks()
+        self.link_layers()
         self.NavigationWidget.update_chunk_label()
         self.update_red_flag_counter_and_info()
-
 
     def update_red_flag_counter_and_info(self):
         """Update the red flag label to show the current red flag index and total count."""
@@ -303,6 +314,10 @@ class TrackEditClass():
             new_chunk = self.databasehandler.num_time_chunks - 1
 
         self.databasehandler.set_time_chunk(new_chunk)
+        self.hier_widget.ultrack_array.set_time_window(self.databasehandler.time_window)
+        self.viewer.layers.pop('hierarchy')
+        self.viewer.add_labels(self.hier_widget.ultrack_array, name='hierarchy', scale=self.databasehandler.scale)
+
         self.add_tracks()
 
         if direction == 'prev':
@@ -335,6 +350,10 @@ class TrackEditClass():
         cur_chunk = self.databasehandler.time_chunk
 
         self.databasehandler.set_time_chunk(new_chunk)
+        self.hier_widget.ultrack_array.set_time_window(self.databasehandler.time_window)
+        self.viewer.layers.pop('hierarchy')
+        self.viewer.add_labels(self.hier_widget.ultrack_array, name='hierarchy', scale=self.databasehandler.scale)
+
         if cur_chunk != new_chunk:
             self.add_tracks()        
 
@@ -369,48 +388,50 @@ class TrackEditClass():
         else:
             self.NavigationWidget.time_next_btn.setEnabled(True)
 
+    def link_layers(self):
+        layer_names = [self.databasehandler.name + type for type in ['_seg','_tracks','_points']]
+        layers_to_link = [layer for layer in self.viewer.layers if layer.name in layer_names]
+        self.viewer.layers.link_layers(layers_to_link)   
+
 def wrap_default_widgets_in_tabs(viewer):
-    # -- 1) Identify the two default widgets
-    layer_controls_widget = viewer.window.qt_viewer.controls
-    layer_list_widget = viewer.window.qt_viewer.layers
+    # -- 1) Identify the default dock widgets by going up the parent chain.
+    # For controls: the dock widget is the direct parent.
+    controls_dock = viewer.window.qt_viewer.controls.parentWidget()
+    # For the layer list: go up two levels.
+    list_dock = viewer.window.qt_viewer.layers.parentWidget().parentWidget()
 
-    # -- 2) Find their QDockWidget parents
-    # layer_controls has a direct parent that is a QtViewerDockWidget:
-    controls_dock = layer_controls_widget.parentWidget()  # QtViewerDockWidget
-    # layer_list has an intermediate QWidget, whose parent is the QtViewerDockWidget:
-    intermediate_list_parent = layer_list_widget.parentWidget()
-    list_dock = intermediate_list_parent.parentWidget() if intermediate_list_parent else None
+    # -- 2) Instead of only taking the inner widget,
+    # retrieve the entire container from the dock widget.
+    controls_container = controls_dock.widget() if controls_dock else None
+    list_container = list_dock.widget() if list_dock else None
 
-    # -- 3) Remove each dock from the main window (if they're valid docks)
-    main_window = viewer.window._qt_window  # The QMainWindow
-
+    # -- 3) Remove the dock widgets from the main window,
+    # but do not close or delete them so that Napari’s internal references remain valid.
+    main_window = viewer.window._qt_window
     for dock in [controls_dock, list_dock]:
-        if dock is not None and hasattr(main_window, "removeDockWidget"):
-            main_window.removeDockWidget(dock)  # remove from layout
-            dock.close()                       # close it so it's not visible
-            dock.deleteLater()                 # mark it for deletion
+        if dock is not None:
+            main_window.removeDockWidget(dock)
 
-    # -- 4) Detach the actual layer widgets from any parents
-    layer_list_widget.setParent(None)
-    layer_controls_widget.setParent(None)
+    # -- 4) Detach the container widgets from their docks
+    if controls_container:
+        controls_container.setParent(None)
+    if list_container:
+        list_container.setParent(None)
 
-    # -- 5) Create a tab widget
+    # -- 5) Create a tab widget and add the containers as tabs.
     tab_widget = QTabWidget()
+    if controls_container:
+        tab_widget.addTab(controls_container, "Layer Controls")
+    if list_container:
+        tab_widget.addTab(list_container, "Layer List")
 
-    # Tab for "Layer List"
-    tab_controls = QWidget()
-    layout1 = QVBoxLayout(tab_controls)
-    layout1.setContentsMargins(0, 0, 0, 0)
-    layout1.addWidget(layer_controls_widget)
-    tab_widget.addTab(tab_controls, "Layer Controls")
+    # -- 6) Add our new tab widget as a dock widget.
+    new_dock = viewer.window.add_dock_widget(tab_widget, area="left")
 
-    # Tab for "Layer Controls"
-    tab_list = QWidget()
-    layout2 = QVBoxLayout(tab_list)
-    layout2.setContentsMargins(0, 0, 0, 0)
-    layout2.addWidget(layer_list_widget)
-    tab_widget.addTab(tab_list, "Layer List")
+    # -- 7) (Optional) Update internal viewer references so that
+    # Napari’s menu actions refer to the new widgets.
+    viewer.window.qt_viewer._controls = controls_container
+    viewer.window.qt_viewer._layers = list_container
 
-
-    # -- 6) Add our new tab widget as a single dock
-    viewer.window.add_dock_widget(tab_widget, area="left")
+    # (Optional) Also update the internal dict of dock widgets if needed:
+    # viewer.window._dock_widgets['Layer List'] = new_dock

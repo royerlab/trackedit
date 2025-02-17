@@ -20,7 +20,7 @@ class DatabaseHandler():
                  db_filename_old: str,
                  working_directory: Path, 
                  data_shape_full: List[int],        #T(Z)YX
-                 z_scale: tuple,
+                 scale: tuple,
                  name: str,
                  time_chunk: int = 0,
                  time_chunk_length: int = 105,
@@ -32,7 +32,8 @@ class DatabaseHandler():
         self.working_directory = working_directory
         self.data_shape_full = data_shape_full
         self.Tmax = self.data_shape_full[0]
-        self.z_scale = z_scale
+        self.scale = scale
+        self.z_scale = self.scale[0]
         self.name = name
         self.allow_overwrite = allow_overwrite
         self.time_chunk = time_chunk
@@ -54,6 +55,7 @@ class DatabaseHandler():
         self.log_file = self.initialize_logfile(self.log_filename_new)
 
         self.config_adjusted = self.initialize_config()
+        self.config_adjusted.data_config.metadata_add({"shape": self.data_shape_full})
 
         #DatabaseArray()
         self.segments = DatabaseArray(database_path=self.db_path_new, 
