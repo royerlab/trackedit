@@ -34,19 +34,12 @@ def main():
     AddNodes._apply = create_db_add_nodes(DB_handler)
     TracksViewer._refresh = create_tracks_viewer_and_segments_refresh(layer_name=layer_name)
 
-
     #open napari with TrackEdit
     viewer = napari.Viewer()
     trackeditclass = TrackEditClass(viewer, databasehandler = DB_handler)
     viewer.dims.ndisplay = 3    #3D view
-
-    # for dock_widget in viewer.window._qt_window.findChildren(QDockWidget):
-    #     if "Layer" in dock_widget.windowTitle():
-    #         dock_widget.hide()
-
-
     wrap_default_widgets_in_tabs(viewer)
-    viewer.dims.current_step = (0, *viewer.dims.current_step[1:])
+    viewer.dims.current_step = (2, *viewer.dims.current_step[1:])
     napari.run()
 
 if __name__ == "__main__":

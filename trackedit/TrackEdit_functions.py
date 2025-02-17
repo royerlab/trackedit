@@ -15,8 +15,9 @@ from qtpy.QtWidgets import (
     QLineEdit,
     QTabWidget,
     QGroupBox,
-    QDockWidget,
 )
+from PyQt5.QtGui import QIntValidator, QValidator      # ADDED import
+
 from PyQt5.QtCore import Qt
 from qtpy.QtCore import Signal
 from trackedit.DatabaseHandler import DatabaseHandler
@@ -124,8 +125,8 @@ class NavigationWidget(QWidget):
         # main_layout.addLayout(button_layout)
         # main_layout.addWidget(self.chunk_label, alignment=Qt.AlignCenter)
 
-
         self.setLayout(main_layout)
+        # self.setMaximumWidth(300)
         # self.setMaximumHeight(250)
 
     def press_prev(self):
@@ -156,17 +157,63 @@ class CustomEditingMenu(EditingMenu):
     def __init__(self, viewer: napari.Viewer):
         super().__init__(viewer)  # Call the original init method
 
-        # Create the label
-        nav_label = QLabel(r"""<h2>Edit tracks</h2>""")
 
-        # Get the existing layout
-        layout = self.layout()  # This retrieves the QVBoxLayout from EditingMenu
+        main_layout = self.layout()  # This retrieves the QVBoxLayout from EditingMenu
 
-        # Insert the label at the beginning
-        layout.insertWidget(0, nav_label)
+        # Create the label and insert in beginning
+        label = QLabel(r"""<h2>Edit tracks</h2>""")
+        main_layout.insertWidget(0, label)
 
-        self.setMaximumHeight(350)
+        #add cell row
+        add_cell_layout = QHBoxLayout()                       # ADDED
+        self.add_cell_btn = QPushButton("Add cell")           # ADDED
+        self.add_cell_btn.setEnabled(False)                    # ADDED: initially disabled
+        add_cell_layout.addWidget(self.add_cell_btn)           # ADDED
+        self.cell_input = QLineEdit()                          # ADDED
+        self.cell_input.setValidator(QIntValidator())         # ADDED
+        self.cell_input.textChanged.connect(self.update_add_cell_btn_state)  # ADDED: update button state on text change
+        add_cell_layout.addWidget(self.cell_input)             # ADDED
 
+        #duplicate cell row
+        duplicate_cell_layout = QHBoxLayout()                # ADDED
+        self.duplicate_cell_btn = QPushButton("dupl.")  # ADDED
+        self.duplicate_cell_btn.setEnabled(False)             # ADDED: initially disabled
+        duplicate_cell_layout.addWidget(self.duplicate_cell_btn)  # ADDED
+        self.duplicate_cell_id_input = QLineEdit()             # ADDED
+        self.duplicate_cell_id_input.setValidator(QIntValidator())  # ADDED
+        duplicate_cell_layout.addWidget(self.duplicate_cell_id_input)  # ADDED
+        duplicate_cell_layout.addWidget(QLabel("to t="))       # ADDED
+        self.duplicate_time_input = QLineEdit()                # ADDED
+        self.duplicate_time_input.setValidator(QIntValidator())  # ADDED
+        self.duplicate_time_input.setFixedWidth(40)            # ADDED
+        duplicate_cell_layout.addWidget(self.duplicate_time_input)  # ADDED
+
+
+        self.duplicate_cell_id_input.textChanged.connect(self.update_duplicate_cell_btn_state)  # ADDED
+        self.duplicate_time_input.textChanged.connect(self.update_duplicate_cell_btn_state)     # ADDED
+
+        # Retrieve the node_box widget from the layout.
+        # Since we've inserted a label at index 0, the node_box is now at index 1.
+        node_box = main_layout.itemAt(1).widget()              # ADDED
+        node_box.layout().addLayout(add_cell_layout)           # ADDED
+        node_box.layout().addLayout(duplicate_cell_layout)     # ADDED
+        node_box.setMaximumHeight(140)
+
+        self.setMaximumHeight(450)
+        # self.setMaximumWidth(300)
+
+    def update_add_cell_btn_state(self, text):                # ADDED
+        state, _, _ = self.cell_input.validator().validate(text, 0)  # ADDED
+        self.add_cell_btn.setEnabled(state == QValidator.Acceptable)   # ADDED
+
+    def update_duplicate_cell_btn_state(self, text):          # ADDED
+        state1, _, _ = self.duplicate_cell_id_input.validator().validate(
+            self.duplicate_cell_id_input.text(), 0)          # ADDED
+        state2, _, _ = self.duplicate_time_input.validator().validate(
+            self.duplicate_time_input.text(), 0)             # ADDED
+        self.duplicate_cell_btn.setEnabled(
+            state1 == QValidator.Acceptable and state2 == QValidator.Acceptable)  # ADDED
+        
 class TrackEditClass():
     def __init__(self, viewer: napari.Viewer, databasehandler: DatabaseHandler):
         self.viewer = viewer
@@ -181,6 +228,7 @@ class TrackEditClass():
         tabwidget = QTabWidget()
         tabwidget.addTab(self.NavigationWidget, "Navigation")
         tabwidget.addTab(self.EditingMenu, "Edit Tracks")
+        tabwidget.setMaximumWidth(330)  # ADDED: Set maximum width for the entire tab widget
 
         # UA = UltrackArray(self.databasehandler.config_adjusted)
         # self.hier_widget.ultrack_array = UA
@@ -192,7 +240,6 @@ class TrackEditClass():
         tmax = self.databasehandler.data_shape_chunk[0]
         self.hier_widget.ultrack_array.shape = (tmax, *hier_shape[1:])
         self.viewer.window.add_dock_widget(self.hier_widget, area='bottom')
-
 
         #Todo: provide entire DB_handler
         self.NavigationWidget.change_chunk.connect(self.update_chunk_from_button)
@@ -216,7 +263,6 @@ class TrackEditClass():
     def update_red_flag_counter_and_info(self):
         """Update the red flag label to show the current red flag index and total count."""
         total = len(self.databasehandler.red_flags)
-        print(' RF: total = ', total, 'current index', self.current_red_flag_index)
         if total > 0:
             # Display indices as 1-indexed (e.g., "3/80")
             self.NavigationWidget.red_flag_counter.setText(f"{self.current_red_flag_index + 1}/{total}")

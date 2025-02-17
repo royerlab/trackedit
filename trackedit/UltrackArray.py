@@ -122,7 +122,7 @@ class UltrackArray:
 
             for idx in idx_to_plot:
                 query[idx][1].paint_buffer(
-                    self.array, value=label_list[idx], include_time=False
+                    self.array, value=query[idx][0], include_time=False
                 )
 
     def get_tp_num_pixels(
