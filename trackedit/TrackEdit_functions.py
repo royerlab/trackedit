@@ -1,10 +1,12 @@
 import napari
+import numpy as np
 from napari.utils.notifications import show_warning
 from motile_tracker.application_menus.editing_menu import EditingMenu
 from motile_tracker.data_views import TracksViewer, TreeWidget   
 from motile_tracker.data_model.solution_tracks import SolutionTracks
+from motile_toolbox.candidate_graph import NodeAttr
+from ultrack.core.database import NodeDB, get_node_values
 from trackedit.hierarchy_viz_widget import HierarchyVizWidget
-from trackedit.UltrackArray import UltrackArray
 
 from qtpy.QtWidgets import (
     QPushButton,
@@ -16,7 +18,7 @@ from qtpy.QtWidgets import (
     QTabWidget,
     QGroupBox,
 )
-from PyQt5.QtGui import QIntValidator, QValidator      # ADDED import
+from PyQt5.QtGui import QIntValidator, QValidator
 
 from PyQt5.QtCore import Qt
 from qtpy.QtCore import Signal
@@ -154,9 +156,11 @@ class NavigationWidget(QWidget):
 
 # overwrite EditingMenu to make sure outlines of points in TreePlot are transparent
 class CustomEditingMenu(EditingMenu):
+
+    add_cell_button_pressed = Signal(int)
+
     def __init__(self, viewer: napari.Viewer):
         super().__init__(viewer)  # Call the original init method
-
 
         main_layout = self.layout()  # This retrieves the QVBoxLayout from EditingMenu
 
@@ -165,55 +169,58 @@ class CustomEditingMenu(EditingMenu):
         main_layout.insertWidget(0, label)
 
         #add cell row
-        add_cell_layout = QHBoxLayout()                       # ADDED
-        self.add_cell_btn = QPushButton("Add cell")           # ADDED
-        self.add_cell_btn.setEnabled(False)                    # ADDED: initially disabled
-        add_cell_layout.addWidget(self.add_cell_btn)           # ADDED
-        self.cell_input = QLineEdit()                          # ADDED
-        self.cell_input.setValidator(QIntValidator())         # ADDED
-        self.cell_input.textChanged.connect(self.update_add_cell_btn_state)  # ADDED: update button state on text change
-        add_cell_layout.addWidget(self.cell_input)             # ADDED
+        add_cell_layout = QHBoxLayout()                     
+        self.add_cell_btn = QPushButton("Add cell")        
+        self.add_cell_btn.setEnabled(False)       
+        self.add_cell_btn.clicked.connect(self.add_cell_from_button)            
+        add_cell_layout.addWidget(self.add_cell_btn)          
+        self.cell_input = QLineEdit()                       
+        self.cell_input.setValidator(QIntValidator())
+        self.cell_input.textChanged.connect(self.update_add_cell_btn_state)  
+        add_cell_layout.addWidget(self.cell_input)      
 
         #duplicate cell row
-        duplicate_cell_layout = QHBoxLayout()                # ADDED
-        self.duplicate_cell_btn = QPushButton("dupl.")  # ADDED
-        self.duplicate_cell_btn.setEnabled(False)             # ADDED: initially disabled
-        duplicate_cell_layout.addWidget(self.duplicate_cell_btn)  # ADDED
-        self.duplicate_cell_id_input = QLineEdit()             # ADDED
-        self.duplicate_cell_id_input.setValidator(QIntValidator())  # ADDED
-        duplicate_cell_layout.addWidget(self.duplicate_cell_id_input)  # ADDED
-        duplicate_cell_layout.addWidget(QLabel("to t="))       # ADDED
-        self.duplicate_time_input = QLineEdit()                # ADDED
-        self.duplicate_time_input.setValidator(QIntValidator())  # ADDED
-        self.duplicate_time_input.setFixedWidth(40)            # ADDED
-        duplicate_cell_layout.addWidget(self.duplicate_time_input)  # ADDED
+        duplicate_cell_layout = QHBoxLayout()                
+        self.duplicate_cell_btn = QPushButton("dupl.") 
+        self.duplicate_cell_btn.setEnabled(False)            
+        duplicate_cell_layout.addWidget(self.duplicate_cell_btn)  
+        self.duplicate_cell_id_input = QLineEdit()            
+        self.duplicate_cell_id_input.setValidator(QIntValidator()) 
+        duplicate_cell_layout.addWidget(self.duplicate_cell_id_input) 
+        duplicate_cell_layout.addWidget(QLabel("to t="))      
+        self.duplicate_time_input = QLineEdit()              
+        self.duplicate_time_input.setValidator(QIntValidator())  
+        self.duplicate_time_input.setFixedWidth(40)           
+        duplicate_cell_layout.addWidget(self.duplicate_time_input)  
 
-
-        self.duplicate_cell_id_input.textChanged.connect(self.update_duplicate_cell_btn_state)  # ADDED
-        self.duplicate_time_input.textChanged.connect(self.update_duplicate_cell_btn_state)     # ADDED
+        self.duplicate_cell_id_input.textChanged.connect(self.update_duplicate_cell_btn_state)  
+        self.duplicate_time_input.textChanged.connect(self.update_duplicate_cell_btn_state)    
 
         # Retrieve the node_box widget from the layout.
         # Since we've inserted a label at index 0, the node_box is now at index 1.
-        node_box = main_layout.itemAt(1).widget()              # ADDED
-        node_box.layout().addLayout(add_cell_layout)           # ADDED
-        node_box.layout().addLayout(duplicate_cell_layout)     # ADDED
+        node_box = main_layout.itemAt(1).widget()             
+        node_box.layout().addLayout(add_cell_layout)          
+        node_box.layout().addLayout(duplicate_cell_layout)   
         node_box.setMaximumHeight(140)
 
         self.setMaximumHeight(450)
-        # self.setMaximumWidth(300)
 
-    def update_add_cell_btn_state(self, text):                # ADDED
-        state, _, _ = self.cell_input.validator().validate(text, 0)  # ADDED
-        self.add_cell_btn.setEnabled(state == QValidator.Acceptable)   # ADDED
+    def update_add_cell_btn_state(self, text):                
+        state, _, _ = self.cell_input.validator().validate(text, 0)  
+        self.add_cell_btn.setEnabled(state == QValidator.Acceptable)   
 
-    def update_duplicate_cell_btn_state(self, text):          # ADDED
+    def update_duplicate_cell_btn_state(self, text):        
         state1, _, _ = self.duplicate_cell_id_input.validator().validate(
-            self.duplicate_cell_id_input.text(), 0)          # ADDED
+            self.duplicate_cell_id_input.text(), 0)        
         state2, _, _ = self.duplicate_time_input.validator().validate(
-            self.duplicate_time_input.text(), 0)             # ADDED
+            self.duplicate_time_input.text(), 0)            
         self.duplicate_cell_btn.setEnabled(
-            state1 == QValidator.Acceptable and state2 == QValidator.Acceptable)  # ADDED
+            state1 == QValidator.Acceptable and state2 == QValidator.Acceptable) 
         
+    def add_cell_from_button(self):
+        node_id = int(self.cell_input.text())
+        self.add_cell_button_pressed.emit(node_id)
+
 class TrackEditClass():
     def __init__(self, viewer: napari.Viewer, databasehandler: DatabaseHandler):
         self.viewer = viewer
@@ -228,10 +235,7 @@ class TrackEditClass():
         tabwidget = QTabWidget()
         tabwidget.addTab(self.NavigationWidget, "Navigation")
         tabwidget.addTab(self.EditingMenu, "Edit Tracks")
-        tabwidget.setMaximumWidth(330)  # ADDED: Set maximum width for the entire tab widget
-
-        # UA = UltrackArray(self.databasehandler.config_adjusted)
-        # self.hier_widget.ultrack_array = UA
+        tabwidget.setMaximumWidth(330) 
         
         self.viewer.window.add_dock_widget(tabwidget, area='right', name='TrackEdit Widgets')
 
@@ -241,9 +245,10 @@ class TrackEditClass():
         self.hier_widget.ultrack_array.shape = (tmax, *hier_shape[1:])
         self.viewer.window.add_dock_widget(self.hier_widget, area='bottom')
 
-        #Todo: provide entire DB_handler
+        #Connect to signals
         self.NavigationWidget.change_chunk.connect(self.update_chunk_from_button)
         self.NavigationWidget.goto_frame.connect(self.update_chunk_from_frame)
+        self.EditingMenu.add_cell_button_pressed.connect(self.add_cell_from_database)
 
         #Connect to napari's time slider (dims) event)
         self.viewer.dims.events.current_step.connect(self.on_dims_changed)
@@ -437,7 +442,20 @@ class TrackEditClass():
     def link_layers(self):
         layer_names = [self.databasehandler.name + type for type in ['_seg','_tracks','_points']]
         layers_to_link = [layer for layer in self.viewer.layers if layer.name in layer_names]
-        self.viewer.layers.link_layers(layers_to_link)   
+        self.viewer.layers.link_layers(layers_to_link)  
+
+    def add_cell_from_database(self, node_id: int):
+        time = get_node_values(self.databasehandler.config_adjusted.data_config, node_id, NodeDB.t)
+        max_track_id = max(self.NavigationWidget.tracks_viewer.tracks_controller.tracks.track_id_to_node.keys())
+        attributes = {
+                NodeAttr.TIME.value: [time],
+                NodeAttr.TRACK_ID.value: [max_track_id+1],
+                "node_id": [node_id],
+        }
+        pixels = [(np.array([0,0,0]))]  #provide mock pixels, to make sure tracks_controller doesn't make a new node_id...
+        self.NavigationWidget.tracks_viewer.tracks_controller.add_nodes(attributes,pixels)
+        #ToDo: this is probably wrong, because graph.node attributes are set after _add_nodes is used, to graph nodes do not have time attribute (used to check if track_id already exists in TC._add_nodes)
+ 
 
 def wrap_default_widgets_in_tabs(viewer):
     # -- 1) Identify the default dock widgets by going up the parent chain.

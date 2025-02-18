@@ -5,8 +5,9 @@ from motile_tracker.data_views import TracksViewer
 from motile_tracker.data_views.views.tree_view.tree_widget import TreePlot
 from motile_tracker.data_model.tracks_controller import TracksController
 from motile_tracker.data_model.actions import AddEdges, DeleteEdges, ActionGroup
-from ultrack.core.database import *
+from ultrack.core.database import NodeDB, get_node_values, set_node_values
 
+import numpy as np
 import pyqtgraph as pg
 from qtpy.QtGui import QColor
 
@@ -19,6 +20,16 @@ Edge: TypeAlias = tuple[Node, Node]
 def create_db_add_nodes(DB_handler):
     def db_add_nodes(self):
         # don't use full old function, because it includes painting pixels in segmentation
+
+        #overwrite self.positions with values from database, scaled with z_scale
+        new_pos = []
+        for n in self.nodes:
+            pos = get_node_values(DB_handler.config_adjusted.data_config, n, [NodeDB.z, NodeDB.y, NodeDB.x])
+            pos = pos.tolist()
+            pos[0] *= DB_handler.z_scale
+            new_pos.append(pos)
+        self.positions = np.array(new_pos)
+
         self.tracks.add_nodes(self.nodes, self.times, self.positions, attrs=self.attributes)
         print('AddNodes:',self.nodes)
         for n in self.nodes:
@@ -60,15 +71,16 @@ def create_db_delete_edges(DB_handler):
                         value = -1)
     return db_delete_edges
 
-        
 
 def _empty_compute_node_attrs(self, nodes: Iterable[Node], times: Iterable[int]) -> Attrs:
     attrs: dict[str, list[Any]] = {
         NodeAttr.POS.value: [],
         NodeAttr.AREA.value: [],
     }
-    attrs[NodeAttr.POS.value] = np.array([0,0,0])
-    attrs[NodeAttr.AREA.value] = np.array([0])
+    for n in nodes:
+        attrs[NodeAttr.POS.value].append([0,0,0])
+        attrs[NodeAttr.AREA.value].append(0)
+    attrs[NodeAttr.POS.value] = np.array(attrs[NodeAttr.POS.value])
     return attrs
 SolutionTracks._compute_node_attrs = _empty_compute_node_attrs
 
