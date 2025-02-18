@@ -358,7 +358,18 @@ class DatabaseHandler():
                     'event': 'removed',
                 })
 
-        return pd.DataFrame(events)
+        result_df = pd.DataFrame(events)
+
+        #ignore events at t=1
+        result_df = result_df[result_df['t'] != 1]
+
+        return result_df
+    
+    def recompute_red_flags(self):
+        """called by update_red_flags in TrackEditClass upon tracks_updated signal in TracksViewer"""
+        print('recomputed red flags')
+        self.red_flags = self.find_all_red_flags()
+        self.red_flags = self.red_flags[~self.red_flags['id'].isin(self.red_flags_ignore_list)]
 
     def seg_ignore_red_flag(self, id):
         self.red_flags_ignore_list.append(id)

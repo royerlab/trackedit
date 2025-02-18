@@ -154,7 +154,6 @@ class NavigationWidget(QWidget):
         label = f" time window [{time_window[0]} : {time_window[1]-1}]"
         self.chunk_label.setText(label)
 
-# overwrite EditingMenu to make sure outlines of points in TreePlot are transparent
 class CustomEditingMenu(EditingMenu):
 
     add_cell_button_pressed = Signal(int)
@@ -201,9 +200,9 @@ class CustomEditingMenu(EditingMenu):
         node_box = main_layout.itemAt(1).widget()             
         node_box.layout().addLayout(add_cell_layout)          
         node_box.layout().addLayout(duplicate_cell_layout)   
-        node_box.setMaximumHeight(140)
+        node_box.setMaximumHeight(150)
 
-        self.setMaximumHeight(450)
+        self.setMaximumHeight(430)
 
     def update_add_cell_btn_state(self, text):                
         state, _, _ = self.cell_input.validator().validate(text, 0)  
@@ -259,13 +258,19 @@ class TrackEditClass():
         self.NavigationWidget.red_flag_next_btn.clicked.connect(self.go_to_next_red_flag)
         self.NavigationWidget.red_flag_ignore_btn.clicked.connect(self.ignore_red_flag)
         self.NavigationWidget.red_flag_counter.clicked.connect(self.goto_red_flag)
+        self.NavigationWidget.tracks_viewer.tracks_updated.connect(self.update_red_flags)
 
         self.add_tracks()
         self.link_layers()
         self.NavigationWidget.update_chunk_label()
         self.update_red_flag_counter_and_info()
 
+    def update_red_flags(self):
+        self.databasehandler.recompute_red_flags()
+        self.update_red_flag_counter_and_info()
+
     def update_red_flag_counter_and_info(self):
+        print('update_red_flag_counter_and_info')
         """Update the red flag label to show the current red flag index and total count."""
         total = len(self.databasehandler.red_flags)
         if total > 0:
@@ -445,17 +450,35 @@ class TrackEditClass():
         self.viewer.layers.link_layers(layers_to_link)  
 
     def add_cell_from_database(self, node_id: int):
-        time = get_node_values(self.databasehandler.config_adjusted.data_config, node_id, NodeDB.t)
-        max_track_id = max(self.NavigationWidget.tracks_viewer.tracks_controller.tracks.track_id_to_node.keys())
-        attributes = {
-                NodeAttr.TIME.value: [time],
-                NodeAttr.TRACK_ID.value: [max_track_id+1],
-                "node_id": [node_id],
-        }
-        pixels = [(np.array([0,0,0]))]  #provide mock pixels, to make sure tracks_controller doesn't make a new node_id...
-        self.NavigationWidget.tracks_viewer.tracks_controller.add_nodes(attributes,pixels)
-        #ToDo: this is probably wrong, because graph.node attributes are set after _add_nodes is used, to graph nodes do not have time attribute (used to check if track_id already exists in TC._add_nodes)
- 
+        add_flag = False
+        #check if node_id exists in database
+        try:
+            time = get_node_values(self.databasehandler.config_adjusted.data_config, node_id, NodeDB.t)
+            add_flag = True
+        except:
+            show_warning("Cell does not exist in database")
+
+        #check if node_is is already in solution (selected==1), but only check if node_id exists in database
+        if add_flag:
+            selected = get_node_values(self.databasehandler.config_adjusted.data_config, node_id, NodeDB.selected)
+            if selected == 1:
+                add_flag = False
+                show_warning("Cell is already in solution")
+                self.EditingMenu.cell_input.setText('')
+
+
+        if add_flag:
+            max_track_id = max(self.NavigationWidget.tracks_viewer.tracks_controller.tracks.track_id_to_node.keys())
+            attributes = {
+                    NodeAttr.TIME.value: [time],
+                    NodeAttr.TRACK_ID.value: [max_track_id+1],
+                    "node_id": [node_id],
+            }
+            pixels = [(np.array([0,0,0]))]  #provide mock pixels, to make sure tracks_controller doesn't make a new node_id...
+            self.NavigationWidget.tracks_viewer.tracks_controller.add_nodes(attributes,pixels)
+            #ToDo: this is probably wrong, because graph.node attributes are set after _add_nodes is used, to graph nodes do not have time attribute (used to check if track_id already exists in TC._add_nodes)
+            self.EditingMenu.cell_input.setText('')
+            #ToDo: empty field if cell is added
 
 def wrap_default_widgets_in_tabs(viewer):
     # -- 1) Identify the default dock widgets by going up the parent chain.
