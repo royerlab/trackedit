@@ -261,7 +261,6 @@ class TrackEditClass():
         self.NavigationWidget.tracks_viewer.tracks_updated.connect(self.update_red_flags)
 
         self.add_tracks()
-        self.link_layers()
         self.NavigationWidget.update_chunk_label()
         self.update_red_flag_counter_and_info()
 
@@ -270,7 +269,6 @@ class TrackEditClass():
         self.update_red_flag_counter_and_info()
 
     def update_red_flag_counter_and_info(self):
-        print('update_red_flag_counter_and_info')
         """Update the red flag label to show the current red flag index and total count."""
         total = len(self.databasehandler.red_flags)
         if total > 0:
@@ -347,7 +345,9 @@ class TrackEditClass():
         self.viewer.layers.selection.active = self.viewer.layers[self.databasehandler.name+'_seg']   #select segmentation layer
 
         self.check_navigation_button_validity()
-
+        self.link_layers()
+        if "hierarchy" in self.viewer.layers:
+            self.viewer.layers['hierarchy'].visible = False
         #ToDo: check if all tracks are added or overwritten
 
     def update_chunk_from_button(self, direction: str):
@@ -370,9 +370,7 @@ class TrackEditClass():
             new_chunk = self.databasehandler.num_time_chunks - 1
 
         self.databasehandler.set_time_chunk(new_chunk)
-        self.hier_widget.ultrack_array.set_time_window(self.databasehandler.time_window)
-        self.viewer.layers.pop('hierarchy')
-        self.viewer.add_labels(self.hier_widget.ultrack_array, name='hierarchy', scale=self.databasehandler.scale)
+        self.update_pop_add_hierarchy_layer()
 
         self.add_tracks()
 
@@ -406,9 +404,7 @@ class TrackEditClass():
         cur_chunk = self.databasehandler.time_chunk
 
         self.databasehandler.set_time_chunk(new_chunk)
-        self.hier_widget.ultrack_array.set_time_window(self.databasehandler.time_window)
-        self.viewer.layers.pop('hierarchy')
-        self.viewer.add_labels(self.hier_widget.ultrack_array, name='hierarchy', scale=self.databasehandler.scale)
+        self.update_pop_add_hierarchy_layer()
 
         if cur_chunk != new_chunk:
             self.add_tracks()        
@@ -449,6 +445,14 @@ class TrackEditClass():
         layers_to_link = [layer for layer in self.viewer.layers if layer.name in layer_names]
         self.viewer.layers.link_layers(layers_to_link)  
 
+    def update_pop_add_hierarchy_layer(self):
+        self.hier_widget.ultrack_array.set_time_window(self.databasehandler.time_window)
+        self.viewer.layers.pop('hierarchy')
+        self.viewer.add_labels(self.hier_widget.ultrack_array, name='hierarchy', scale=self.databasehandler.scale)
+        self.viewer.layers['hierarchy'].visible = False
+        self.viewer.layers.move(3,0)
+        self.viewer.layers.selection.active = self.viewer.layers[self.databasehandler.name+'_seg']   #select segmentation layer
+
     def add_cell_from_database(self, node_id: int):
         add_flag = False
         #check if node_id exists in database
@@ -466,19 +470,22 @@ class TrackEditClass():
                 show_warning("Cell is already in solution")
                 self.EditingMenu.cell_input.setText('')
 
-
         if add_flag:
+            #move to the respective chunk of the added cell
+            self.update_chunk_from_frame(time)
+
             max_track_id = max(self.NavigationWidget.tracks_viewer.tracks_controller.tracks.track_id_to_node.keys())
+            time_in_chunk = time - self.databasehandler.time_window[0]
+            pixels = [(np.array([0,0,0]))]  #provide mock pixels, to make sure tracks_controller doesn't make a new node_id...
             attributes = {
-                    NodeAttr.TIME.value: [time],
+                    NodeAttr.TIME.value: [time_in_chunk],
                     NodeAttr.TRACK_ID.value: [max_track_id+1],
                     "node_id": [node_id],
             }
-            pixels = [(np.array([0,0,0]))]  #provide mock pixels, to make sure tracks_controller doesn't make a new node_id...
+
             self.NavigationWidget.tracks_viewer.tracks_controller.add_nodes(attributes,pixels)
             #ToDo: this is probably wrong, because graph.node attributes are set after _add_nodes is used, to graph nodes do not have time attribute (used to check if track_id already exists in TC._add_nodes)
             self.EditingMenu.cell_input.setText('')
-            #ToDo: empty field if cell is added
 
 def wrap_default_widgets_in_tabs(viewer):
     # -- 1) Identify the default dock widgets by going up the parent chain.

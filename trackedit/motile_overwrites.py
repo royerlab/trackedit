@@ -24,7 +24,7 @@ def create_db_add_nodes(DB_handler):
         #overwrite self.positions with values from database, scaled with z_scale
         new_pos = []
         for n in self.nodes:
-            pos = get_node_values(DB_handler.config_adjusted.data_config, n, [NodeDB.z, NodeDB.y, NodeDB.x])
+            pos = get_node_values(DB_handler.config_adjusted.data_config, int(n), [NodeDB.z, NodeDB.y, NodeDB.x])
             pos = pos.tolist()
             pos[0] *= DB_handler.z_scale
             new_pos.append(pos)
