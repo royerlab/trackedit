@@ -229,20 +229,24 @@ class TrackEditClass():
         self.NavigationWidget = NavigationWidget(self.viewer)
         self.EditingMenu = CustomEditingMenu(self.viewer)
 
-        self.viewer.window.add_dock_widget(self.TreeWidget, area="bottom",name="TreeWidget")
 
-        tabwidget = QTabWidget()
-        tabwidget.addTab(self.NavigationWidget, "Navigation")
-        tabwidget.addTab(self.EditingMenu, "Edit Tracks")
-        tabwidget.setMaximumWidth(330) 
-        
-        self.viewer.window.add_dock_widget(tabwidget, area='right', name='TrackEdit Widgets')
+        tabwidget_right = QTabWidget()
+        tabwidget_right.addTab(self.NavigationWidget, "Navigation")
+        tabwidget_right.addTab(self.EditingMenu, "Edit Tracks")
+        tabwidget_right.setMaximumWidth(330) 
+        self.viewer.window.add_dock_widget(tabwidget_right, area='right', name='TrackEdit Widgets')
 
         self.hier_widget = HierarchyVizWidget(viewer = viewer,scale=self.databasehandler.scale, config = self.databasehandler.config_adjusted)
         hier_shape = self.hier_widget.ultrack_array.shape
         tmax = self.databasehandler.data_shape_chunk[0]
         self.hier_widget.ultrack_array.shape = (tmax, *hier_shape[1:])
-        self.viewer.window.add_dock_widget(self.hier_widget, area='bottom')
+        # self.viewer.window.add_dock_widget(self.hier_widget, area='bottom')
+        # self.viewer.window.add_dock_widget(self.TreeWidget, area="bottom",name="TreeWidget")
+
+        tabwidget_bottom = QTabWidget()
+        tabwidget_bottom.addTab(self.TreeWidget, "TreeWidget")
+        tabwidget_bottom.addTab(self.hier_widget.native, "Hierarchy")
+        self.viewer.window.add_dock_widget(tabwidget_bottom, area='bottom')
 
         #Connect to signals
         self.NavigationWidget.change_chunk.connect(self.update_chunk_from_button)
@@ -346,6 +350,7 @@ class TrackEditClass():
 
         self.check_navigation_button_validity()
         self.link_layers()
+        self.viewer.layers[self.databasehandler.name+'_seg'].iso_gradient_mode = "smooth"
         if "hierarchy" in self.viewer.layers:
             self.viewer.layers['hierarchy'].visible = False
         #ToDo: check if all tracks are added or overwritten
@@ -520,7 +525,7 @@ def wrap_default_widgets_in_tabs(viewer):
         tab_widget.addTab(list_container, "Layer List")
 
     # -- 6) Add our new tab widget as a dock widget.
-    new_dock = viewer.window.add_dock_widget(tab_widget, area="left")
+    new_dock = viewer.window.add_dock_widget(tab_widget, area="left",name='napari')
 
     # -- 7) (Optional) Update internal viewer references so that
     # Napari’s menu actions refer to the new widgets.
