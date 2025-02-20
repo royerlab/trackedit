@@ -65,6 +65,7 @@ class DatabaseHandler():
         self.df = self.db_to_df()
         self.nxgraph = self.df_to_nxgraph()
         self.red_flags = self.find_all_red_flags()
+        self.divisions = self.find_all_divisions()
         self.red_flags_ignore_list = []
         self.log(f"Log file created")
 
@@ -399,10 +400,56 @@ class DatabaseHandler():
 
         return result_df
     
+    def find_all_divisions(self) -> pd.DataFrame:
+        """
+        Identify cell divisions by finding cells that have multiple daughters in the next timepoint.
+        Returns only the last frame of each parent track before the division occurs.
+        
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with columns: 't', 'track_id', 'id'
+        """
+        df = self.db_to_df(entire_database=True)
+        
+        # Get all cells that have parents (parent_id != -1)
+        cells_with_parents = df[df['parent_id'] != -1]
+        
+        # Group by parent_id and time to count daughters per parent per timepoint
+        daughter_counts = cells_with_parents.groupby(['parent_id', 't']).size()
+        
+        # Find cases where a parent has exactly 2 daughters
+        dividing_cells = daughter_counts[daughter_counts == 2].reset_index()
+        
+        if dividing_cells.empty:
+            return pd.DataFrame(columns=['t', 'track_id', 'id'])
+        
+        # Get the parent information for these division events
+        divisions = []
+        for _, row in dividing_cells.iterrows():
+            # Find parent info in the frame before division
+            parent_info = df[
+                (df['id'] == row['parent_id']) & 
+                (df['t'] == row['t'] - 1)
+            ]
+            
+            if not parent_info.empty:
+                divisions.append({
+                    't': parent_info['t'].iloc[0],
+                    'track_id': parent_info['track_id'].iloc[0],
+                    'id': row['parent_id']
+                })
+        
+        return pd.DataFrame(divisions)
+    
     def recompute_red_flags(self):
         """called by update_red_flags in TrackEditClass upon tracks_updated signal in TracksViewer"""
         self.red_flags = self.find_all_red_flags()
         self.red_flags = self.red_flags[~self.red_flags['id'].isin(self.red_flags_ignore_list)]
+
+    def recompute_divisions(self):
+        """called by update_divisions in TrackEditClass upon tracks_updated signal in TracksViewer"""
+        self.divisions = self.find_all_divisions()
 
     def seg_ignore_red_flag(self, id):
         self.red_flags_ignore_list.append(id)
@@ -412,5 +459,3 @@ class DatabaseHandler():
 
         #remove the ignores red flag from the red flags 
         self.red_flags = self.red_flags[~self.red_flags['id'].isin(self.red_flags_ignore_list)]
-
-

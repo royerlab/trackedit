@@ -11166,7 +11166,7 @@ packages:
 - pypi: .
   name: trackedit
   version: 0.0.1
-  sha256: 81d4835c1a55a0b91f5686cd589bdee19a189268e73dc6c88a3f24a4119c24bd
+  sha256: c199b3e40b87c551625d5d648590c366619385ba16bdde72ef396bac1577b428
   requires_dist:
   - mip>=1.16rc0
   requires_python: '>=3.10'

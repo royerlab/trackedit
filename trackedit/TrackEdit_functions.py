@@ -46,7 +46,7 @@ class NavigationWidget(QWidget):
         # TIME INTERACTION UI ELEMENTS
         # ===============================
 
-        time_box = QGroupBox("Time")
+        time_box = QGroupBox("time")
         time_box_layout = QVBoxLayout()
 
         #Define the buttons
@@ -85,11 +85,12 @@ class NavigationWidget(QWidget):
         # RED FLAG SECTION UI ELEMENTS
         # ===============================
 
-        redflag_box = QGroupBox("Time")
+        redflag_box = QGroupBox("red flags")
         redflag_box_layout = QVBoxLayout()
 
         # Label showing which red flag is currently active (e.g., "3/80")
         self.red_flag_counter = ClickableLabel("0/0")  # Will be updated later with actual counts
+        self.red_flag_counter.setFixedWidth(50)  
 
         # Button to go to the previous red flag ("<")
         self.red_flag_prev_btn = QPushButton("<")
@@ -118,19 +119,44 @@ class NavigationWidget(QWidget):
         redflag_box_layout.addWidget(QLabel(r"""<h2>Red Flags</h2>""" ))
         redflag_box_layout.addLayout(red_flag_layout)
         redflag_box.setLayout(redflag_box_layout)
+
+        # ===============================
+        # Division clicker
+        # ===============================
+
+        division_box = QGroupBox("divisions")
+        division_box_layout = QVBoxLayout()
+
+        # Label showing which division is currently active (e.g., "3/80")
+        self.division_counter = ClickableLabel("0/0")  # Will be updated later with actual counts
+        self.division_counter.setFixedWidth(50)  
+
+        # Button to go to the previous division ("<")
+        self.division_prev_btn = QPushButton("<")
+        self.division_prev_btn.setFixedWidth(30)  
+
+        # Button to go to the next division (">")
+        self.division_next_btn = QPushButton(">")
+        self.division_next_btn.setFixedWidth(30)  
+
+        # Create a horizontal layout to contain the division controls
+        division_layout = QHBoxLayout()
+        division_layout.addWidget(self.division_prev_btn)
+        division_layout.addWidget(self.division_counter)
+        division_layout.addWidget(self.division_next_btn)
+
+        division_box_layout.addWidget(QLabel(r"""<h2>Divisions</h2>""" ), alignment=Qt.AlignLeft)
+        division_box_layout.addLayout(division_layout)
+        division_box_layout.setAlignment(division_layout, Qt.AlignLeft)
+        division_box.setLayout(division_box_layout)
         # ===============================
 
         #Define entire widget
         main_layout = QVBoxLayout()
         main_layout.addWidget(time_box)
         main_layout.addWidget(redflag_box)
-        # main_layout.addLayout(time_input_layout)
-        # main_layout.addLayout(button_layout)
-        # main_layout.addWidget(self.chunk_label, alignment=Qt.AlignCenter)
-
+        main_layout.addWidget(division_box)
         self.setLayout(main_layout)
-        # self.setMaximumWidth(300)
-        # self.setMaximumHeight(250)
 
     def press_prev(self):
         self.change_chunk.emit('prev')
@@ -229,11 +255,11 @@ class TrackEditClass():
     def __init__(self, viewer: napari.Viewer, databasehandler: DatabaseHandler):
         self.viewer = viewer
         self.databasehandler = databasehandler
+        self.tracksviewer = TracksViewer.get_instance(self.viewer)
 
         self.TreeWidget = TreeWidget(self.viewer)
         self.NavigationWidget = NavigationWidget(self.viewer)
         self.EditingMenu = CustomEditingMenu(self.viewer)
-
 
         tabwidget_right = QTabWidget()
         tabwidget_right.addTab(self.NavigationWidget, "Navigation")
@@ -245,8 +271,6 @@ class TrackEditClass():
         hier_shape = self.hier_widget.ultrack_array.shape
         tmax = self.databasehandler.data_shape_chunk[0]
         self.hier_widget.ultrack_array.shape = (tmax, *hier_shape[1:])
-        # self.viewer.window.add_dock_widget(self.hier_widget, area='bottom')
-        # self.viewer.window.add_dock_widget(self.TreeWidget, area="bottom",name="TreeWidget")
 
         tabwidget_bottom = QTabWidget()
         tabwidget_bottom.addTab(self.TreeWidget, "TreeWidget")
@@ -270,9 +294,22 @@ class TrackEditClass():
         self.NavigationWidget.red_flag_counter.clicked.connect(self.goto_red_flag)
         self.NavigationWidget.tracks_viewer.tracks_updated.connect(self.update_red_flags)
 
+        #Connect division UI buttons
+        self.current_division_index = 0
+        self.NavigationWidget.division_prev_btn.clicked.connect(self.go_to_prev_division)
+        self.NavigationWidget.division_next_btn.clicked.connect(self.go_to_next_division)
+        self.NavigationWidget.division_counter.clicked.connect(self.goto_division)
+        self.NavigationWidget.tracks_viewer.tracks_updated.connect(self.update_divisions)
+        self.tracksviewer.selected_nodes.list_updated.connect(self._check_selected_node_matches_division)
+        self.tracksviewer.selected_nodes.list_updated.connect(self._check_selected_node_matches_red_flag)
+
         self.add_tracks()
         self.NavigationWidget.update_chunk_label()
         self.update_red_flag_counter_and_info()
+
+    #===============================================
+    # Red flags
+    #===============================================
 
     def update_red_flags(self):
         self.databasehandler.recompute_red_flags()
@@ -315,11 +352,10 @@ class TrackEditClass():
         self.update_chunk_from_frame(red_flag_time)
 
         #update the selected nodes in the TreeWidget
-        tv = TracksViewer.get_instance(self.viewer)
         label = self.databasehandler.red_flags.iloc[self.current_red_flag_index]["id"]
-        tv.selected_nodes._list = []
-        tv.selected_nodes._list.append(label)
-        tv.selected_nodes.list_updated.emit()
+        self.tracksviewer.selected_nodes._list = []
+        self.tracksviewer.selected_nodes._list.append(label)
+        self.tracksviewer.selected_nodes.list_updated.emit()
 
         self.update_red_flag_counter_and_info()
 
@@ -331,6 +367,108 @@ class TrackEditClass():
         if self.current_red_flag_index >= len(self.databasehandler.red_flags):
             self.current_red_flag_index = self.current_red_flag_index - 1
         self.goto_red_flag()
+
+    def _check_selected_node_matches_red_flag(self):
+        """Check if the selected node matches the current red flag label.
+        If not, disable/grey-out the red flag counter label.
+        If a single node is selected and it exists in red flags, update counter to that red flag.
+        """
+        selected_nodes = self.tracksviewer.selected_nodes._list
+
+        # If no nodes selected or multiple nodes selected, grey out counter
+        if len(selected_nodes) != 1:
+            self.NavigationWidget.red_flag_counter.setStyleSheet("color: gray;")
+            return
+
+        selected_node = str(selected_nodes[0])
+        
+        # Check if selected node exists in red flags
+        red_flag_mask = self.databasehandler.red_flags['id'].astype(str) == selected_node
+        if red_flag_mask.any():
+            # Found the node in red flags - update counter and remove grey
+            self.current_red_flag_index = red_flag_mask.idxmax()
+            self.NavigationWidget.red_flag_counter.setText(f"{self.current_red_flag_index + 1}/{len(self.databasehandler.red_flags)}")
+            self.NavigationWidget.red_flag_counter.setStyleSheet("")
+        else:
+            # Node not found in red flags - grey out counter
+            self.NavigationWidget.red_flag_counter.setStyleSheet("color: gray;")
+
+    #===============================================
+    # Divisions
+    #===============================================
+
+    def update_divisions(self):
+        """Update the divisions and the division counter"""
+        self.databasehandler.recompute_divisions()
+        self.update_division_counter()
+
+    def update_division_counter(self):
+        """Update the division counter to show the current division index and total count."""
+        total = len(self.databasehandler.divisions)
+        if total > 0:
+            self.NavigationWidget.division_counter.setText(f"{self.current_division_index + 1}/{total}")
+        else:
+            self.NavigationWidget.division_counter.setText("0/0")
+
+    def go_to_next_division(self):
+        """Navigate to the next division in the list and jump to that timepoint."""
+        total = len(self.databasehandler.divisions)
+        if total == 0:
+            return
+        # Increment index (wrap around if needed)
+        self.current_division_index = (self.current_division_index + 1) % total
+        self.goto_division()
+
+    def go_to_prev_division(self):
+        """Navigate to the previous division in the list and jump to that timepoint."""
+        total = len(self.databasehandler.divisions)
+        if total == 0:
+            return
+        # Decrement index (wrap around if needed)
+        self.current_division_index = (self.current_division_index - 1) % total
+        self.goto_division()
+
+    def goto_division(self):
+        """Jump to the time of the current division."""
+        division_time = int(self.databasehandler.divisions.iloc[self.current_division_index]["t"])
+        self.update_chunk_from_frame(division_time)
+
+        #update the selected nodes in the TreeWidget
+        label = self.databasehandler.divisions.iloc[self.current_division_index]["id"]
+        self.tracksviewer.selected_nodes._list = []
+        self.tracksviewer.selected_nodes._list.append(label)
+        self.tracksviewer.selected_nodes.list_updated.emit()
+
+        self.update_division_counter()
+
+    def _check_selected_node_matches_division(self):
+        """Check if the selected node matches the current division label.
+        If not, disable/grey-out the division counter label.
+        If a single node is selected and it exists in divisions, update counter to that division.
+        """
+        selected_nodes = self.tracksviewer.selected_nodes._list
+
+        # If no nodes selected or multiple nodes selected, grey out counter
+        if len(selected_nodes) != 1:
+            self.NavigationWidget.division_counter.setStyleSheet("color: gray;")
+            return
+
+        selected_node = str(selected_nodes[0])
+        
+        # Check if selected node exists in divisions
+        division_mask = self.databasehandler.divisions['id'].astype(str) == selected_node
+        if division_mask.any():
+            # Found the node in divisions - update counter and remove grey
+            self.current_division_index = division_mask.idxmax()
+            self.NavigationWidget.division_counter.setText(f"{self.current_division_index + 1}/{len(self.databasehandler.divisions)}")
+            self.NavigationWidget.division_counter.setStyleSheet("")
+        else:
+            # Node not found in divisions - grey out counter
+            self.NavigationWidget.division_counter.setStyleSheet("color: gray;")
+
+    #===============================================
+    # Add tracks
+    #===============================================
 
     def add_tracks(self):
         """Add a solution set of tracks to the tracks viewer results list
@@ -350,8 +488,7 @@ class TrackEditClass():
         )
 
         # add tracks to viewer
-        tracksviewer = TracksViewer.get_instance(self.viewer)
-        tracksviewer.tracks_list.add_tracks(tracks,name=self.databasehandler.name)
+        self.tracksviewer.tracks_list.add_tracks(tracks,name=self.databasehandler.name)
         self.viewer.layers.selection.active = self.viewer.layers[self.databasehandler.name+'_seg']   #select segmentation layer
 
         self.check_navigation_button_validity()
@@ -360,6 +497,10 @@ class TrackEditClass():
         if "hierarchy" in self.viewer.layers:
             self.viewer.layers['hierarchy'].visible = False
         #ToDo: check if all tracks are added or overwritten
+
+    #===============================================
+    # Navigation
+    #===============================================
 
     def update_chunk_from_button(self, direction: str):
         cur_chunk = self.databasehandler.time_chunk
@@ -451,6 +592,10 @@ class TrackEditClass():
         else:
             self.NavigationWidget.time_next_btn.setEnabled(True)
 
+    #===============================================
+    # Linking/layer stuff
+    #===============================================
+
     def link_layers(self):
         """Link the segmentation, tracks, and points layers of the Motile widget together."""
         layer_names = [self.databasehandler.name + type for type in ['_seg','_tracks','_points']]
@@ -466,6 +611,10 @@ class TrackEditClass():
         self.viewer.layers.move(3,0)
         self.viewer.layers.selection.active = self.viewer.layers[self.databasehandler.name+'_seg']   #select segmentation layer
 
+    #===============================================
+    # Add cells
+    #===============================================
+    
     def add_cell_from_database(self, node_id: int):
         add_flag = False
         #check if node_id exists in database
@@ -560,7 +709,7 @@ def wrap_default_widgets_in_tabs(viewer):
     list_container = list_dock.widget() if list_dock else None
 
     # -- 3) Remove the dock widgets from the main window,
-    # but do not close or delete them so that Napari’s internal references remain valid.
+    # but do not close or delete them so that Napari's internal references remain valid.
     main_window = viewer.window._qt_window
     for dock in [controls_dock, list_dock]:
         if dock is not None:
@@ -583,7 +732,7 @@ def wrap_default_widgets_in_tabs(viewer):
     new_dock = viewer.window.add_dock_widget(tab_widget, area="left",name='napari')
 
     # -- 7) (Optional) Update internal viewer references so that
-    # Napari’s menu actions refer to the new widgets.
+    # Napari's menu actions refer to the new widgets.
     viewer.window.qt_viewer._controls = controls_container
     viewer.window.qt_viewer._layers = list_container
 
