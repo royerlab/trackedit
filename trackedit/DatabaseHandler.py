@@ -4,7 +4,7 @@ import shutil
 import networkx as nx
 from pathlib import Path
 from typing import List
-from collections import Counter
+from sqlalchemy import create_engine, inspect, text
 
 from ultrack.config import MainConfig
 from ultrack.core.database import *
@@ -56,6 +56,7 @@ class DatabaseHandler():
 
         self.config_adjusted = self.initialize_config()
         self.config_adjusted.data_config.metadata_add({"shape": self.data_shape_full})
+        self.add_missing_columns_to_db()
 
         #DatabaseArray()
         self.segments = DatabaseArray(database_path=self.db_path_new, 
@@ -122,6 +123,39 @@ class DatabaseHandler():
 
         return db_filename_new, log_filename_new
     
+    def add_missing_columns_to_db(self):
+        engine = create_engine(self.config_adjusted.data_config.database_path)
+        inspector = inspect(engine)
+
+        expected_columns = self.get_expected_columns(engine)
+        existing_columns = [col['name'] for col in inspector.get_columns('nodes')]
+
+        for col_name, col_definition in expected_columns.items():
+            if col_name not in existing_columns:
+                alter_stmt = f"ALTER TABLE nodes ADD COLUMN {col_name} {col_definition};"
+                with engine.begin() as conn:  # This starts a transaction.
+                    conn.execute(text(alter_stmt))
+                print(f"Added missing column to db: {col_name}")
+
+    def get_expected_columns(self, engine):
+        expected_columns = {}
+        for column in NodeDB.__table__.columns:
+            # Compile the column type to its SQL representation.
+            col_type_str = column.type.compile(dialect=engine.dialect)
+            
+            # Try to extract a default value if one is specified.
+            default_value = None
+            if column.default is not None and hasattr(column.default, "arg"):
+                default_value = column.default.arg
+
+            # Build the definition string.
+            col_definition = col_type_str
+            if default_value is not None:
+                col_definition += f" DEFAULT {default_value}"
+            
+            expected_columns[column.name] = col_definition
+        return expected_columns
+
     def get_next_db_filename(self,old_filename):
         """
         Generate the next version of a database filename.
@@ -367,7 +401,6 @@ class DatabaseHandler():
     
     def recompute_red_flags(self):
         """called by update_red_flags in TrackEditClass upon tracks_updated signal in TracksViewer"""
-        print('recomputed red flags')
         self.red_flags = self.find_all_red_flags()
         self.red_flags = self.red_flags[~self.red_flags['id'].isin(self.red_flags_ignore_list)]
 

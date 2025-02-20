@@ -6,6 +6,7 @@ from motile_tracker.data_views import TracksViewer, TreeWidget
 from motile_tracker.data_model.solution_tracks import SolutionTracks
 from motile_toolbox.candidate_graph import NodeAttr
 from ultrack.core.database import NodeDB, get_node_values
+from ultrack.core.interactive import add_new_node
 from trackedit.hierarchy_viz_widget import HierarchyVizWidget
 
 from qtpy.QtWidgets import (
@@ -157,46 +158,45 @@ class NavigationWidget(QWidget):
 class CustomEditingMenu(EditingMenu):
 
     add_cell_button_pressed = Signal(int)
+    duplicate_cell_button_pressed = Signal(int, int)
 
     def __init__(self, viewer: napari.Viewer):
         super().__init__(viewer)  # Call the original init method
 
         main_layout = self.layout()  # This retrieves the QVBoxLayout from EditingMenu
+        main_layout.insertWidget(0, QLabel(r"""<h2>Edit tracks</h2>"""))
 
-        # Create the label and insert in beginning
-        label = QLabel(r"""<h2>Edit tracks</h2>""")
-        main_layout.insertWidget(0, label)
-
-        #add cell row
-        add_cell_layout = QHBoxLayout()                     
+        #add cell
         self.add_cell_btn = QPushButton("Add cell")        
         self.add_cell_btn.setEnabled(False)       
         self.add_cell_btn.clicked.connect(self.add_cell_from_button)            
-        add_cell_layout.addWidget(self.add_cell_btn)          
-        self.cell_input = QLineEdit()                       
-        self.cell_input.setValidator(QIntValidator())
-        self.cell_input.textChanged.connect(self.update_add_cell_btn_state)  
-        add_cell_layout.addWidget(self.cell_input)      
+        self.add_cell_input = QLineEdit()                       
+        self.add_cell_input.setValidator(QIntValidator())
+        self.add_cell_input.textChanged.connect(self.update_add_cell_btn_state) 
 
-        #duplicate cell row
-        duplicate_cell_layout = QHBoxLayout()                
+        add_cell_layout = QHBoxLayout()                     
+        add_cell_layout.addWidget(self.add_cell_btn)
+        add_cell_layout.addWidget(self.add_cell_input)      
+
+        #duplicate cell
         self.duplicate_cell_btn = QPushButton("dupl.") 
-        self.duplicate_cell_btn.setEnabled(False)            
-        duplicate_cell_layout.addWidget(self.duplicate_cell_btn)  
+        self.duplicate_cell_btn.setEnabled(False)
+        self.duplicate_cell_btn.clicked.connect(self.duplicate_cell_from_button)      
         self.duplicate_cell_id_input = QLineEdit()            
         self.duplicate_cell_id_input.setValidator(QIntValidator()) 
-        duplicate_cell_layout.addWidget(self.duplicate_cell_id_input) 
-        duplicate_cell_layout.addWidget(QLabel("to t="))      
+        self.duplicate_cell_id_input.textChanged.connect(self.update_duplicate_cell_btn_state)  
         self.duplicate_time_input = QLineEdit()              
         self.duplicate_time_input.setValidator(QIntValidator())  
-        self.duplicate_time_input.setFixedWidth(40)           
-        duplicate_cell_layout.addWidget(self.duplicate_time_input)  
-
-        self.duplicate_cell_id_input.textChanged.connect(self.update_duplicate_cell_btn_state)  
+        self.duplicate_time_input.setFixedWidth(40)     
         self.duplicate_time_input.textChanged.connect(self.update_duplicate_cell_btn_state)    
 
-        # Retrieve the node_box widget from the layout.
-        # Since we've inserted a label at index 0, the node_box is now at index 1.
+        duplicate_cell_layout = QHBoxLayout()                
+        duplicate_cell_layout.addWidget(self.duplicate_cell_btn)  
+        duplicate_cell_layout.addWidget(self.duplicate_cell_id_input) 
+        duplicate_cell_layout.addWidget(QLabel("to t="))      
+        duplicate_cell_layout.addWidget(self.duplicate_time_input)  
+
+        # Retrieve the node_box widget from the layout and insert add/duplicate cell layouts
         node_box = main_layout.itemAt(1).widget()             
         node_box.layout().addLayout(add_cell_layout)          
         node_box.layout().addLayout(duplicate_cell_layout)   
@@ -205,10 +205,10 @@ class CustomEditingMenu(EditingMenu):
         self.setMaximumHeight(430)
 
     def update_add_cell_btn_state(self, text):                
-        state, _, _ = self.cell_input.validator().validate(text, 0)  
+        state, _, _ = self.add_cell_input.validator().validate(text, 0)  
         self.add_cell_btn.setEnabled(state == QValidator.Acceptable)   
 
-    def update_duplicate_cell_btn_state(self, text):        
+    def update_duplicate_cell_btn_state(self, _):        
         state1, _, _ = self.duplicate_cell_id_input.validator().validate(
             self.duplicate_cell_id_input.text(), 0)        
         state2, _, _ = self.duplicate_time_input.validator().validate(
@@ -217,8 +217,13 @@ class CustomEditingMenu(EditingMenu):
             state1 == QValidator.Acceptable and state2 == QValidator.Acceptable) 
         
     def add_cell_from_button(self):
-        node_id = int(self.cell_input.text())
+        node_id = int(self.add_cell_input.text())
         self.add_cell_button_pressed.emit(node_id)
+    
+    def duplicate_cell_from_button(self):
+        node_id = int(self.duplicate_cell_id_input.text())
+        time = int(self.duplicate_time_input.text())
+        self.duplicate_cell_button_pressed.emit(node_id, time)
 
 class TrackEditClass():
     def __init__(self, viewer: napari.Viewer, databasehandler: DatabaseHandler):
@@ -252,6 +257,7 @@ class TrackEditClass():
         self.NavigationWidget.change_chunk.connect(self.update_chunk_from_button)
         self.NavigationWidget.goto_frame.connect(self.update_chunk_from_frame)
         self.EditingMenu.add_cell_button_pressed.connect(self.add_cell_from_database)
+        self.EditingMenu.duplicate_cell_button_pressed.connect(self.duplicate_cell_from_database)
 
         #Connect to napari's time slider (dims) event)
         self.viewer.dims.events.current_step.connect(self.on_dims_changed)
@@ -340,7 +346,7 @@ class TrackEditClass():
             segmentation = self.databasehandler.segments,
             pos_attr=("z","y", "x"),
             time_attr="t",
-            scale = [1,4,1,1],
+            scale = [1,*self.databasehandler.scale],    #db.scale is zyx, SolutionTracks needs tzyx
         )
 
         # add tracks to viewer
@@ -387,7 +393,6 @@ class TrackEditClass():
         self.set_time_slider(desired_chunk_time)       
         self.NavigationWidget.update_chunk_label()
 
-
     def update_chunk_from_frame(self, frame: int):
         """Handle navigation by a user-entered time frame.
         
@@ -422,18 +427,19 @@ class TrackEditClass():
     def set_time_slider(self, chunk_frame):
         self.viewer.dims.current_step = (chunk_frame, *self.viewer.dims.current_step[1:])
 
-    def on_dims_changed(self, _):
+    def on_dims_changed(self, _) -> None:
+        """Called when the time slider is moved by the user, to update the "world time" label."""
         self.update_time_label()
 
-    def update_time_label(self):
+    def update_time_label(self) -> None:
+        """Update the time label to show the current time in the world."""
         chunk = self.databasehandler.time_chunk
         cur_frame = self.viewer.dims.current_step[0]
         cur_world_time = cur_frame + self.databasehandler.time_chunk_starts[chunk]
-
         self.NavigationWidget.time_input.setText(str(cur_world_time))
 
-    def check_navigation_button_validity(self):
-        #enable/disable buttons if on first/last chunk
+    def check_navigation_button_validity(self) -> None:
+        """Check if the navigation chunk buttons should be enabled or disabled based on the current chunk. Enable/disable buttons if on first/last chunk."""
         chunk = self.databasehandler.time_chunk
         if chunk == 0:
             self.NavigationWidget.time_prev_btn.setEnabled(False)
@@ -446,11 +452,13 @@ class TrackEditClass():
             self.NavigationWidget.time_next_btn.setEnabled(True)
 
     def link_layers(self):
+        """Link the segmentation, tracks, and points layers of the Motile widget together."""
         layer_names = [self.databasehandler.name + type for type in ['_seg','_tracks','_points']]
         layers_to_link = [layer for layer in self.viewer.layers if layer.name in layer_names]
         self.viewer.layers.link_layers(layers_to_link)  
 
     def update_pop_add_hierarchy_layer(self):
+        """Update the hierarchy layer with the new chunk and add it to the viewer."""
         self.hier_widget.ultrack_array.set_time_window(self.databasehandler.time_window)
         self.viewer.layers.pop('hierarchy')
         self.viewer.add_labels(self.hier_widget.ultrack_array, name='hierarchy', scale=self.databasehandler.scale)
@@ -473,7 +481,7 @@ class TrackEditClass():
             if selected == 1:
                 add_flag = False
                 show_warning("Cell is already in solution")
-                self.EditingMenu.cell_input.setText('')
+                self.EditingMenu.add_cell_input.setText('')
 
         if add_flag:
             #move to the respective chunk of the added cell
@@ -489,8 +497,55 @@ class TrackEditClass():
             }
 
             self.NavigationWidget.tracks_viewer.tracks_controller.add_nodes(attributes,pixels)
-            #ToDo: this is probably wrong, because graph.node attributes are set after _add_nodes is used, to graph nodes do not have time attribute (used to check if track_id already exists in TC._add_nodes)
-            self.EditingMenu.cell_input.setText('')
+            #ToDo: this is probably wrong, because graph.node attributes are set after _add_nodes is used, so graph nodes do not have (correct) time attribute (used to check if track_id already exists in TC._add_nodes)
+            self.EditingMenu.add_cell_input.setText('')
+
+    def duplicate_cell_from_database(self, node_id: int, time: int):
+        #ToDo: merge with previous function
+        add_flag = False
+        #check if node_id exists in database
+        try:
+            _ = get_node_values(self.databasehandler.config_adjusted.data_config, node_id, NodeDB.z)
+            add_flag = True
+        except:
+            show_warning("Cell does not exist in database")
+
+        #check if node_is is already in solution (selected==1), but only check if node_id exists in database
+        if add_flag:
+            selected = get_node_values(self.databasehandler.config_adjusted.data_config, node_id, NodeDB.selected)
+            time_original = get_node_values(self.databasehandler.config_adjusted.data_config, node_id, NodeDB.t)
+            if (selected == 1 & time_original == time):
+                add_flag = False
+                show_warning(f"Cell is already in solution at time {time}")
+                self.EditingMenu.duplicate_cell_id_input.setText('')
+                self.EditingMenu.duplicate_time_input.setText('')
+
+        if add_flag:
+            #move to the respective chunk of the added cell
+            self.update_chunk_from_frame(time)
+
+            print('trying to add node to db:', node_id)
+            pickle = get_node_values(self.databasehandler.config_adjusted.data_config, [int(node_id)], NodeDB.pickle)
+            new_id = add_new_node(self.databasehandler.config_adjusted,
+                                  time = time,
+                                  mask = pickle.mask,
+                                  bbox = pickle.bbox,
+                                  include_overlaps=False,
+                                  )
+            print('added node to db:',new_id,'at time',time)
+
+            max_track_id = max(self.NavigationWidget.tracks_viewer.tracks_controller.tracks.track_id_to_node.keys())
+            time_in_chunk = time - self.databasehandler.time_window[0]
+            pixels = [(np.array([0,0,0]))]
+            attributes = {
+                    NodeAttr.TIME.value: [time_in_chunk],
+                    NodeAttr.TRACK_ID.value: [max_track_id+1],
+                    "node_id": [new_id],
+            }
+
+            self.NavigationWidget.tracks_viewer.tracks_controller.add_nodes(attributes,pixels)
+            self.EditingMenu.duplicate_cell_id_input.setText('')
+            self.EditingMenu.duplicate_time_input.setText('')
 
 def wrap_default_widgets_in_tabs(viewer):
     # -- 1) Identify the default dock widgets by going up the parent chain.
