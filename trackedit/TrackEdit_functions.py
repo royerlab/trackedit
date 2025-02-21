@@ -321,9 +321,9 @@ class TrackEditClass():
 
     def update_red_flag_counter_and_info(self):
         """Update the red flag label to show the current red flag index and total count."""
+        print(f"updating red flag counter and info for {self.current_red_flag_index}")
         total = len(self.databasehandler.red_flags)
         if total > 0:
-            # Display indices as 1-indexed (e.g., "3/80")
             self.NavigationWidget.red_flag_counter.setText(f"{self.current_red_flag_index + 1}/{total}")
             df_rf = self.databasehandler.red_flags.iloc[[self.current_red_flag_index]]
             text = f"{df_rf.iloc[0].id} {df_rf.iloc[0].event} at t={df_rf.iloc[0].t}"
@@ -339,6 +339,7 @@ class TrackEditClass():
             return
         # Increment index (wrap around if needed)
         self.current_red_flag_index = (self.current_red_flag_index + 1) % total
+        print(f"going to next red flag: {self.current_red_flag_index} of total: {total}")
         self.goto_red_flag()
 
     def go_to_prev_red_flag(self):
@@ -348,6 +349,7 @@ class TrackEditClass():
             return
         # Decrement index (wrap around if needed)
         self.current_red_flag_index = (self.current_red_flag_index - 1) % total
+        print(f"going to prev red flag: {self.current_red_flag_index} of total: {total}")   
         self.goto_red_flag()
 
     def goto_red_flag(self):
@@ -384,16 +386,19 @@ class TrackEditClass():
             self.NavigationWidget.red_flag_counter.setStyleSheet("color: gray;")
             return
 
-        selected_node = str(selected_nodes[0])
+        selected_node = selected_nodes[0]
+        red_flag_ids = self.databasehandler.red_flags['id'].values
         
-        # Check if selected node exists in red flags
-        red_flag_mask = self.databasehandler.red_flags['id'].astype(str) == selected_node
-        if red_flag_mask.any():
+        # Find index where selected_node matches a red flag id
+        print(f"selected node: {selected_node}")
+        print(f"red flags: {self.databasehandler.red_flags['id']}")
+        try:
+            index = np.where(red_flag_ids == selected_node)[0][0]
             # Found the node in red flags - update counter and remove grey
-            self.current_red_flag_index = red_flag_mask.idxmax()
-            self.NavigationWidget.red_flag_counter.setText(f"{self.current_red_flag_index + 1}/{len(self.databasehandler.red_flags)}")
+            self.current_red_flag_index = index
+            self.NavigationWidget.red_flag_counter.setText(f"{index + 1}/{len(self.databasehandler.red_flags)}")
             self.NavigationWidget.red_flag_counter.setStyleSheet("")
-        else:
+        except IndexError:
             # Node not found in red flags - grey out counter
             self.NavigationWidget.red_flag_counter.setStyleSheet("color: gray;")
 
@@ -457,16 +462,17 @@ class TrackEditClass():
             self.NavigationWidget.division_counter.setStyleSheet("color: gray;")
             return
 
-        selected_node = str(selected_nodes[0])
+        selected_node = selected_nodes[0]
+        division_ids = self.databasehandler.divisions['id'].values
         
-        # Check if selected node exists in divisions
-        division_mask = self.databasehandler.divisions['id'].astype(str) == selected_node
-        if division_mask.any():
+        # Find index where selected_node matches a division id
+        try:
+            index = np.where(division_ids == selected_node)[0][0]
             # Found the node in divisions - update counter and remove grey
-            self.current_division_index = division_mask.idxmax()
-            self.NavigationWidget.division_counter.setText(f"{self.current_division_index + 1}/{len(self.databasehandler.divisions)}")
+            self.current_division_index = index
+            self.NavigationWidget.division_counter.setText(f"{index + 1}/{len(self.databasehandler.divisions)}")
             self.NavigationWidget.division_counter.setStyleSheet("")
-        else:
+        except IndexError:
             # Node not found in divisions - grey out counter
             self.NavigationWidget.division_counter.setStyleSheet("color: gray;")
 
