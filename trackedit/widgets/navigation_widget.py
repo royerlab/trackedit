@@ -1,19 +1,15 @@
 import napari
 import numpy as np
-from napari.utils.notifications import show_warning
 from motile_tracker.data_views import TracksViewer   
 from trackedit.DatabaseHandler import DatabaseHandler
-from trackedit.widgets.ClickableLabel import ClickableLabel
-from qtpy.QtCore import Signal, Qt
+from qtpy.QtCore import Signal
 from qtpy.QtWidgets import (
     QWidget, 
     QVBoxLayout, 
-    QPushButton, 
-    QGroupBox, 
-    QHBoxLayout, 
-    QLabel,   
-    QLineEdit
 )
+from .navigation.time_box import TimeBox
+from .navigation.red_flag_box import RedFlagBox
+from .navigation.division_box import DivisionBox
 
 class NavigationWidget(QWidget):
 
@@ -29,204 +25,36 @@ class NavigationWidget(QWidget):
         self.current_red_flag_index = 0
         self.current_division_index = 0
 
-        # ===============================
-        # TIME INTERACTION UI ELEMENTS
-        # ===============================
+        # Create boxes
+        self.time_box = TimeBox(self.viewer, self.databasehandler)
+        self.red_flag_box = RedFlagBox(self.tracks_viewer, self.databasehandler)
+        self.division_box = DivisionBox(self.tracks_viewer, self.databasehandler)
 
-        time_box = QGroupBox()
-        time_box_layout = QVBoxLayout()
+        # Forward signals
+        self.time_box.change_chunk.connect(self.change_chunk)
+        self.time_box.goto_frame.connect(self.goto_frame)
 
-        #Define the buttons
-        self.time_prev_btn = QPushButton("prev (<)")
-        self.time_prev_btn.clicked.connect(self.press_prev)
-        self.time_next_btn = QPushButton("next (>)")
-        self.time_next_btn.clicked.connect(self.press_next)
-        
-        button_layout = QHBoxLayout()
-        button_layout.addWidget(self.time_prev_btn)
-        button_layout.addWidget(self.time_next_btn)
-
-        #Define the time window label
-        self.chunk_label = QLabel("temp. label")
-
-        # Define an input field that shows the current time frame
-        # and allows the user to type a new frame number.
-        self.time_input = QLineEdit()
-        self.time_input.setPlaceholderText("Enter time")
-        self.time_input.returnPressed.connect(self.on_time_input_entered)
-
-        # Create a horizontal layout for the label and input field.
-        time_input_layout = QHBoxLayout()
-        time_input_label = QLabel("time = ")  # This is the text before the input field.
-        time_input_layout.addWidget(time_input_label)
-        time_input_layout.addWidget(self.time_input)
-
-        time_box_layout.addWidget(QLabel(r"""<h3>Time navigation</h3>""" ))
-        time_box_layout.addLayout(time_input_layout)
-        time_box_layout.addLayout(button_layout)
-        time_box_layout.addWidget(self.chunk_label, alignment=Qt.AlignCenter)
-        time_box.setLayout(time_box_layout)
-        time_box.setMaximumHeight(155)
-
-        # ===============================
-        # RED FLAG SECTION UI ELEMENTS
-        # ===============================
-
-        #The widget that contains the red flag controls
-        redflag_box = QGroupBox()
-        redflag_box_layout = QVBoxLayout()
-
-        # Label showing which red flag is currently active (e.g., "3/80")
-        self.red_flag_counter = ClickableLabel("0/0")  # Will be updated later with actual counts
-        self.red_flag_counter.setFixedWidth(50)  
-
-        # Button to go to the previous red flag ("<")
-        self.red_flag_prev_btn = QPushButton("<")
-        self.red_flag_prev_btn.setFixedWidth(30)  
-
-        # Button to go to the next red flag (">")
-        self.red_flag_next_btn = QPushButton(">")
-        self.red_flag_next_btn.setFixedWidth(30)  
-
-        # Button to ignore the current red flag ("ignore")
-        self.red_flag_ignore_btn = QPushButton("ignore")
-        self.red_flag_info = QLabel("info")
-
-        # Create a horizontal layout to contain the red flag controls
-        red_flag_layout = QVBoxLayout()
-        red_flag_layout_row1 = QHBoxLayout()
-
-        red_flag_layout_row1.addWidget(self.red_flag_prev_btn)
-        red_flag_layout_row1.addWidget(self.red_flag_counter)
-        red_flag_layout_row1.addWidget(self.red_flag_next_btn)
-        red_flag_layout_row1.addWidget(self.red_flag_ignore_btn)
-
-        red_flag_layout.addLayout(red_flag_layout_row1)
-        red_flag_layout.addWidget(self.red_flag_info)
-
-        redflag_box_layout.addWidget(QLabel(r"""<h3>Red Flags</h3>""" ))
-        redflag_box_layout.addLayout(red_flag_layout)
-        redflag_box.setLayout(redflag_box_layout)
-        redflag_box.setMaximumHeight(125)
-
-        #Connect red flag UI buttons
-        self.current_red_flag_index = 0
-        self.red_flag_prev_btn.clicked.connect(self.go_to_prev_red_flag)
-        self.red_flag_next_btn.clicked.connect(self.go_to_next_red_flag)
-        self.red_flag_ignore_btn.clicked.connect(self.ignore_red_flag)
-        self.red_flag_counter.clicked.connect(self.goto_red_flag)
-        self.tracks_viewer.tracks_updated.connect(self.update_red_flags)
-
-
-        # ===============================
-        # Division clicker
-        # ===============================
-
-        #The widget that contains the division controls
-        division_box = QGroupBox()
-        division_box_layout = QVBoxLayout()
-
-        # Label showing which division is currently active (e.g., "3/80")
-        self.division_counter = ClickableLabel("0/0")  # Will be updated later with actual counts
-        self.division_counter.setFixedWidth(50)  
-
-        # Button to go to the previous division ("<")
-        self.division_prev_btn = QPushButton("<")
-        self.division_prev_btn.setFixedWidth(30)  
-
-        # Button to go to the next division (">")
-        self.division_next_btn = QPushButton(">")
-        self.division_next_btn.setFixedWidth(30)  
-
-        # Create a horizontal layout to contain the division controls
-        division_layout = QHBoxLayout()
-        division_layout.addWidget(self.division_prev_btn)
-        division_layout.addWidget(self.division_counter)
-        division_layout.addWidget(self.division_next_btn)
-
-        division_box_layout.addWidget(QLabel(r"""<h3>Divisions</h3>""" ), alignment=Qt.AlignLeft)
-        division_box_layout.addLayout(division_layout)
-        division_box_layout.setAlignment(division_layout, Qt.AlignLeft)
-        division_box.setLayout(division_box_layout)
-        division_box.setMaximumHeight(100)
-
-        #Connect division UI buttons
-        self.division_prev_btn.clicked.connect(self.go_to_prev_division)
-        self.division_next_btn.clicked.connect(self.go_to_next_division)
-        self.division_counter.clicked.connect(self.goto_division)
-        self.tracks_viewer.tracks_updated.connect(self.update_divisions)
-
-        # ===============================
-
-        #Define entire widget
+        # Layout
         main_layout = QVBoxLayout()
-        main_layout.addWidget(time_box)
-        main_layout.addWidget(redflag_box)
-        main_layout.addWidget(division_box)
+        main_layout.addWidget(self.time_box)
+        main_layout.addWidget(self.red_flag_box)
+        main_layout.addWidget(self.division_box)
         main_layout.setSpacing(0)
         main_layout.setContentsMargins(10, 2, 10, 2)
         self.setLayout(main_layout)
 
-        # Connect division UI buttons
-        self.tracks_viewer.selected_nodes.list_updated.connect(self._check_selected_node_matches_division)
-        self.tracks_viewer.selected_nodes.list_updated.connect(self._check_selected_node_matches_red_flag)
-        
-        #Connect to napari's time slider (dims) event)
-        self.viewer.dims.events.current_step.connect(self.on_dims_changed)
-
-    #===============================================
-    # Navigation
-    #===============================================
-
+    # Delegate methods to appropriate boxes
     def set_time_slider(self, chunk_frame):
-        self.viewer.dims.current_step = (chunk_frame, *self.viewer.dims.current_step[1:])
+        self.time_box.set_time_slider(chunk_frame)
 
-    def on_dims_changed(self, _) -> None:
-        """Called when the time slider is moved by the user, to update the "world time" label."""
-        self.update_time_label()
+    def update_time_label(self):
+        self.time_box.update_time_label()
 
-    def update_time_label(self) -> None:
-        """Update the time label to show the current time in the world."""
-        chunk = self.databasehandler.time_chunk
-        cur_frame = self.viewer.dims.current_step[0]
-        cur_world_time = cur_frame + self.databasehandler.time_chunk_starts[chunk]
-        self.time_input.setText(str(cur_world_time))
-
-    def check_navigation_button_validity(self) -> None:
-        """Check if the navigation chunk buttons should be enabled or disabled based on the current chunk. Enable/disable buttons if on first/last chunk."""
-        chunk = self.databasehandler.time_chunk
-        if chunk == 0:
-            self.time_prev_btn.setEnabled(False)
-        else:
-            self.time_prev_btn.setEnabled(True)
-
-        if chunk == self.databasehandler.num_time_chunks - 1:
-            self.time_next_btn.setEnabled(False)
-        else:
-            self.time_next_btn.setEnabled(True)
-
-    def press_prev(self):
-        self.change_chunk.emit('prev')
-
-    def press_next(self):
-        self.change_chunk.emit('next')
-
-    def on_time_input_entered(self):
-        """Called when the user presses Enter in the time_input field."""
-        try:
-            frame = int(self.time_input.text())
-            self.goto_frame.emit(frame)
-        except ValueError:
-            # If the user entered a non-integer value, show a warning and do nothing.
-            cur_frame = self.tracks_viewer.tracks.segmentation.current_time
-            self.goto_frame.emit(cur_frame)
-            show_warning("Time invalid, nothing changed.")
-        pass
+    def check_navigation_button_validity(self):
+        self.time_box.check_navigation_button_validity()
 
     def update_chunk_label(self):
-        time_window = self.tracks_viewer.tracks.segmentation.time_window
-        label = f" time window [{time_window[0]} : {time_window[1]-1}]"
-        self.chunk_label.setText(label)
+        self.time_box.update_chunk_label()
 
     #===============================================
     # Red flags
@@ -241,13 +69,13 @@ class NavigationWidget(QWidget):
         print(f"updating red flag counter and info for {self.current_red_flag_index}")
         total = len(self.databasehandler.red_flags)
         if total > 0:
-            self.red_flag_counter.setText(f"{self.current_red_flag_index + 1}/{total}")
+            self.red_flag_box.red_flag_counter.setText(f"{self.current_red_flag_index + 1}/{total}")
             df_rf = self.databasehandler.red_flags.iloc[[self.current_red_flag_index]]
             text = f"{df_rf.iloc[0].id} {df_rf.iloc[0].event} at t={df_rf.iloc[0].t}"
-            self.red_flag_info.setText(text)
+            self.red_flag_box.red_flag_info.setText(text)
         else:
-            self.red_flag_counter.setText("0/0")
-            self.red_flag_info.setText("-")
+            self.red_flag_box.red_flag_counter.setText("0/0")
+            self.red_flag_box.red_flag_info.setText("-")
 
     def go_to_next_red_flag(self):
         """Navigate to the next red flag in the list and jump to that timepoint."""
@@ -295,7 +123,7 @@ class NavigationWidget(QWidget):
 
         # If no nodes selected or multiple nodes selected, grey out counter
         if len(selected_nodes) != 1:
-            self.red_flag_counter.setStyleSheet("color: gray;")
+            self.red_flag_box.red_flag_counter.setStyleSheet("color: gray;")
             return
 
         selected_node = selected_nodes[0]
@@ -305,11 +133,11 @@ class NavigationWidget(QWidget):
             index = np.where(red_flag_ids == selected_node)[0][0]
             # Found the node in red flags - update counter and remove grey
             self.current_red_flag_index = index
-            self.red_flag_counter.setText(f"{index + 1}/{len(self.databasehandler.red_flags)}")
-            self.red_flag_counter.setStyleSheet("")
+            self.red_flag_box.red_flag_counter.setText(f"{index + 1}/{len(self.databasehandler.red_flags)}")
+            self.red_flag_box.red_flag_counter.setStyleSheet("")
         except IndexError:
             # Node not found in red flags - grey out counter
-            self.red_flag_counter.setStyleSheet("color: gray;")
+            self.red_flag_box.red_flag_counter.setStyleSheet("color: gray;")
 
     #===============================================
     # Divisions
@@ -324,9 +152,9 @@ class NavigationWidget(QWidget):
         """Update the division counter to show the current division index and total count."""
         total = len(self.databasehandler.divisions)
         if total > 0:
-            self.division_counter.setText(f"{self.current_division_index + 1}/{total}")
+            self.division_box.division_counter.setText(f"{self.current_division_index + 1}/{total}")
         else:
-            self.division_counter.setText("0/0")
+            self.division_box.division_counter.setText("0/0")
 
     def go_to_next_division(self):
         """Navigate to the next division in the list and jump to that timepoint."""
@@ -362,7 +190,7 @@ class NavigationWidget(QWidget):
         selected_nodes = self.tracks_viewer.selected_nodes._list
 
         if len(selected_nodes) != 1:
-            self.division_counter.setStyleSheet("color: gray;")
+            self.division_box.division_counter.setStyleSheet("color: gray;")
             return
 
         selected_node = selected_nodes[0]
@@ -371,7 +199,7 @@ class NavigationWidget(QWidget):
         try:
             index = np.where(division_ids == selected_node)[0][0]
             self.current_division_index = index
-            self.division_counter.setText(f"{index + 1}/{len(self.databasehandler.divisions)}")
-            self.division_counter.setStyleSheet("")
+            self.division_box.division_counter.setText(f"{index + 1}/{len(self.databasehandler.divisions)}")
+            self.division_box.division_counter.setStyleSheet("")
         except IndexError:
-            self.division_counter.setStyleSheet("color: gray;")
+            self.division_box.division_counter.setStyleSheet("color: gray;")
