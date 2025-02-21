@@ -3,6 +3,7 @@ from pathlib import Path
 from trackedit.motile_overwrites import *
 from trackedit.TrackEdit_functions import *
 from trackedit.DatabaseHandler import DatabaseHandler
+from trackedit.utils.utils import wrap_default_widgets_in_tabs
 from motile_tracker.data_model.actions import AddEdges, DeleteNodes, DeleteEdges, AddNodes
 
 import warnings
