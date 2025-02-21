@@ -9,7 +9,7 @@ class DivisionBox(NavigationBox):
     update_chunk_from_frame_signal = Signal(int)
 
     def __init__(self, tracks_viewer, databasehandler):
-        super().__init__("Divisions", max_height=100)
+        super().__init__("Divisions", max_height=80)
         self.tracks_viewer = tracks_viewer
         self.databasehandler = databasehandler
         self.current_division_index = 0

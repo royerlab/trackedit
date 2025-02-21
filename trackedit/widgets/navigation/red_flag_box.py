@@ -9,7 +9,7 @@ class RedFlagBox(NavigationBox):
     update_chunk_from_frame_signal = Signal(int)
 
     def __init__(self, tracks_viewer, databasehandler):
-        super().__init__("Red Flags", max_height=125)
+        super().__init__("Red Flags", max_height=120)
         self.tracks_viewer = tracks_viewer
         self.databasehandler = databasehandler
         self.current_red_flag_index = 0

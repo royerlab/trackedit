@@ -8,7 +8,7 @@ class TimeBox(NavigationBox):
     goto_frame = Signal(int)
 
     def __init__(self, viewer, databasehandler):
-        super().__init__("Time navigation", max_height=155)
+        super().__init__("Time navigation", max_height=120)
         self.viewer = viewer
         self.databasehandler = databasehandler
 
