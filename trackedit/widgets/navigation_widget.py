@@ -151,7 +151,6 @@ class NavigationWidget(QWidget):
         division_box.setMaximumHeight(100)
 
         #Connect division UI buttons
-        self.current_division_index = 0
         self.division_prev_btn.clicked.connect(self.go_to_prev_division)
         self.division_next_btn.clicked.connect(self.go_to_next_division)
         self.division_counter.clicked.connect(self.goto_division)
@@ -169,15 +168,12 @@ class NavigationWidget(QWidget):
         self.setLayout(main_layout)
 
         # Connect division UI buttons
-        self.division_prev_btn.clicked.connect(self.go_to_prev_division)
-        self.division_next_btn.clicked.connect(self.go_to_next_division)
-        self.division_counter.clicked.connect(self.goto_division)
-        self.tracks_viewer.tracks_updated.connect(self.update_divisions)
         self.tracks_viewer.selected_nodes.list_updated.connect(self._check_selected_node_matches_division)
         self.tracks_viewer.selected_nodes.list_updated.connect(self._check_selected_node_matches_red_flag)
         
         #Connect to napari's time slider (dims) event)
         self.viewer.dims.events.current_step.connect(self.on_dims_changed)
+
     #===============================================
     # Navigation
     #===============================================
