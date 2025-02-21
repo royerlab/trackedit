@@ -46,7 +46,7 @@ class NavigationWidget(QWidget):
         # TIME INTERACTION UI ELEMENTS
         # ===============================
 
-        time_box = QGroupBox("time")
+        time_box = QGroupBox()
         time_box_layout = QVBoxLayout()
 
         #Define the buttons
@@ -74,18 +74,18 @@ class NavigationWidget(QWidget):
         time_input_layout.addWidget(time_input_label)
         time_input_layout.addWidget(self.time_input)
 
-        time_box_layout.addWidget(QLabel(r"""<h2>Time navigation</h2>""" ))
+        time_box_layout.addWidget(QLabel(r"""<h3>Time navigation</h3>""" ))
         time_box_layout.addLayout(time_input_layout)
         time_box_layout.addLayout(button_layout)
         time_box_layout.addWidget(self.chunk_label, alignment=Qt.AlignCenter)
         time_box.setLayout(time_box_layout)
-
+        time_box.setMaximumHeight(155)
 
         # ===============================
         # RED FLAG SECTION UI ELEMENTS
         # ===============================
 
-        redflag_box = QGroupBox("red flags")
+        redflag_box = QGroupBox()
         redflag_box_layout = QVBoxLayout()
 
         # Label showing which red flag is currently active (e.g., "3/80")
@@ -116,15 +116,16 @@ class NavigationWidget(QWidget):
         red_flag_layout.addLayout(red_flag_layout_row1)
         red_flag_layout.addWidget(self.red_flag_info)
 
-        redflag_box_layout.addWidget(QLabel(r"""<h2>Red Flags</h2>""" ))
+        redflag_box_layout.addWidget(QLabel(r"""<h3>Red Flags</h3>""" ))
         redflag_box_layout.addLayout(red_flag_layout)
         redflag_box.setLayout(redflag_box_layout)
+        redflag_box.setMaximumHeight(125)
 
         # ===============================
         # Division clicker
         # ===============================
 
-        division_box = QGroupBox("divisions")
+        division_box = QGroupBox()
         division_box_layout = QVBoxLayout()
 
         # Label showing which division is currently active (e.g., "3/80")
@@ -145,10 +146,11 @@ class NavigationWidget(QWidget):
         division_layout.addWidget(self.division_counter)
         division_layout.addWidget(self.division_next_btn)
 
-        division_box_layout.addWidget(QLabel(r"""<h2>Divisions</h2>""" ), alignment=Qt.AlignLeft)
+        division_box_layout.addWidget(QLabel(r"""<h3>Divisions</h3>""" ), alignment=Qt.AlignLeft)
         division_box_layout.addLayout(division_layout)
         division_box_layout.setAlignment(division_layout, Qt.AlignLeft)
         division_box.setLayout(division_box_layout)
+        division_box.setMaximumHeight(100)
         # ===============================
 
         #Define entire widget
@@ -156,6 +158,8 @@ class NavigationWidget(QWidget):
         main_layout.addWidget(time_box)
         main_layout.addWidget(redflag_box)
         main_layout.addWidget(division_box)
+        main_layout.setSpacing(0)
+        main_layout.setContentsMargins(10, 2, 10, 2)
         self.setLayout(main_layout)
 
     def press_prev(self):
@@ -190,7 +194,7 @@ class CustomEditingMenu(EditingMenu):
         super().__init__(viewer)  # Call the original init method
 
         main_layout = self.layout()  # This retrieves the QVBoxLayout from EditingMenu
-        main_layout.insertWidget(0, QLabel(r"""<h2>Edit tracks</h2>"""))
+        main_layout.insertWidget(0, QLabel(r"""<h3>Edit tracks</h3>"""))
 
         #add cell
         self.add_cell_btn = QPushButton("Add cell")        
