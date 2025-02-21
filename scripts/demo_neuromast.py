@@ -3,14 +3,15 @@ from pathlib import Path
 from trackedit.motile_overwrites import *
 from trackedit.TrackEdit_functions import *
 from trackedit.DatabaseHandler import DatabaseHandler
+from trackedit.utils.utils import wrap_default_widgets_in_tabs
 from motile_tracker.data_model.actions import AddEdges, DeleteNodes, DeleteEdges, AddNodes
 
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning, message=".*qt_viewer.*")
 
 #**********INPUTS*********
-working_directory = Path('/home/teun.huijben/Documents/data/Akila/20241003/neuromast4_t851/adjusted/')
-# working_directory = Path('/Users/teun.huijben/Documents/data/Akila/20241003_neuromast4/adjusted/')
+# working_directory = Path('/home/teun.huijben/Documents/data/Akila/20241003/neuromast4_t851/adjusted/')
+working_directory = Path('/Users/teun.huijben/Documents/data/Akila/20241003_neuromast4/adjusted/')
 db_filename_old = 'data.db'
 data_shape_full = [600, 73, 1024, 1024]      #T,(Z),Y,X       (851,73,1024,1024)
 scale = (2.31, 1, 1)
