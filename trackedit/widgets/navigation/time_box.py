@@ -22,22 +22,20 @@ class TimeBox(NavigationBox):
         button_layout.addWidget(self.time_prev_btn)
         button_layout.addWidget(self.time_next_btn)
 
-        # Define the time window label
-        self.chunk_label = QLabel("temp. label")
-
         # Define time input field
         self.time_input = QLineEdit()
         self.time_input.setPlaceholderText("Enter time")
         self.time_input.returnPressed.connect(self.on_time_input_entered)
 
+        self.chunk_label = QLabel("temp. label")
+
         time_input_layout = QHBoxLayout()
-        time_input_label = QLabel("time = ")
-        time_input_layout.addWidget(time_input_label)
+        time_input_layout.addWidget(QLabel("time = "))
         time_input_layout.addWidget(self.time_input)
+        time_input_layout.addWidget(self.chunk_label)
 
         self.layout.addLayout(time_input_layout)
         self.layout.addLayout(button_layout)
-        self.layout.addWidget(self.chunk_label, alignment=Qt.AlignCenter)
 
         # Connect to napari's time slider
         self.viewer.dims.events.current_step.connect(self.on_dims_changed)
@@ -76,5 +74,5 @@ class TimeBox(NavigationBox):
 
     def update_chunk_label(self):
         time_window = self.databasehandler.time_window
-        label = f" time window [{time_window[0]} : {time_window[1]-1}]"
+        label = f"window = [{time_window[0]} : {time_window[1]-1}]"
         self.chunk_label.setText(label) 
