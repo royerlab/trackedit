@@ -1,9 +1,13 @@
 import numpy as np
+from qtpy.QtCore import Signal
 from qtpy.QtWidgets import QPushButton, QHBoxLayout, QLabel, QVBoxLayout
 from trackedit.widgets.ClickableLabel import ClickableLabel
 from .base_box import NavigationBox
 
 class RedFlagBox(NavigationBox):
+
+    update_chunk_from_frame_signal = Signal(int)
+
     def __init__(self, tracks_viewer, databasehandler):
         super().__init__("Red Flags", max_height=125)
         self.tracks_viewer = tracks_viewer
@@ -50,7 +54,6 @@ class RedFlagBox(NavigationBox):
 
     def update_red_flag_counter_and_info(self):
         """Update the red flag label to show the current red flag index and total count."""
-        print(f"updating red flag counter and info for {self.current_red_flag_index}")
         total = len(self.databasehandler.red_flags)
         if total > 0:
             self.red_flag_counter.setText(f"{self.current_red_flag_index + 1}/{total}")
@@ -67,7 +70,6 @@ class RedFlagBox(NavigationBox):
         if total == 0:
             return
         self.current_red_flag_index = (self.current_red_flag_index + 1) % total
-        print(f"going to next red flag: {self.current_red_flag_index} of total: {total}")
         self.goto_red_flag()
 
     def go_to_prev_red_flag(self):
@@ -76,13 +78,12 @@ class RedFlagBox(NavigationBox):
         if total == 0:
             return
         self.current_red_flag_index = (self.current_red_flag_index - 1) % total
-        print(f"going to prev red flag: {self.current_red_flag_index} of total: {total}")   
         self.goto_red_flag()
 
     def goto_red_flag(self):
         """Jump to the time of the current red flag."""
         red_flag_time = int(self.databasehandler.red_flags.iloc[self.current_red_flag_index]["t"])
-        self.tracks_viewer.goto_frame.emit(red_flag_time)
+        self.update_chunk_from_frame_signal.emit(red_flag_time)
 
         # Update the selected nodes in the TreeWidget
         label = self.databasehandler.red_flags.iloc[self.current_red_flag_index]["id"]
@@ -104,10 +105,10 @@ class RedFlagBox(NavigationBox):
     def _check_selected_node_matches_red_flag(self):
         """Check if the selected node matches the current red flag label."""
         selected_nodes = self.tracks_viewer.selected_nodes._list
-
         # If no nodes selected or multiple nodes selected, grey out counter
         if len(selected_nodes) != 1:
             self.red_flag_counter.setStyleSheet("color: gray;")
+            self.red_flag_ignore_btn.setEnabled(False)
             return
 
         selected_node = selected_nodes[0]
@@ -119,6 +120,8 @@ class RedFlagBox(NavigationBox):
             self.current_red_flag_index = index
             self.red_flag_counter.setText(f"{index + 1}/{len(self.databasehandler.red_flags)}")
             self.red_flag_counter.setStyleSheet("")
+            self.red_flag_ignore_btn.setEnabled(True)
         except IndexError:
             # Node not found in red flags - grey out counter
             self.red_flag_counter.setStyleSheet("color: gray;") 
+            self.red_flag_ignore_btn.setEnabled(False)

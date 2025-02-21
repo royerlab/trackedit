@@ -47,12 +47,15 @@ class TrackEditClass():
         #Connect to signals
         self.NavigationWidget.change_chunk.connect(self.update_chunk_from_button)
         self.NavigationWidget.goto_frame.connect(self.update_chunk_from_frame)
+        self.NavigationWidget.division_box.update_chunk_from_frame_signal.connect(self.update_chunk_from_frame)
+        self.NavigationWidget.red_flag_box.update_chunk_from_frame_signal.connect(self.update_chunk_from_frame)
         self.EditingMenu.add_cell_button_pressed.connect(self.add_cell_from_database)
         self.EditingMenu.duplicate_cell_button_pressed.connect(self.duplicate_cell_from_database)
 
         self.add_tracks()
-        self.NavigationWidget.update_chunk_label()
-        self.NavigationWidget.update_red_flag_counter_and_info()
+        self.NavigationWidget.time_box.update_chunk_label()
+        self.NavigationWidget.red_flag_box.update_red_flag_counter_and_info()
+        self.NavigationWidget.division_box.update_division_counter()
 
     #===============================================
     # Add tracks
@@ -79,7 +82,7 @@ class TrackEditClass():
         self.tracksviewer.tracks_list.add_tracks(tracks,name=self.databasehandler.name)
         self.viewer.layers.selection.active = self.viewer.layers[self.databasehandler.name+'_seg']   #select segmentation layer
 
-        self.NavigationWidget.check_navigation_button_validity()
+        self.NavigationWidget.time_box.check_navigation_button_validity()
         self.link_layers()
         self.viewer.layers[self.databasehandler.name+'_seg'].iso_gradient_mode = "smooth"
         if "hierarchy" in self.viewer.layers:
@@ -119,8 +122,8 @@ class TrackEditClass():
             else:
                 desired_chunk_time = -self.databasehandler.time_chunk_length + self.databasehandler.time_chunk_overlap + current_slider_position + 1
 
-            self.NavigationWidget.set_time_slider(desired_chunk_time)       
-            self.NavigationWidget.update_chunk_label()
+            self.NavigationWidget.time_box.set_time_slider(desired_chunk_time)       
+            self.NavigationWidget.time_box.update_chunk_label()
 
     def update_chunk_from_frame(self, frame: int):
         """Handle navigation by a user-entered time frame.
@@ -149,9 +152,9 @@ class TrackEditClass():
             self.add_tracks()        
 
         chunk_frame = frame - self.databasehandler.time_chunk_starts[self.databasehandler.time_chunk]
-        self.NavigationWidget.set_time_slider(chunk_frame)
-        self.NavigationWidget.update_chunk_label()
-        self.NavigationWidget.update_time_label()
+        self.NavigationWidget.time_box.set_time_slider(chunk_frame)
+        self.NavigationWidget.time_box.update_chunk_label()
+        self.NavigationWidget.time_box.update_time_label()
 
     #===============================================
     # Linking/layer stuff
@@ -233,8 +236,6 @@ class TrackEditClass():
         if add_flag:
             #move to the respective chunk of the added cell
             self.update_chunk_from_frame(time)
-
-            print('trying to add node to db:', node_id)
             pickle = get_node_values(self.databasehandler.config_adjusted.data_config, [int(node_id)], NodeDB.pickle)
             new_id = add_new_node(self.databasehandler.config_adjusted,
                                   time = time,

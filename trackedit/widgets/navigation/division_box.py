@@ -1,10 +1,13 @@
 import numpy as np
-from qtpy.QtCore import Qt
+from qtpy.QtCore import Qt, Signal
 from qtpy.QtWidgets import QPushButton, QHBoxLayout
 from trackedit.widgets.ClickableLabel import ClickableLabel
 from .base_box import NavigationBox
 
 class DivisionBox(NavigationBox):
+
+    update_chunk_from_frame_signal = Signal(int)
+
     def __init__(self, tracks_viewer, databasehandler):
         super().__init__("Divisions", max_height=100)
         self.tracks_viewer = tracks_viewer
@@ -69,7 +72,7 @@ class DivisionBox(NavigationBox):
     def goto_division(self):
         """Jump to the time of the current division."""
         division_time = int(self.databasehandler.divisions.iloc[self.current_division_index]["t"])
-        self.tracks_viewer.goto_frame.emit(division_time)
+        self.update_chunk_from_frame_signal.emit(division_time)
 
         #update the selected nodes in the TreeWidget
         label = self.databasehandler.divisions.iloc[self.current_division_index]["id"]

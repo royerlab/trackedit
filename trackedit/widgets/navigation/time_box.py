@@ -75,6 +75,6 @@ class TimeBox(NavigationBox):
             show_warning("Time invalid, nothing changed.")
 
     def update_chunk_label(self):
-        time_window = self.viewer.layers['tracks'].data.time_window
+        time_window = self.databasehandler.time_window
         label = f" time window [{time_window[0]} : {time_window[1]-1}]"
         self.chunk_label.setText(label) 
