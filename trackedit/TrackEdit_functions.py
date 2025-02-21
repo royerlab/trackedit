@@ -390,8 +390,6 @@ class TrackEditClass():
         red_flag_ids = self.databasehandler.red_flags['id'].values
         
         # Find index where selected_node matches a red flag id
-        print(f"selected node: {selected_node}")
-        print(f"red flags: {self.databasehandler.red_flags['id']}")
         try:
             index = np.where(red_flag_ids == selected_node)[0][0]
             # Found the node in red flags - update counter and remove grey
