@@ -9,11 +9,10 @@ from motile_toolbox.candidate_graph import NodeAttr
 from ultrack.core.database import NodeDB, get_node_values
 from ultrack.core.interactive import add_new_node
 
-from trackedit.hierarchy_viz_widget import HierarchyVizWidget
-from trackedit.widgets.navigation_widget import NavigationWidget
+from trackedit.widgets.HierarchyWidget import HierarchyVizWidget
+from trackedit.widgets.NavigationWidget import NavigationWidget
 from trackedit.widgets.CustomEditingMenu import CustomEditingMenu
 from trackedit.DatabaseHandler import DatabaseHandler
-
 from qtpy.QtWidgets import (
     QTabWidget,
 )
@@ -38,6 +37,10 @@ class TrackEditClass():
         hier_shape = self.hier_widget.ultrack_array.shape
         tmax = self.databasehandler.data_shape_chunk[0]
         self.hier_widget.ultrack_array.shape = (tmax, *hier_shape[1:])
+        
+        # Store reference to the existing hierarchy layer
+        self.hierarchy_layer = self.hier_widget.labels_layer
+        self.hierarchy_layer.visible = False
 
         tabwidget_bottom = QTabWidget()
         tabwidget_bottom.addTab(self.TreeWidget, "TreeWidget")
@@ -51,6 +54,7 @@ class TrackEditClass():
         self.NavigationWidget.red_flag_box.update_chunk_from_frame_signal.connect(self.update_chunk_from_frame)
         self.EditingMenu.add_cell_button_pressed.connect(self.add_cell_from_database)
         self.EditingMenu.duplicate_cell_button_pressed.connect(self.duplicate_cell_from_database)
+        self.hier_widget.labels_layer.signals.click_on_hierarchy_cell.connect(self.EditingMenu.click_on_hierarchy_cell)
 
         self.add_tracks()
         self.NavigationWidget.time_box.update_chunk_label()
@@ -167,13 +171,10 @@ class TrackEditClass():
         self.viewer.layers.link_layers(layers_to_link)  
 
     def update_pop_add_hierarchy_layer(self):
-        """Update the hierarchy layer with the new chunk and add it to the viewer."""
+        """Update the hierarchy layer with the new chunk."""
         self.hier_widget.ultrack_array.set_time_window(self.databasehandler.time_window)
-        self.viewer.layers.pop('hierarchy')
-        self.viewer.add_labels(self.hier_widget.ultrack_array, name='hierarchy', scale=self.databasehandler.scale)
-        self.viewer.layers['hierarchy'].visible = False
-        self.viewer.layers.move(3,0)
-        self.viewer.layers.selection.active = self.viewer.layers[self.databasehandler.name+'_seg']   #select segmentation layer
+        self.hier_widget.labels_layer.refresh()  # This should trigger proper update while maintaining callbacks
+        self.viewer.layers.selection.active = self.viewer.layers[self.databasehandler.name+'_seg']
 
     #===============================================
     # Add cells
@@ -195,6 +196,8 @@ class TrackEditClass():
                 add_flag = False
                 show_warning("Cell is already in solution")
                 self.EditingMenu.add_cell_input.setText('')
+                self.EditingMenu.duplicate_cell_id_input.setText('')
+                self.EditingMenu.duplicate_time_input.setText('')
 
         if add_flag:
             #move to the respective chunk of the added cell
@@ -212,6 +215,8 @@ class TrackEditClass():
             self.tracksviewer.tracks_controller.add_nodes(attributes,pixels)
             #ToDo: this is probably wrong, because graph.node attributes are set after _add_nodes is used, so graph nodes do not have (correct) time attribute (used to check if track_id already exists in TC._add_nodes)
             self.EditingMenu.add_cell_input.setText('')
+            self.EditingMenu.duplicate_cell_id_input.setText('')
+            self.EditingMenu.duplicate_time_input.setText('')
 
     def duplicate_cell_from_database(self, node_id: int, time: int):
         #ToDo: merge with previous function
@@ -231,6 +236,7 @@ class TrackEditClass():
                 add_flag = False
                 self.EditingMenu.duplicate_cell_id_input.setText('')
                 self.EditingMenu.duplicate_time_input.setText('')
+                self.EditingMenu.add_cell_input.setText('')
                 if selected == True:
                     show_warning(f"Cell is already in solution at this time {time}")
                 if time_original == time:

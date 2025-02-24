@@ -1,19 +1,63 @@
 import logging
-from typing import Sequence
-
 import napari
 import numpy as np
-from magicgui.widgets import Container, FloatSlider, Label
+from typing import Sequence
 from scipy import interpolate
-
+from magicgui.widgets import Container, FloatSlider, Label
 from ultrack.config import MainConfig
-from trackedit.UltrackArray import UltrackArray
-# from ultrack.widgets.ultrackwidget import UltrackWidget
+from trackedit.arrays.UltrackArray import UltrackArray
+from qtpy.QtCore import Signal, QObject
 
 logging.basicConfig()
 logging.getLogger("sqlachemy.engine").setLevel(logging.INFO)
 
 LOG = logging.getLogger(__name__)
+
+
+class HierarchySignals(QObject):
+    """Separate class to handle Qt signals"""
+    click_on_hierarchy_cell = Signal(int)
+
+
+class HierarchyLabels(napari.layers.Labels):
+    """Extended labels layer for hierarchy visualization"""
+
+    @property
+    def _type_string(self) -> str:
+        return "labels"
+
+    def __init__(
+        self,
+        data: np.array,
+        name: str,
+        scale: tuple,
+        **kwargs
+    ):
+        super().__init__(
+            data=data,
+            name=name,
+            scale=scale,
+            **kwargs
+        )
+        
+        # Create signals object
+        self.signals = HierarchySignals()
+
+        # Connect click events to node selection
+        @self.mouse_drag_callbacks.append
+        def click(_, event):
+            if event.type == "mouse_press" and self.mode == "pan_zoom" and self.visible:
+                label = self.get_value(
+                    event.position,
+                    view_direction=event.view_direction,
+                    dims_displayed=event.dims_displayed,
+                    world=True
+                )
+                print('clicked label:', label)
+                if (label is not None) and (label != 0):
+                    self.signals.click_on_hierarchy_cell.emit(int(label))
+                else:
+                    self.signals.click_on_hierarchy_cell.emit(0)
 
 
 class HierarchyVizWidget(Container):
@@ -60,9 +104,15 @@ class HierarchyVizWidget(Container):
         self.append(self._area_threshold_w)
         self.append(self.slider_label)
 
-        # THERE SHOULD BE CHECK HERE IF THERE EXISTS A LAYER WITH THE NAME 'HIERARCHY'
-        self._viewer.add_labels(self.ultrack_array, scale = scale, name="hierarchy")
-        self._viewer.layers["hierarchy"].refresh()
+        # Replace the standard Labels layer with our custom HierarchyLabels
+        self.labels_layer = HierarchyLabels(
+            data=self.ultrack_array,
+            scale=scale,
+            name="hierarchy"
+        )
+        self._viewer.add_layer(self.labels_layer)
+        self.labels_layer.refresh()
+        self.labels_layer.mode = 'pan_zoom'
 
     def _on_config_changed(self) -> None:
         self._ndim = len(self._shape)
@@ -74,7 +124,7 @@ class HierarchyVizWidget(Container):
     def _slider_update(self, value: float) -> None:
         self.ultrack_array.volume = self.mapping(value)
         self.slider_label.label = str(int(self.mapping(value)))
-        self._viewer.layers["hierarchy"].refresh()
+        self.labels_layer.refresh()
 
     def _create_mapping(self):
         """
@@ -92,13 +142,14 @@ class HierarchyVizWidget(Container):
         return mapping
 
     def _get_config(self) -> MainConfig:
-        """
-        Gets config from the Ultrack widget
-        """
-        ultrack_widget = UltrackWidget.find_ultrack_widget(self._viewer)
-        if ultrack_widget is None:
-            raise TypeError(
-                "config not provided and was not found within ultrack widget"
-            )
+        # """
+        # Gets config from the Ultrack widget
+        # """
+        # ultrack_widget = UltrackWidget.find_ultrack_widget(self._viewer)
+        # if ultrack_widget is None:
+        #     raise TypeError(
+        #         "config not provided and was not found within ultrack widget"
+        #     )
 
-        return ultrack_widget._data_forms.get_config()
+        # return ultrack_widget._data_forms.get_config()
+        pass

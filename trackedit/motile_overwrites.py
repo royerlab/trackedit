@@ -5,7 +5,8 @@ from motile_tracker.data_views import TracksViewer
 from motile_tracker.data_views.views.tree_view.tree_widget import TreePlot
 from motile_tracker.data_model.tracks_controller import TracksController
 from motile_tracker.data_model.actions import AddEdges, DeleteEdges, ActionGroup
-from ultrack.core.database import NodeDB, get_node_values, set_node_values
+from ultrack.core.database import NodeDB, get_node_values
+from napari.utils.notifications import show_warning
 
 import numpy as np
 import pyqtgraph as pg
@@ -123,6 +124,22 @@ def my_delete_nodes(self,nodes: Iterable[None]):
     self.tracks.refresh.emit()
 TracksController.delete_nodes = my_delete_nodes
 
+#prevent skip edges (which are allowed by motile)
+_old_is_valid = TracksController.is_valid
+def is_valid_continuous(self,edge):
+    #first check if the edge is continuous over time
+    time0 = self.tracks.get_time(edge[0])
+    time1 = self.tracks.get_time(edge[1])
+    if (time1 - time0) > 1:
+        show_warning("Edge is rejected because it is not continuous over time (no skip edges allowed).")
+        return False, None
+    
+    #then check if the edge is valid in the usual way
+    is_valid, valid_action = _old_is_valid(self,edge)
+
+    return is_valid, valid_action
+TracksController.is_valid = is_valid_continuous
+
 _old_create_pyqtgraph_content = TreePlot._create_pyqtgraph_content
 def patched_create_pyqtgraph_content(self, track_df, feature):
     """Patched version of _create_pyqtgraph_content to modify outline_pen."""
@@ -133,6 +150,4 @@ def patched_create_pyqtgraph_content(self, track_df, feature):
     self.outline_pen = np.array(
         [pg.mkPen(QColor(150, 150, 150, 0)) for _ in range(len(self._pos))]
     )
-
-# Monkey-patch the method
 TreePlot._create_pyqtgraph_content = patched_create_pyqtgraph_content

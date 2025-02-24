@@ -13,7 +13,7 @@ from ultrack.tracks.graph import add_track_ids_to_tracks_df
 from ultrack.core.export import tracks_layer_to_networkx, tracks_to_zarr
 from motile_toolbox.candidate_graph import NodeAttr
 
-from trackedit.DatabaseArray import DatabaseArray
+from trackedit.arrays.DatabaseArray import DatabaseArray
 
 class DatabaseHandler():
     def __init__(self, 
@@ -319,22 +319,9 @@ class DatabaseHandler():
 
     def find_all_red_flags(self) -> pd.DataFrame:
         """
-        Identify tracking red flags ('added' or 'removed') from one timepoint to the next,
-        while taking cell divisions into account. A cell's appearance is not flagged if:
-        - It has a parent (parent_id != -1) that is present in the previous timepoint.
-        Similarly, a cell's disappearance is not flagged if:
-        - In the next timepoint, there are at least two cells having this cell's id as their parent_id.
-        
-        Parameters
-        ----------
-        df : pd.DataFrame
-            DataFrame containing at least the following columns:
-            't', 'track_id', 'id', 'parent_id', and 'parent_track_id'.
-        
-        Returns
-        -------
-        pd.DataFrame
-            DataFrame with columns: 'Timepoint', 'track_id', 'event', and 'id'.
+        Identify tracking red flags ('added' or 'removed') from one timepoint to the next.
+        For single-point tracks (tracks that exist at only one timepoint), only the 'added'
+        event is reported to avoid duplicate flags for a single cell.
         """
         df = self.db_to_df(entire_database=True)
 
@@ -358,6 +345,10 @@ class DatabaseHandler():
         events = []
         timepoints = list(time_range)
         
+        # Before the main loop, let's identify single-point tracks
+        track_lengths = df.groupby('track_id').size()
+        single_point_tracks = set(track_lengths[track_lengths == 1].index)
+
         for i, t in enumerate(timepoints):
             current_tracks = track_sets[t]
             # For t=0, use the current set as the "previous" set.
@@ -385,6 +376,9 @@ class DatabaseHandler():
             removed_tracks = current_tracks - next_tracks
             for track in removed_tracks:
                 cell_id = id_mapping.get((t, track))
+                # Skip if this is a single-point track (it will be reported as 'added' only)
+                if track in single_point_tracks:
+                    continue
                 # Check for division: in the next timepoint, if there are 2 or more cells
                 # with parent_id equal to this cell's id, skip flagging.
                 if i < len(timepoints) - 1:
