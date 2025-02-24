@@ -1,18 +1,19 @@
-import numpy as np
-import sqlalchemy as sqla
-
 from pathlib import Path
 from typing import Tuple, Union
-from sqlalchemy.orm import Session
 
+import numpy as np
+import sqlalchemy as sqla
+from sqlalchemy.orm import Session
 from ultrack.core.database import NodeDB
+
 # import traceback
+
 
 class DatabaseArray:
     def __init__(
         self,
         database_path: Path,
-        shape: Tuple[int, ...],     # (t,(z),y,x)
+        shape: Tuple[int, ...],  # (t,(z),y,x)
         time_window: tuple,
         dtype: np.dtype = np.int32,
         current_time: int = np.nan,
@@ -34,10 +35,11 @@ class DatabaseArray:
 
         self.ndim = len(self.shape)
         self.array = np.zeros(self.shape[1:], dtype=self.dtype)
-        
-    def __getitem__(self, 
-                    indexing: Union[Tuple[Union[int, slice]], int, slice],
-        ) -> np.ndarray:
+
+    def __getitem__(
+        self,
+        indexing: Union[Tuple[Union[int, slice]], int, slice],
+    ) -> np.ndarray:
         """Indexing the ultrack-array
 
         Parameters
@@ -52,15 +54,17 @@ class DatabaseArray:
 
         if isinstance(indexing, tuple):
             time, volume_slicing = indexing[0], indexing[1:]
-        else:       #if only 1 (time) is provided
+        else:  # if only 1 (time) is provided
             time = indexing
             volume_slicing = tuple()
 
-        if isinstance(time, slice): #if all time points are requested
-            return np.stack([
-                self.__getitem__((t,) + volume_slicing)
-                for t in range(*time.indices(self.shape[0]))
-            ])
+        if isinstance(time, slice):  # if all time points are requested
+            return np.stack(
+                [
+                    self.__getitem__((t,) + volume_slicing)
+                    for t in range(*time.indices(self.shape[0]))
+                ]
+            )
         else:
             try:
                 time = time.item()  # convert from numpy.int to int
@@ -69,7 +73,9 @@ class DatabaseArray:
 
         time = time + self.time_window[0]
 
-        if (time != self.current_time) or (time == 0):  #always refill if time is 0, because napari regularly fetches time 0, so sometimes the current time is not 0, but we still need to refill after an update
+        if (time != self.current_time) or (
+            time == 0
+        ):  # always refill if time is 0, because napari regularly fetches time 0, so sometimes the current time is not 0, but we still need to refill after an update
             self.current_time = time
             self.fill_array(
                 time=time,
@@ -77,12 +83,14 @@ class DatabaseArray:
 
         return self.array[volume_slicing]
 
-
-    def __setitem__(self,
-                    indexing: Union[Tuple[Union[int, slice]], int, slice],
-                    value: Union[np.ndarray, int, float],
+    def __setitem__(
+        self,
+        indexing: Union[Tuple[Union[int, slice]], int, slice],
+        value: Union[np.ndarray, int, float],
     ) -> None:
-        print('setting a value in DatabaseArray not allowed, all interaction goes via db')
+        print(
+            "setting a value in DatabaseArray not allowed, all interaction goes via db"
+        )
 
     def __array__(self, dtype=None, copy=True):
         if dtype is None:
@@ -110,13 +118,13 @@ class DatabaseArray:
     ) -> None:
         """
         Fill the array with the selected segments from the database, for one time point.
-        
+
         Parameters
         ----------
         time : int
             Time point to fill the array
 
-        Returns         
+        Returns
         -------
         None
         """
@@ -133,7 +141,5 @@ class DatabaseArray:
             if len(query) == 0:
                 print("query is empty!")
 
-            for idx,q in enumerate(query):
-                q[1].paint_buffer(
-                    self.array, value=q[0], include_time=False
-                )       
+            for idx, q in enumerate(query):
+                q[1].paint_buffer(self.array, value=q[0], include_time=False)

@@ -1,7 +1,9 @@
-from qtpy.QtCore import Signal, Qt
-from qtpy.QtWidgets import QPushButton, QHBoxLayout, QLabel, QLineEdit
 from napari.utils.notifications import show_warning
-from .base_box import NavigationBox
+from qtpy.QtCore import Signal
+from qtpy.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QPushButton
+
+from trackedit.widgets.navigation.base_box import NavigationBox
+
 
 class TimeBox(NavigationBox):
     change_chunk = Signal(str)
@@ -17,7 +19,7 @@ class TimeBox(NavigationBox):
         self.time_next_btn = QPushButton("next (>)")
         self.time_prev_btn.clicked.connect(self.press_prev)
         self.time_next_btn.clicked.connect(self.press_next)
-        
+
         button_layout = QHBoxLayout()
         button_layout.addWidget(self.time_prev_btn)
         button_layout.addWidget(self.time_next_btn)
@@ -41,7 +43,10 @@ class TimeBox(NavigationBox):
         self.viewer.dims.events.current_step.connect(self.on_dims_changed)
 
     def set_time_slider(self, chunk_frame):
-        self.viewer.dims.current_step = (chunk_frame, *self.viewer.dims.current_step[1:])
+        self.viewer.dims.current_step = (
+            chunk_frame,
+            *self.viewer.dims.current_step[1:],
+        )
 
     def on_dims_changed(self, _) -> None:
         self.update_time_label()
@@ -58,10 +63,10 @@ class TimeBox(NavigationBox):
         self.time_next_btn.setEnabled(chunk != self.databasehandler.num_time_chunks - 1)
 
     def press_prev(self):
-        self.change_chunk.emit('prev')
+        self.change_chunk.emit("prev")
 
     def press_next(self):
-        self.change_chunk.emit('next')
+        self.change_chunk.emit("next")
 
     def on_time_input_entered(self):
         try:
@@ -75,4 +80,4 @@ class TimeBox(NavigationBox):
     def update_chunk_label(self):
         time_window = self.databasehandler.time_window
         label = f"window = [{time_window[0]} : {time_window[1]-1}]"
-        self.chunk_label.setText(label) 
+        self.chunk_label.setText(label)

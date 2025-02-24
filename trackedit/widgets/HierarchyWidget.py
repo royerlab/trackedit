@@ -1,12 +1,14 @@
 import logging
+from typing import Sequence
+
 import napari
 import numpy as np
-from typing import Sequence
-from scipy import interpolate
 from magicgui.widgets import Container, FloatSlider, Label
+from qtpy.QtCore import QObject, Signal
+from scipy import interpolate
 from ultrack.config import MainConfig
+
 from trackedit.arrays.UltrackArray import UltrackArray
-from qtpy.QtCore import Signal, QObject
 
 logging.basicConfig()
 logging.getLogger("sqlachemy.engine").setLevel(logging.INFO)
@@ -16,6 +18,7 @@ LOG = logging.getLogger(__name__)
 
 class HierarchySignals(QObject):
     """Separate class to handle Qt signals"""
+
     click_on_hierarchy_cell = Signal(int)
 
 
@@ -26,20 +29,9 @@ class HierarchyLabels(napari.layers.Labels):
     def _type_string(self) -> str:
         return "labels"
 
-    def __init__(
-        self,
-        data: np.array,
-        name: str,
-        scale: tuple,
-        **kwargs
-    ):
-        super().__init__(
-            data=data,
-            name=name,
-            scale=scale,
-            **kwargs
-        )
-        
+    def __init__(self, data: np.array, name: str, scale: tuple, **kwargs):
+        super().__init__(data=data, name=name, scale=scale, **kwargs)
+
         # Create signals object
         self.signals = HierarchySignals()
 
@@ -51,9 +43,9 @@ class HierarchyLabels(napari.layers.Labels):
                     event.position,
                     view_direction=event.view_direction,
                     dims_displayed=event.dims_displayed,
-                    world=True
+                    world=True,
                 )
-                print('clicked label:', label)
+                print("clicked label:", label)
                 if (label is not None) and (label != 0):
                     self.signals.click_on_hierarchy_cell.emit(int(label))
                 else:
@@ -106,13 +98,11 @@ class HierarchyVizWidget(Container):
 
         # Replace the standard Labels layer with our custom HierarchyLabels
         self.labels_layer = HierarchyLabels(
-            data=self.ultrack_array,
-            scale=scale,
-            name="hierarchy"
+            data=self.ultrack_array, scale=scale, name="hierarchy"
         )
         self._viewer.add_layer(self.labels_layer)
         self.labels_layer.refresh()
-        self.labels_layer.mode = 'pan_zoom'
+        self.labels_layer.mode = "pan_zoom"
 
     def _on_config_changed(self) -> None:
         self._ndim = len(self._shape)

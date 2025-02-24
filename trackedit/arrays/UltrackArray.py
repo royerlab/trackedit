@@ -4,9 +4,9 @@ import numpy as np
 import sqlalchemy as sqla
 from sqlalchemy import func
 from sqlalchemy.orm import Session
-
 from ultrack.config import MainConfig
 from ultrack.core.database import NodeDB
+
 
 class UltrackArray:
     def __init__(
@@ -30,7 +30,7 @@ class UltrackArray:
         self.t_max = self.shape[0]
         self.ndim = len(self.shape)
         self.array = np.zeros(self.shape[1:], dtype=self.dtype)
-        self.time_window = [0,self.shape[0]]
+        self.time_window = [0, self.shape[0]]
 
         self.database_path = config.data_config.database_path
         self.minmax = self.find_min_max_volume_entire_dataset()
@@ -172,7 +172,7 @@ class UltrackArray:
             )
 
         return np.array([min_vol, max_vol], dtype=int)
-    
+
     def set_time_window(self, time_window: Tuple[int, int]) -> None:
         """Set the time window of the array.
 
@@ -186,7 +186,10 @@ class UltrackArray:
         None
         """
         self.time_window = time_window
-        self.shape = (self.time_window[1] - self.time_window[0], *self.shape[1:])   #shape=tuple in UA, but list in DBA
+        self.shape = (
+            self.time_window[1] - self.time_window[0],
+            *self.shape[1:],
+        )  # shape=tuple in UA, but list in DBA
         self.t_max = self.shape[0]
         self.ndim = len(self.shape)
         self.array = np.zeros(self.shape[1:], dtype=self.dtype)

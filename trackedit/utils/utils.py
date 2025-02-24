@@ -1,5 +1,6 @@
 from qtpy.QtWidgets import QTabWidget
 
+
 def wrap_default_widgets_in_tabs(viewer):
     # -- 1) Identify the default dock widgets by going up the parent chain.
     # For controls: the dock widget is the direct parent.
@@ -33,7 +34,7 @@ def wrap_default_widgets_in_tabs(viewer):
         tab_widget.addTab(list_container, "Layer List")
 
     # -- 6) Add our new tab widget as a dock widget.
-    new_dock = viewer.window.add_dock_widget(tab_widget, area="left",name='napari')
+    new_dock = viewer.window.add_dock_widget(tab_widget, area="left", name="napari")
 
     # -- 7) (Optional) Update internal viewer references so that
     # Napari's menu actions refer to the new widgets.

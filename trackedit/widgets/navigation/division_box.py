@@ -1,8 +1,10 @@
 import numpy as np
 from qtpy.QtCore import Qt, Signal
-from qtpy.QtWidgets import QPushButton, QHBoxLayout
+from qtpy.QtWidgets import QHBoxLayout, QPushButton
+
 from trackedit.widgets.ClickableLabel import ClickableLabel
-from .base_box import NavigationBox
+from trackedit.widgets.navigation.base_box import NavigationBox
+
 
 class DivisionBox(NavigationBox):
 
@@ -17,10 +19,10 @@ class DivisionBox(NavigationBox):
         # Create controls
         self.division_counter = ClickableLabel("0/0")
         self.division_counter.setFixedWidth(50)
-        
+
         self.division_prev_btn = QPushButton("<")
         self.division_prev_btn.setFixedWidth(30)
-        
+
         self.division_next_btn = QPushButton(">")
         self.division_next_btn.setFixedWidth(30)
 
@@ -29,7 +31,7 @@ class DivisionBox(NavigationBox):
         division_layout.addWidget(self.division_prev_btn)
         division_layout.addWidget(self.division_counter)
         division_layout.addWidget(self.division_next_btn)
-        
+
         self.layout.addLayout(division_layout)
         self.layout.setAlignment(division_layout, Qt.AlignLeft)
 
@@ -38,7 +40,9 @@ class DivisionBox(NavigationBox):
         self.division_next_btn.clicked.connect(self.go_to_next_division)
         self.division_counter.clicked.connect(self.goto_division)
         self.tracks_viewer.tracks_updated.connect(self.update_divisions)
-        self.tracks_viewer.selected_nodes.list_updated.connect(self._check_selected_node_matches_division)
+        self.tracks_viewer.selected_nodes.list_updated.connect(
+            self._check_selected_node_matches_division
+        )
 
     def update_divisions(self):
         """Update the divisions and the division counter"""
@@ -71,10 +75,12 @@ class DivisionBox(NavigationBox):
 
     def goto_division(self):
         """Jump to the time of the current division."""
-        division_time = int(self.databasehandler.divisions.iloc[self.current_division_index]["t"])
+        division_time = int(
+            self.databasehandler.divisions.iloc[self.current_division_index]["t"]
+        )
         self.update_chunk_from_frame_signal.emit(division_time)
 
-        #update the selected nodes in the TreeWidget
+        # update the selected nodes in the TreeWidget
         label = self.databasehandler.divisions.iloc[self.current_division_index]["id"]
         self.tracks_viewer.selected_nodes._list = []
         self.tracks_viewer.selected_nodes._list.append(label)
@@ -91,12 +97,14 @@ class DivisionBox(NavigationBox):
             return
 
         selected_node = selected_nodes[0]
-        division_ids = self.databasehandler.divisions['id'].values
-        
+        division_ids = self.databasehandler.divisions["id"].values
+
         try:
             index = np.where(division_ids == selected_node)[0][0]
             self.current_division_index = index
-            self.division_counter.setText(f"{index + 1}/{len(self.databasehandler.divisions)}")
+            self.division_counter.setText(
+                f"{index + 1}/{len(self.databasehandler.divisions)}"
+            )
             self.division_counter.setStyleSheet("")
         except IndexError:
-            self.division_counter.setStyleSheet("color: gray;") 
+            self.division_counter.setStyleSheet("color: gray;")
