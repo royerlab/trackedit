@@ -1,7 +1,7 @@
 from qtpy.QtCore import Signal, Qt
 from qtpy.QtWidgets import QPushButton, QHBoxLayout, QLabel, QLineEdit
 from napari.utils.notifications import show_warning
-from .base_box import NavigationBox
+from ..base_box import NavigationBox
 
 class TimeBox(NavigationBox):
     change_chunk = Signal(str)

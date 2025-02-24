@@ -7,9 +7,9 @@ from qtpy.QtWidgets import (
     QWidget, 
     QVBoxLayout, 
 )
-from .navigation.time_box import TimeBox
-from .navigation.red_flag_box import RedFlagBox
-from .navigation.division_box import DivisionBox
+from .time_box import TimeBox
+from .red_flag_box import RedFlagBox
+from .division_box import DivisionBox
 
 class NavigationWidget(QWidget):
 

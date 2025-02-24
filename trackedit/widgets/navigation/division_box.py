@@ -2,7 +2,7 @@ import numpy as np
 from qtpy.QtCore import Qt, Signal
 from qtpy.QtWidgets import QPushButton, QHBoxLayout
 from trackedit.widgets.ClickableLabel import ClickableLabel
-from .base_box import NavigationBox
+from ..base_box import NavigationBox
 
 class DivisionBox(NavigationBox):
 

@@ -10,7 +10,8 @@ from ultrack.core.database import NodeDB, get_node_values
 from ultrack.core.interactive import add_new_node
 
 from trackedit.hierarchy_viz_widget import HierarchyVizWidget
-from trackedit.widgets.navigation_widget import NavigationWidget
+from trackedit.widgets.navigation.navigation_widget import NavigationWidget
+from trackedit.widgets.annotation.annotation_widget import AnnotationWidget
 from trackedit.widgets.CustomEditingMenu import CustomEditingMenu
 from trackedit.DatabaseHandler import DatabaseHandler
 
@@ -26,11 +27,13 @@ class TrackEditClass():
 
         self.TreeWidget = TreeWidget(self.viewer)
         self.NavigationWidget = NavigationWidget(self.viewer, self.databasehandler)
+        self.AnnotationWidget = AnnotationWidget(self.viewer, self.databasehandler)
         self.EditingMenu = CustomEditingMenu(self.viewer, self.databasehandler)
 
         tabwidget_right = QTabWidget()
         tabwidget_right.addTab(self.NavigationWidget, "Navigation")
         tabwidget_right.addTab(self.EditingMenu, "Edit Tracks")
+        tabwidget_right.addTab(self.AnnotationWidget, "Annotations")
         tabwidget_right.setMaximumWidth(330) 
         self.viewer.window.add_dock_widget(tabwidget_right, area='right', name='TrackEdit Widgets')
 

@@ -65,6 +65,7 @@ class DatabaseHandler():
         self.df = self.db_to_df()
         self.nxgraph = self.df_to_nxgraph()
         self.red_flags = self.find_all_red_flags()
+        self.todoannotations = self.find_all_todoannotations()
         self.divisions = self.find_all_divisions()
         self.red_flags_ignore_list = []
         self.log(f"Log file created")
@@ -155,6 +156,10 @@ class DatabaseHandler():
                 col_definition += f" DEFAULT {default_value}"
             
             expected_columns[column.name] = col_definition
+        
+        # Add the new generic column
+        expected_columns['generic'] = 'INTEGER DEFAULT 0'
+        
         return expected_columns
 
     def get_next_db_filename(self,old_filename):
@@ -276,6 +281,7 @@ class DatabaseHandler():
             if include_node_ids:
                 columns.append("parent_id")
 
+        columns.append("generic")
         df = df[columns]
         return df
 
@@ -442,6 +448,23 @@ class DatabaseHandler():
         
         return pd.DataFrame(divisions)
     
+    def find_all_todoannotations(self) -> list:
+        """
+        Find all track IDs that have no annotations (generic = 0).
+        
+        Returns
+        -------
+        list
+            List of track IDs that have no annotations
+        """
+        # Get the full database to ensure we have all tracks
+        df = self.db_to_df(entire_database=True)
+        
+        # Filter for nodes that have no annotation and get unique track IDs
+        todo_tracks = df[df['generic'] == 0]['track_id'].unique().tolist()
+        
+        return todo_tracks
+    
     def recompute_red_flags(self):
         """called by update_red_flags in TrackEditClass upon tracks_updated signal in TracksViewer"""
         self.red_flags = self.find_all_red_flags()
@@ -450,6 +473,10 @@ class DatabaseHandler():
     def recompute_divisions(self):
         """called by update_divisions in TrackEditClass upon tracks_updated signal in TracksViewer"""
         self.divisions = self.find_all_divisions()
+
+    def recompute_todoannotations(self):
+        """called by update_todoannotations in TrackEditClass upon tracks_updated signal in TracksViewer"""
+        self.todoannotations = self.find_all_todoannotations()
 
     def seg_ignore_red_flag(self, id):
         self.red_flags_ignore_list.append(id)
