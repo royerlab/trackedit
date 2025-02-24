@@ -10,7 +10,7 @@ from ultrack.config import MainConfig
 from ultrack.core.database import *
 from ultrack.core.export.utils import solution_dataframe_from_sql
 from ultrack.tracks.graph import add_track_ids_to_tracks_df
-from ultrack.core.export import tracks_layer_to_networkx
+from ultrack.core.export import tracks_layer_to_networkx, tracks_to_zarr
 from motile_toolbox.candidate_graph import NodeAttr
 
 from trackedit.DatabaseArray import DatabaseArray
@@ -47,6 +47,7 @@ class DatabaseHandler():
         self.num_time_chunks = int(np.ceil(self.data_shape_full[0]/self.time_chunk_length))
 
         #Filenames / directories
+        self.extension_string = ""
         self.db_filename_new, self.log_filename_new = self.copy_database(
                         self.working_directory, 
                         self.db_filename_old,
@@ -178,7 +179,8 @@ class DatabaseHandler():
             version_number = 1  # Start with version 1
 
         # Create the new filename
-        db_filename_new = f"{base_name}_v{version_number}{ext}"
+        self.extension_string = f"_v{version_number}"       # "_v3" (saved for export function)
+        db_filename_new = f"{base_name}{self.extension_string}{ext}"
         log_filename_new = f"data_v{version_number}_changelog.txt"
         return db_filename_new, log_filename_new
     
@@ -258,7 +260,6 @@ class DatabaseHandler():
         df = self.remove_past_parents_from_df(df)
 
         if ndim == 4:
-            df.loc[:,"z"] = df.z * self.z_scale   #apply scale
             columns = ["track_id", "t", "z", "y", "x"]
         elif ndim == 3:
             columns = ["track_id", "t", "y", "x"]
@@ -288,7 +289,11 @@ class DatabaseHandler():
             Networkx graph.
 
         """
-        nxgraph = tracks_layer_to_networkx(self.df)
+        #apply scale, only do this here to avoid scaling the original dataframe
+        df_scaled = self.df.copy()
+        df_scaled.loc[:,"z"] = df_scaled.z * self.z_scale   #apply scale
+
+        nxgraph = tracks_layer_to_networkx(df_scaled)
 
         # add/modify attributes to fit motile viewer assumptions
         for node in nxgraph.nodes:
@@ -459,3 +464,27 @@ class DatabaseHandler():
 
         #remove the ignores red flag from the red flags 
         self.red_flags = self.red_flags[~self.red_flags['id'].isin(self.red_flags_ignore_list)]
+
+    def export_tracks(self):
+        """Export tracks to a CSV file"""
+        print('exporting...')
+
+        #CSV
+        csv_filename = self.working_directory / f"tracks{self.extension_string}.csv"
+        df_full = self.db_to_df(entire_database=True)
+        try:
+            df_full.to_csv(csv_filename, index=False)
+        except Exception as e:
+            from napari.utils.notifications import show_error
+            show_error(f"Error exporting tracks.csv: {str(e)}")
+
+
+        #Zarr
+        zarr_filename = self.working_directory / f"segments{self.extension_string}.zarr"
+        tracks_to_zarr(config=self.config_adjusted,
+                       tracks_df=df_full,
+                       store_or_path=zarr_filename,
+                       overwrite=True)
+
+
+        print('exporting finished!')
