@@ -17,10 +17,9 @@ from trackedit.utils.utils import wrap_default_widgets_in_tabs
 warnings.filterwarnings("ignore", category=FutureWarning, message=".*qt_viewer.*")
 
 # **********INPUTS*********
-working_directory = Path(
-    "/home/teun.huijben/Documents/data/Akila/20241003/neuromast4_t851/adjusted/"
-)
-# working_directory = Path('/Users/teun.huijben/Documents/data/Akila/20241003_neuromast4/adjusted/')
+working_directory = Path("/home/teun.huijben/Documents/data/Akila/20241003/neuromast4_t851/adjusted/")
+# working_directory = Path("/Users/teun.huijben/Documents/data/Akila/20241003_neuromast4/adjusted/")
+# working_directory = Path("/hpc/projects/jacobo_group/iSim_processed_files/steady_state_timelapses/20241003_2dpf_myo6b_bactin_GFP_she_h2b_gfp_cldnb_lyn_mScarlet/46hpf_fish1_1/4_tracking/database/")
 db_filename_old = "data.db"
 data_shape_full = [600, 73, 1024, 1024]  # T,(Z),Y,X       (851,73,1024,1024)
 scale = (2.31, 1, 1)
