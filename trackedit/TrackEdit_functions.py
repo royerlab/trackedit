@@ -52,6 +52,7 @@ class TrackEditClass():
         self.NavigationWidget.goto_frame.connect(self.update_chunk_from_frame)
         self.NavigationWidget.division_box.update_chunk_from_frame_signal.connect(self.update_chunk_from_frame)
         self.NavigationWidget.red_flag_box.update_chunk_from_frame_signal.connect(self.update_chunk_from_frame)
+        self.AnnotationWidget.todo_box.update_chunk_from_frame_signal.connect(self.update_chunk_from_frame)
         self.EditingMenu.add_cell_button_pressed.connect(self.add_cell_from_database)
         self.EditingMenu.duplicate_cell_button_pressed.connect(self.duplicate_cell_from_database)
 

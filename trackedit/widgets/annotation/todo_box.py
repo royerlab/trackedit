@@ -16,7 +16,7 @@ class TodoAnnotationBox(NavigationBox):
 
         # Create controls
         self.todoannotation_counter = ClickableLabel("0/0")
-        self.todoannotation_counter.setFixedWidth(50)
+        self.todoannotation_counter.setFixedWidth(80)
         
         self.todoannotation_prev_btn = QPushButton("<")
         self.todoannotation_prev_btn.setFixedWidth(30)
@@ -54,7 +54,7 @@ class TodoAnnotationBox(NavigationBox):
         self.support_btn.clicked.connect(self.on_support_clicked)
         self.mantle_btn.clicked.connect(self.on_mantle_clicked)
         self.tracks_viewer.tracks_updated.connect(self.update_todoannotation)
-        # self.tracks_viewer.selected_nodes.list_updated.connect(self._check_selected_node_matches_annotation)
+        self.tracks_viewer.selected_nodes.list_updated.connect(self._check_selected_node_matches_annotation)
 
     def update_todoannotation(self):
         """Update the annotations and the annotation counter"""
@@ -73,66 +73,74 @@ class TodoAnnotationBox(NavigationBox):
 
     def go_to_next_annotation(self):
         """Navigate to the next annotation in the list and jump to that timepoint."""
-        # total = len(self.databasehandler.todoannotations)
-        # if total == 0:
-        #     return
-        # self.current_annotation_index = (self.current_annotation_index + 1) % total
-        # self.goto_annotation()
+        total = len(self.databasehandler.todoannotations)
+        if total == 0:
+            return
+        self.current_annotation_index = (self.current_annotation_index + 1) % total
+        self.goto_annotation()
         pass
 
     def go_to_prev_annotation(self):
         """Navigate to the previous annotation in the list and jump to that timepoint."""
-        # total = len(self.databasehandler.todoannotations)
-        # if total == 0:
-        #     return
-        # self.current_annotation_index = (self.current_annotation_index - 1) % total
-        # self.goto_annotation()
+        total = len(self.databasehandler.todoannotations)
+        if total == 0:
+            return
+        self.current_annotation_index = (self.current_annotation_index - 1) % total
+        self.goto_annotation()
         pass
 
     def goto_annotation(self):
         """Jump to the time of the current annotation."""
-        # annotation_time = int(self.databasehandler.todoannotations.iloc[self.current_annotation_index]["t"])
-        # self.update_chunk_from_frame_signal.emit(annotation_time)
+
+        annotation_time = self.databasehandler.todoannotations.iloc[self.current_annotation_index]["middle_t"]
+        cell_id = self.databasehandler.todoannotations.iloc[self.current_annotation_index]["middle_id"]
+
+        self.update_chunk_from_frame_signal.emit(annotation_time)
+        print(f"Jumping to annotation time: {annotation_time} for cell_id {cell_id}")
 
         # #update the selected nodes in the TreeWidget
-        # label = self.databasehandler.todoannotations.iloc[self.current_annotation_index]["id"]
-        # self.tracks_viewer.selected_nodes._list = []
-        # self.tracks_viewer.selected_nodes._list.append(label)
-        # self.tracks_viewer.selected_nodes.list_updated.emit()
+        self.tracks_viewer.selected_nodes._list = []
+        self.tracks_viewer.selected_nodes._list.append(cell_id)
+        self.tracks_viewer.selected_nodes.list_updated.emit()
 
-        # self.update_annotation_counter()
+        self.update_annotation_counter()
         pass
 
     def _check_selected_node_matches_annotation(self):
-        # """Check if the selected node matches the current annotation label."""
-        # selected_nodes = self.tracks_viewer.selected_nodes._list
+        """Check if the selected node matches the current annotation label."""
+        selected_nodes = self.tracks_viewer.selected_nodes._list
 
-        # if len(selected_nodes) != 1:
-        #     self.todoannotation_counter.setStyleSheet("color: gray;")
-        #     return
+        # If no nodes selected or multiple nodes selected, grey out counter
+        if len(selected_nodes) != 1:
+            self.todoannotation_counter.setStyleSheet("color: gray;")
+            return
 
-        # selected_node = selected_nodes[0]
-        # annotation_ids = self.databasehandler.todoannotations['id'].values
+        selected_node = selected_nodes[0]
         
-        # try:
-        #     index = np.where(annotation_ids == selected_node)[0][0]
-        #     self.current_annotation_index = index
-        #     self.todoannotation_counter.setText(f"{index + 1}/{len(self.databasehandler.todoannotations)}")
-        #     self.todoannotation_counter.setStyleSheet("")
-        # except IndexError:
-        #     self.todoannotation_counter.setStyleSheet("color: gray;") 
-        pass
+        # First get the track_id of the selected node from the database
+        track_id = self.databasehandler.df[self.databasehandler.df['id'] == selected_node]['track_id'].iloc[0]
+        
+        # Then find this track_id in the todoannotations
+        try:
+            index = self.databasehandler.todoannotations[self.databasehandler.todoannotations['track_id'] == track_id].index[0]
+            # Found the track in annotations - update counter and remove grey
+            self.current_annotation_index = index
+            self.todoannotation_counter.setText(f"{index + 1}/{len(self.databasehandler.todoannotations)}")
+            self.todoannotation_counter.setStyleSheet("")
+        except IndexError:
+            # Track not found in annotations - grey out counter
+            self.todoannotation_counter.setStyleSheet("color: gray;")
 
     def on_hair_clicked(self):
-        print("Hair button clicked")
+        # print("Hair button clicked")
         self.annotate_track("hair")
         
     def on_support_clicked(self):
-        print("Support button clicked")
+        # print("Support button clicked")
         self.annotate_track("support")
         
     def on_mantle_clicked(self):
-        print("Mantle button clicked")
+        # print("Mantle button clicked")
         self.annotate_track("mantle")
 
     def annotate_track(self, label: str):

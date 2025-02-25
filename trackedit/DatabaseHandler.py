@@ -15,6 +15,8 @@ from motile_toolbox.candidate_graph import NodeAttr
 
 from trackedit.DatabaseArray import DatabaseArray
 
+NodeDB.generic = Column(Integer, default=0)
+
 class DatabaseHandler():
     def __init__(self, 
                  db_filename_old: str,
@@ -248,7 +250,16 @@ class DatabaseHandler():
         """
         ndim = len(self.data_shape_full)
 
-        df = solution_dataframe_from_sql(self.db_path_new)
+        df = solution_dataframe_from_sql(self.db_path_new,
+                                         columns = (
+                                            NodeDB.id,
+                                            NodeDB.parent_id,
+                                            NodeDB.t,
+                                            NodeDB.z,
+                                            NodeDB.y,
+                                            NodeDB.x,
+                                            NodeDB.generic,
+                                        ))
         df = add_track_ids_to_tracks_df(df)
         df.sort_values(by=["track_id", "t"], inplace=True)
 
@@ -448,22 +459,38 @@ class DatabaseHandler():
         
         return pd.DataFrame(divisions)
     
-    def find_all_todoannotations(self) -> list:
+    def find_all_todoannotations(self) -> pd.DataFrame:
         """
-        Find all track IDs that have no annotations (generic = 0).
+        Find all track IDs that have no annotations (generic = 0), with their mean appearance time and first ID.
         
         Returns
         -------
-        list
-            List of track IDs that have no annotations
+        pd.DataFrame
+            DataFrame with columns: track_id, first_t, first_id, sorted by mean appearance time
         """
-        # Get the full database to ensure we have all tracks
         df = self.db_to_df(entire_database=True)
         
-        # Filter for nodes that have no annotation and get unique track IDs
-        todo_tracks = df[df['generic'] == 0]['track_id'].unique().tolist()
+        # Get rows with no annotations
+        unannotated = df[df['generic'] == 0]
         
-        return todo_tracks
+        # For each track_id, get the median time and corresponding middle ID
+        todo_annotations = (unannotated
+                          .groupby('track_id')
+                          .agg({'t': 'median'})
+                          .astype({'t': int})  # Convert median to integer
+                          .reset_index()
+                          .rename(columns={'t': 'middle_t'})
+                          .sort_values('middle_t')
+                          .reset_index(drop=True))
+        
+        # Get the IDs at these middle times
+        todo_annotations = (todo_annotations.merge(unannotated[['track_id', 't', 'id']], 
+                                                 left_on=['track_id', 'middle_t'],
+                                                 right_on=['track_id', 't'])
+                          [['track_id', 'middle_t', 'id']]
+                          .rename(columns={'id': 'middle_id'}))
+        
+        return todo_annotations
     
     def recompute_red_flags(self):
         """called by update_red_flags in TrackEditClass upon tracks_updated signal in TracksViewer"""
