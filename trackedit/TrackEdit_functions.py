@@ -8,6 +8,7 @@ from motile_toolbox.candidate_graph import NodeAttr
 
 from ultrack.core.database import NodeDB, get_node_values
 from ultrack.core.interactive import add_new_node
+from napari.utils.colormaps import DirectLabelColormap
 
 from trackedit.hierarchy_viz_widget import HierarchyVizWidget
 from trackedit.widgets.navigation.navigation_widget import NavigationWidget
@@ -18,6 +19,7 @@ from trackedit.DatabaseHandler import DatabaseHandler
 from qtpy.QtWidgets import (
     QTabWidget,
 )
+
 
 class TrackEditClass():
     def __init__(self, viewer: napari.Viewer, databasehandler: DatabaseHandler):
@@ -41,6 +43,21 @@ class TrackEditClass():
         hier_shape = self.hier_widget.ultrack_array.shape
         tmax = self.databasehandler.data_shape_chunk[0]
         self.hier_widget.ultrack_array.shape = (tmax, *hier_shape[1:])
+
+        #Add annotation layer to viewer
+        self.viewer.add_labels(self.databasehandler.annotArray, name='annotations', scale=self.databasehandler.scale)
+        #add custom colormap (-1=gray, 0=transparent, 1/2/3=rgb)
+        color_mapping = {
+            -1: [0.5, 0.5, 0.5, 1.0],  # gray
+            0: [0.0, 0.0, 0.0, 0.0],   # transparent
+            1: [1.0, 0.0, 0.0, 1.0],   # red
+            2: [0.0, 1.0, 0.0, 1.0],   # green
+            3: [0.0, 0.0, 1.0, 1.0],   # blue
+            None: [0.0, 0.0, 0.0, 0.0], # default: transparent for any unmapped values
+        }
+        cmap = DirectLabelColormap(color_dict=color_mapping)
+        self.viewer.layers['annotations'].colormap = cmap
+
 
         tabwidget_bottom = QTabWidget()
         tabwidget_bottom.addTab(self.TreeWidget, "TreeWidget")

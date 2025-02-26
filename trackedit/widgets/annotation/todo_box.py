@@ -7,6 +7,7 @@ from trackedit.widgets.base_box import NavigationBox
 class TodoAnnotationBox(NavigationBox):
 
     update_chunk_from_frame_signal = Signal(int)
+    refresh_annotation_layer = Signal()
 
     def __init__(self, tracks_viewer, databasehandler):
         super().__init__("Annotations", max_height=200)
@@ -143,6 +144,19 @@ class TodoAnnotationBox(NavigationBox):
         # print("Mantle button clicked")
         self.annotate_track("mantle")
 
-    def annotate_track(self, label: str):
-        print(f"Annotating track with label: {label}")
-        # self.databasehandler.annotate_track(label)
+    def annotate_track(self, label_str: str):
+        print(f"Annotating track with label: {label_str}")
+        label_int = self.get_label_int(label_str)
+        track_id = self.databasehandler.todoannotations.iloc[self.current_annotation_index]["track_id"]
+        self.databasehandler.annotate_track(track_id,label_int)
+        self.refresh_annotation_layer.emit()
+
+    def get_label_int(self, label_str: str):
+        if label_str == "hair":
+            return 1
+        elif label_str == "support":
+            return 2
+        elif label_str == "mantle":
+            return 3
+        else:
+            raise ValueError(f"Invalid label: {label_str}")

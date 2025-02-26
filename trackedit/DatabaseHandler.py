@@ -15,7 +15,7 @@ from motile_toolbox.candidate_graph import NodeAttr
 
 from trackedit.DatabaseArray import DatabaseArray
 
-NodeDB.generic = Column(Integer, default=0)
+NodeDB.generic = Column(Integer, default=-1)
 
 class DatabaseHandler():
     def __init__(self, 
@@ -63,7 +63,12 @@ class DatabaseHandler():
         #DatabaseArray()
         self.segments = DatabaseArray(database_path=self.db_path_new, 
                                  shape=self.data_shape_chunk,
-                                 time_window = self.time_window)
+                                 time_window = self.time_window,
+                                 color_by_field = NodeDB.id)
+        self.annotArray = DatabaseArray(database_path=self.db_path_new, 
+                                 shape=self.data_shape_chunk,
+                                 time_window = self.time_window,
+                                 color_by_field = NodeDB.generic)
         self.df = self.db_to_df()
         self.nxgraph = self.df_to_nxgraph()
         self.red_flags = self.find_all_red_flags()
@@ -159,8 +164,9 @@ class DatabaseHandler():
             
             expected_columns[column.name] = col_definition
         
-        # Add the new generic column
-        expected_columns['generic'] = 'INTEGER DEFAULT 0'
+        # Add the new generic column using the same default as NodeDB.generic
+        generic_default = NodeDB.generic.default.arg if NodeDB.generic.default else None
+        expected_columns['generic'] = f'INTEGER{" DEFAULT " + str(generic_default) if generic_default is not None else ""}'
         
         return expected_columns
 
@@ -219,6 +225,7 @@ class DatabaseHandler():
             self.time_chunk = time_chunk
             self.time_window, _ = self.calc_time_window()
             self.segments.set_time_window(self.time_window)
+            self.annotArray.set_time_window(self.time_window)
             self.df = self.db_to_df()
             self.nxgraph = self.df_to_nxgraph()
 
@@ -471,7 +478,7 @@ class DatabaseHandler():
         df = self.db_to_df(entire_database=True)
         
         # Get rows with no annotations
-        unannotated = df[df['generic'] == 0]
+        unannotated = df[df['generic'] == NodeDB.generic.default.arg]
         
         # For each track_id, get the median time and corresponding middle ID
         todo_annotations = (unannotated
@@ -513,3 +520,12 @@ class DatabaseHandler():
 
         #remove the ignores red flag from the red flags 
         self.red_flags = self.red_flags[~self.red_flags['id'].isin(self.red_flags_ignore_list)]
+
+    def annotate_track(self, track_id: int, label: int):
+        """Annotate all cells of atrack in the database with a given label."""
+
+        # Then find this track_id in the todoannotations
+        indices = self.df[self.df['track_id'] == track_id].index
+        for index in indices:
+            print(f"annotating track {track_id} with label {label} for cell {index}")
+            self.change_value(index, NodeDB.generic, label)

@@ -102,7 +102,11 @@ _old_tracks_viewer_refresh = TracksViewer._refresh
 def create_tracks_viewer_and_segments_refresh(layer_name):
     def tracks_viewer_refresh_with_segments_refresh(self, node: str | None = None, refresh_view: bool = False) -> None:
         _old_tracks_viewer_refresh(self, node, refresh_view)
+        #refill and refresh the segments and annotations layers
+        self.viewer.layers[layer_name + '_seg'].data.force_refill()
         self.viewer.layers[layer_name + '_seg'].refresh()
+        self.viewer.layers['annotations'].data.force_refill()
+        self.viewer.layers['annotations'].refresh()
         print('refreshed \n')
     return tracks_viewer_refresh_with_segments_refresh
 

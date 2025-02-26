@@ -26,14 +26,15 @@ class AnnotationWidget(QWidget):
         self.todo_box = TodoAnnotationBox(self.tracks_viewer, self.databasehandler)
 
         # Forward signals
-        # self.time_box.change_chunk.connect(self.change_chunk)
-        # self.time_box.goto_frame.connect(self.goto_frame)
+        self.todo_box.refresh_annotation_layer.connect(self.refresh_annotation_layer)
 
         # Layout
         main_layout = QVBoxLayout()
         main_layout.addWidget(self.todo_box)
-        # main_layout.addWidget(self.red_flag_box)
-        # main_layout.addWidget(self.division_box)
         main_layout.setSpacing(0)
         main_layout.setContentsMargins(10, 2, 10, 2)
         self.setLayout(main_layout)
+
+    def refresh_annotation_layer(self):
+        self.viewer.layers['annotations'].data.force_refill()
+        self.viewer.layers['annotations'].refresh()

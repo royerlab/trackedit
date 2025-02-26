@@ -4,6 +4,7 @@ import sqlalchemy as sqla
 from pathlib import Path
 from typing import Tuple, Union
 from sqlalchemy.orm import Session
+from sqlalchemy import Column
 
 from ultrack.core.database import NodeDB
 # import traceback
@@ -14,6 +15,7 @@ class DatabaseArray:
         database_path: Path,
         shape: Tuple[int, ...],     # (t,(z),y,x)
         time_window: tuple,
+        color_by_field: Column = NodeDB.id,
         dtype: np.dtype = np.int32,
         current_time: int = np.nan,
     ):
@@ -31,6 +33,7 @@ class DatabaseArray:
         self.dtype = dtype
         self.current_time = current_time
         self.time_window = time_window
+        self.color_by_field = color_by_field
 
         self.ndim = len(self.shape)
         self.array = np.zeros(self.shape[1:], dtype=self.dtype)
@@ -69,7 +72,7 @@ class DatabaseArray:
 
         time = time + self.time_window[0]
 
-        if (time != self.current_time) or (time == 0):  #always refill if time is 0, because napari regularly fetches time 0, so sometimes the current time is not 0, but we still need to refill after an update
+        if (time != self.current_time):
             self.current_time = time
             self.fill_array(
                 time=time,
@@ -104,6 +107,10 @@ class DatabaseArray:
         self.time_window = time_window
         self.shape[0] = self.time_window[1] - self.time_window[0]
 
+    def force_refill(self):
+        """Force the array to be filled with the current time point."""
+        self.fill_array(self.current_time)
+
     def fill_array(
         self,
         time: int,
@@ -125,7 +132,7 @@ class DatabaseArray:
 
         with Session(engine) as session:
             query = list(
-                session.query(NodeDB.id, NodeDB.pickle).where(
+                session.query(self.color_by_field, NodeDB.pickle).where(
                     NodeDB.t == time, NodeDB.selected
                 )
             )
@@ -133,7 +140,7 @@ class DatabaseArray:
             if len(query) == 0:
                 print("query is empty!")
 
-            for idx,q in enumerate(query):
+            for q in query:
                 q[1].paint_buffer(
                     self.array, value=q[0], include_time=False
                 )       
