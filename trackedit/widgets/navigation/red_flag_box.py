@@ -1,8 +1,10 @@
 import numpy as np
 from qtpy.QtCore import Signal
-from qtpy.QtWidgets import QPushButton, QHBoxLayout, QLabel, QVBoxLayout
+from qtpy.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout
+
 from trackedit.widgets.ClickableLabel import ClickableLabel
-from ..base_box import NavigationBox
+from trackedit.widgets.navigation.base_box import NavigationBox
+
 
 class RedFlagBox(NavigationBox):
 
@@ -17,13 +19,13 @@ class RedFlagBox(NavigationBox):
         # Create controls
         self.red_flag_counter = ClickableLabel("0/0")
         self.red_flag_counter.setFixedWidth(50)
-        
+
         self.red_flag_prev_btn = QPushButton("<")
         self.red_flag_prev_btn.setFixedWidth(30)
-        
+
         self.red_flag_next_btn = QPushButton(">")
         self.red_flag_next_btn.setFixedWidth(30)
-        
+
         self.red_flag_ignore_btn = QPushButton("ignore")
         self.red_flag_info = QLabel("info")
 
@@ -34,7 +36,7 @@ class RedFlagBox(NavigationBox):
         red_flag_layout_row1.addWidget(self.red_flag_counter)
         red_flag_layout_row1.addWidget(self.red_flag_next_btn)
         red_flag_layout_row1.addWidget(self.red_flag_ignore_btn)
-        
+
         red_flag_layout.addLayout(red_flag_layout_row1)
         red_flag_layout.addWidget(self.red_flag_info)
         self.layout.addLayout(red_flag_layout)
@@ -45,7 +47,9 @@ class RedFlagBox(NavigationBox):
         self.red_flag_ignore_btn.clicked.connect(self.ignore_red_flag)
         self.red_flag_counter.clicked.connect(self.goto_red_flag)
         self.tracks_viewer.tracks_updated.connect(self.update_red_flags)
-        self.tracks_viewer.selected_nodes.list_updated.connect(self._check_selected_node_matches_red_flag)
+        self.tracks_viewer.selected_nodes.list_updated.connect(
+            self._check_selected_node_matches_red_flag
+        )
 
     def update_red_flags(self):
         """Update the red flags and counter"""
@@ -82,7 +86,9 @@ class RedFlagBox(NavigationBox):
 
     def goto_red_flag(self):
         """Jump to the time of the current red flag."""
-        red_flag_time = int(self.databasehandler.red_flags.iloc[self.current_red_flag_index]["t"])
+        red_flag_time = int(
+            self.databasehandler.red_flags.iloc[self.current_red_flag_index]["t"]
+        )
         self.update_chunk_from_frame_signal.emit(red_flag_time)
 
         # Update the selected nodes in the TreeWidget
@@ -112,16 +118,18 @@ class RedFlagBox(NavigationBox):
             return
 
         selected_node = selected_nodes[0]
-        red_flag_ids = self.databasehandler.red_flags['id'].values
-        
+        red_flag_ids = self.databasehandler.red_flags["id"].values
+
         try:
             index = np.where(red_flag_ids == selected_node)[0][0]
             # Found the node in red flags - update counter and remove grey
             self.current_red_flag_index = index
-            self.red_flag_counter.setText(f"{index + 1}/{len(self.databasehandler.red_flags)}")
+            self.red_flag_counter.setText(
+                f"{index + 1}/{len(self.databasehandler.red_flags)}"
+            )
             self.red_flag_counter.setStyleSheet("")
             self.red_flag_ignore_btn.setEnabled(True)
         except IndexError:
             # Node not found in red flags - grey out counter
-            self.red_flag_counter.setStyleSheet("color: gray;") 
+            self.red_flag_counter.setStyleSheet("color: gray;")
             self.red_flag_ignore_btn.setEnabled(False)

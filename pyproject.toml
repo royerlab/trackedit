@@ -83,6 +83,7 @@ napari-ome-zarr = ">=0.6.1,<0.7"
 psycopg2-binary = ">=2.9.6"
 pyqt = ">=5.15.9,<6"
 numpy = "<2.2"
+pre-commit = ">=4.1.0,<5"
 
 [tool.pixi.feature.test.dependencies]
 pytest = "*"

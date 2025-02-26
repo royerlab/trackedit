@@ -1,5 +1,6 @@
-from qtpy.QtWidgets import QLabel
 from qtpy.QtCore import Signal
+from qtpy.QtWidgets import QLabel
+
 
 class ClickableLabel(QLabel):
     clicked = Signal()
