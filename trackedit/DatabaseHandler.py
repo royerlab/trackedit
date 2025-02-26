@@ -80,7 +80,7 @@ class DatabaseHandler:
         self.df = self.db_to_df()
         self.nxgraph = self.df_to_nxgraph()
         self.red_flags = self.find_all_red_flags()
-        self.todoannotations = self.find_all_todoannotations()
+        self.toannotate = self.find_all_toannotate()
         self.divisions = self.find_all_divisions()
         self.red_flags_ignore_list = []
         self.log(f"Log file created")
@@ -228,6 +228,18 @@ class DatabaseHandler:
         )
         message = f"db: setting {field.name}[id={index}] = {new_val} (was {old_val})"
         self.log(message)
+
+    def change_values(self, indices, field, value):
+        values = [int(value)] * len(indices)
+        old_vals = get_node_values(
+            self.config_adjusted.data_config, indices=indices, values=field
+        )
+        set_node_values(
+            self.config_adjusted.data_config, indices=indices, **{field.name: values}
+        )
+        for i in range(len(indices)):
+            message = f"db: setting {field.name}[id={indices[i]}] = {value} (was {old_vals.iloc[i]})"
+            self.log(message)
 
     def calc_time_window(self):
         time_chunk_starts = np.arange(
@@ -507,7 +519,7 @@ class DatabaseHandler:
 
         return pd.DataFrame(divisions)
     
-    def find_all_todoannotations(self) -> pd.DataFrame:
+    def find_all_toannotate(self) -> pd.DataFrame:
         """
         Find all track IDs that have no annotations (generic = 0), with their mean appearance time and first ID.
         
@@ -551,9 +563,9 @@ class DatabaseHandler:
         """called by update_divisions in TrackEditClass upon tracks_updated signal in TracksViewer"""
         self.divisions = self.find_all_divisions()
 
-    def recompute_todoannotations(self):
-        """called by update_todoannotations in TrackEditClass upon tracks_updated signal in TracksViewer"""
-        self.todoannotations = self.find_all_todoannotations()
+    def recompute_toannotate(self):
+        """called by update_toannotate in TrackEditClass upon tracks_updated signal in TracksViewer"""
+        self.toannotate = self.find_all_toannotate()
 
     def seg_ignore_red_flag(self, id):
         self.red_flags_ignore_list.append(id)
@@ -591,12 +603,13 @@ class DatabaseHandler:
 
         print("exporting finished!")
 
-
     def annotate_track(self, track_id: int, label: int):
         """Annotate all cells of atrack in the database with a given label."""
 
-        # Then find this track_id in the todoannotations
-        indices = self.df[self.df['track_id'] == track_id].index
-        for index in indices:
-            print(f"annotating track {track_id} with label {label} for cell {index}")
-            self.change_value(index, NodeDB.generic, label)
+        df = self.db_to_df(entire_database=True)
+        #ToDo: make df_full a property of the DatabaseHandler class
+
+        # Then find this track_id in the toannotate
+        indices = df[df['track_id'] == track_id].index.tolist()
+
+        self.change_values(indices, NodeDB.generic, label)

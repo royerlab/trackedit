@@ -1,10 +1,10 @@
 import numpy as np
 from qtpy.QtCore import Qt, Signal
-from qtpy.QtWidgets import QPushButton, QHBoxLayout, QVBoxLayout
+from qtpy.QtWidgets import QPushButton, QHBoxLayout
 from trackedit.widgets.ClickableLabel import ClickableLabel
 from trackedit.widgets.base_box import NavigationBox
 
-class TodoAnnotationBox(NavigationBox):
+class ToAnnotateBox(NavigationBox):
 
     update_chunk_from_frame_signal = Signal(int)
     refresh_annotation_layer = Signal()
@@ -16,23 +16,23 @@ class TodoAnnotationBox(NavigationBox):
         self.current_annotation_index = 0
 
         # Create controls
-        self.todoannotation_counter = ClickableLabel("0/0")
-        self.todoannotation_counter.setFixedWidth(80)
+        self.toannotate_counter = ClickableLabel("0/0")
+        self.toannotate_counter.setFixedWidth(80)
         
-        self.todoannotation_prev_btn = QPushButton("<")
-        self.todoannotation_prev_btn.setFixedWidth(30)
+        self.toannotate_prev_btn = QPushButton("<")
+        self.toannotate_prev_btn.setFixedWidth(30)
         
-        self.todoannotation_next_btn = QPushButton(">")
-        self.todoannotation_next_btn.setFixedWidth(30)
+        self.toannotate_next_btn = QPushButton(">")
+        self.toannotate_next_btn.setFixedWidth(30)
 
         # Layout
-        todoannotation_layout = QHBoxLayout()
-        todoannotation_layout.addWidget(self.todoannotation_prev_btn)
-        todoannotation_layout.addWidget(self.todoannotation_counter)
-        todoannotation_layout.addWidget(self.todoannotation_next_btn)
+        toannotate_layout = QHBoxLayout()
+        toannotate_layout.addWidget(self.toannotate_prev_btn)
+        toannotate_layout.addWidget(self.toannotate_counter)
+        toannotate_layout.addWidget(self.toannotate_next_btn)
         
-        self.layout.addLayout(todoannotation_layout)
-        self.layout.setAlignment(todoannotation_layout, Qt.AlignLeft)
+        self.layout.addLayout(toannotate_layout)
+        self.layout.setAlignment(toannotate_layout, Qt.AlignLeft)
 
         # Change to horizontal layout for H,S,M buttons
         annotation_type_layout = QHBoxLayout()
@@ -48,33 +48,33 @@ class TodoAnnotationBox(NavigationBox):
         self.layout.addLayout(annotation_type_layout)
         
         # Connect buttons
-        self.todoannotation_prev_btn.clicked.connect(self.go_to_prev_annotation)
-        self.todoannotation_next_btn.clicked.connect(self.go_to_next_annotation)
-        self.todoannotation_counter.clicked.connect(self.goto_annotation)
+        self.toannotate_prev_btn.clicked.connect(self.go_to_prev_annotation)
+        self.toannotate_next_btn.clicked.connect(self.go_to_next_annotation)
+        self.toannotate_counter.clicked.connect(self.goto_annotation)
         self.hair_btn.clicked.connect(self.on_hair_clicked)
         self.support_btn.clicked.connect(self.on_support_clicked)
         self.mantle_btn.clicked.connect(self.on_mantle_clicked)
-        self.tracks_viewer.tracks_updated.connect(self.update_todoannotation)
+        self.tracks_viewer.tracks_updated.connect(self.update_toannotate)
         self.tracks_viewer.selected_nodes.list_updated.connect(self._check_selected_node_matches_annotation)
 
-    def update_todoannotation(self):
+    def update_toannotate(self):
         """Update the annotations and the annotation counter"""
-        self.databasehandler.recompute_todoannotations()
+        self.databasehandler.recompute_toannotate()
         self.update_annotation_counter()
         pass
 
     def update_annotation_counter(self):
         """Update the annotation counter to show the current annotation index and total count."""
-        total = len(self.databasehandler.todoannotations)
+        total = len(self.databasehandler.toannotate)
         if total > 0:
-            self.todoannotation_counter.setText(f"{self.current_annotation_index + 1}/{total}")
+            self.toannotate_counter.setText(f"{self.current_annotation_index + 1}/{total}")
         else:
-            self.todoannotation_counter.setText("0/0")
+            self.toannotate_counter.setText("0/0")
         pass
 
     def go_to_next_annotation(self):
         """Navigate to the next annotation in the list and jump to that timepoint."""
-        total = len(self.databasehandler.todoannotations)
+        total = len(self.databasehandler.toannotate)
         if total == 0:
             return
         self.current_annotation_index = (self.current_annotation_index + 1) % total
@@ -83,7 +83,7 @@ class TodoAnnotationBox(NavigationBox):
 
     def go_to_prev_annotation(self):
         """Navigate to the previous annotation in the list and jump to that timepoint."""
-        total = len(self.databasehandler.todoannotations)
+        total = len(self.databasehandler.toannotate)
         if total == 0:
             return
         self.current_annotation_index = (self.current_annotation_index - 1) % total
@@ -93,8 +93,8 @@ class TodoAnnotationBox(NavigationBox):
     def goto_annotation(self):
         """Jump to the time of the current annotation."""
 
-        annotation_time = self.databasehandler.todoannotations.iloc[self.current_annotation_index]["middle_t"]
-        cell_id = self.databasehandler.todoannotations.iloc[self.current_annotation_index]["middle_id"]
+        annotation_time = self.databasehandler.toannotate.iloc[self.current_annotation_index]["middle_t"]
+        cell_id = self.databasehandler.toannotate.iloc[self.current_annotation_index]["middle_id"]
 
         self.update_chunk_from_frame_signal.emit(annotation_time)
         print(f"Jumping to annotation time: {annotation_time} for cell_id {cell_id}")
@@ -113,7 +113,7 @@ class TodoAnnotationBox(NavigationBox):
 
         # If no nodes selected or multiple nodes selected, grey out counter
         if len(selected_nodes) != 1:
-            self.todoannotation_counter.setStyleSheet("color: gray;")
+            self.toannotate_counter.setStyleSheet("color: gray;")
             return
 
         selected_node = selected_nodes[0]
@@ -121,16 +121,16 @@ class TodoAnnotationBox(NavigationBox):
         # First get the track_id of the selected node from the database
         track_id = self.databasehandler.df[self.databasehandler.df['id'] == selected_node]['track_id'].iloc[0]
         
-        # Then find this track_id in the todoannotations
+        # Then find this track_id in the toannotate
         try:
-            index = self.databasehandler.todoannotations[self.databasehandler.todoannotations['track_id'] == track_id].index[0]
+            index = self.databasehandler.toannotate[self.databasehandler.toannotate['track_id'] == track_id].index[0]
             # Found the track in annotations - update counter and remove grey
             self.current_annotation_index = index
-            self.todoannotation_counter.setText(f"{index + 1}/{len(self.databasehandler.todoannotations)}")
-            self.todoannotation_counter.setStyleSheet("")
+            self.toannotate_counter.setText(f"{index + 1}/{len(self.databasehandler.toannotate)}")
+            self.toannotate_counter.setStyleSheet("")
         except IndexError:
             # Track not found in annotations - grey out counter
-            self.todoannotation_counter.setStyleSheet("color: gray;")
+            self.toannotate_counter.setStyleSheet("color: gray;")
 
     def on_hair_clicked(self):
         # print("Hair button clicked")
@@ -145,9 +145,9 @@ class TodoAnnotationBox(NavigationBox):
         self.annotate_track("mantle")
 
     def annotate_track(self, label_str: str):
-        print(f"Annotating track with label: {label_str}")
         label_int = self.get_label_int(label_str)
-        track_id = self.databasehandler.todoannotations.iloc[self.current_annotation_index]["track_id"]
+        track_id = self.databasehandler.toannotate.iloc[self.current_annotation_index]["track_id"]
+        print(f"Annotating track_id {track_id} as {label_str}")
         self.databasehandler.annotate_track(track_id,label_int)
         self.refresh_annotation_layer.emit()
 

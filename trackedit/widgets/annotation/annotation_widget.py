@@ -7,7 +7,7 @@ from qtpy.QtWidgets import (
     QWidget, 
     QVBoxLayout, 
 )
-from trackedit.widgets.annotation.todo_box import TodoAnnotationBox
+from trackedit.widgets.annotation.todo_box import ToAnnotateBox
 
 class AnnotationWidget(QWidget):
 
@@ -23,7 +23,7 @@ class AnnotationWidget(QWidget):
         self.current_todoannotation_index = 0
 
         # Create boxes
-        self.todo_box = TodoAnnotationBox(self.tracks_viewer, self.databasehandler)
+        self.todo_box = ToAnnotateBox(self.tracks_viewer, self.databasehandler)
 
         # Forward signals
         self.todo_box.refresh_annotation_layer.connect(self.refresh_annotation_layer)

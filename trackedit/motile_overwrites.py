@@ -12,6 +12,7 @@ from motile_tracker.data_model.solution_tracks import SolutionTracks
 from motile_tracker.data_model.tracks_controller import TracksController
 from motile_tracker.data_views import TracksViewer
 from motile_tracker.data_views.views.tree_view.tree_widget import TreePlot
+from motile_tracker.data_views.views.layers.track_labels import TrackLabels
 
 AttrValue: TypeAlias = Any
 AttrValues: TypeAlias = Sequence[AttrValue]
@@ -191,3 +192,8 @@ def patched_create_pyqtgraph_content(self, track_df, feature):
 
 
 TreePlot._create_pyqtgraph_content = patched_create_pyqtgraph_content
+
+#get_status is required for the napari grid view to work
+def get_status(self, position, view_direction=None, dims_displayed=None, world=True):
+    return "True"
+TrackLabels.get_status = get_status
