@@ -15,7 +15,7 @@ from ultrack.tracks.graph import add_track_ids_to_tracks_df
 
 from trackedit.arrays.DatabaseArray import DatabaseArray
 
-from trackedit.DatabaseArray import DatabaseArray
+from trackedit.arrays.DatabaseArray import DatabaseArray
 
 NodeDB.generic = Column(Integer, default=-1)
 
@@ -69,11 +69,10 @@ class DatabaseHandler:
         self.add_missing_columns_to_db()
 
         # DatabaseArray()
-        self.segments = DatabaseArray(
-            database_path=self.db_path_new,
-            shape=self.data_shape_chunk,
-            time_window=self.time_window,
-            color_by_field = NodeDB.id)
+        self.segments = DatabaseArray(database_path=self.db_path_new,
+                                shape=self.data_shape_chunk,
+                                time_window=self.time_window,
+                                color_by_field = NodeDB.id)
         self.annotArray = DatabaseArray(database_path=self.db_path_new, 
                                  shape=self.data_shape_chunk,
                                  time_window = self.time_window,

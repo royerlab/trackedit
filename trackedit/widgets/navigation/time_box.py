@@ -2,7 +2,7 @@ from napari.utils.notifications import show_warning
 from qtpy.QtCore import Signal
 from qtpy.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QPushButton
 
-from trackedit.widgets.navigation.base_box import NavigationBox
+from trackedit.widgets.base_box import NavigationBox
 
 
 class TimeBox(NavigationBox):

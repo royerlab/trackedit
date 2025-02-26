@@ -10,7 +10,7 @@ from napari.utils.colormaps import DirectLabelColormap
 from motile_tracker.data_model.solution_tracks import SolutionTracks
 from motile_tracker.data_views import TracksViewer, TreeWidget
 from trackedit.DatabaseHandler import DatabaseHandler
-from trackedit.hierarchy_viz_widget import HierarchyVizWidget
+from trackedit.widgets.HierarchyWidget import HierarchyVizWidget
 from trackedit.widgets.navigation.navigation_widget import NavigationWidget
 from trackedit.widgets.annotation.annotation_widget import AnnotationWidget
 from trackedit.widgets.CustomEditingMenu import CustomEditingMenu
