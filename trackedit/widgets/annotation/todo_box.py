@@ -97,7 +97,6 @@ class ToAnnotateBox(NavigationBox):
         cell_id = self.databasehandler.toannotate.iloc[self.current_annotation_index]["middle_id"]
 
         self.update_chunk_from_frame_signal.emit(annotation_time)
-        print(f"Jumping to annotation time: {annotation_time} for cell_id {cell_id}")
 
         # #update the selected nodes in the TreeWidget
         self.tracks_viewer.selected_nodes._list = []
@@ -113,7 +112,7 @@ class ToAnnotateBox(NavigationBox):
 
         # If no nodes selected or multiple nodes selected, grey out counter
         if len(selected_nodes) != 1:
-            self.toannotate_counter.setStyleSheet("color: gray;")
+            self.toggle_buttons(False)
             return
 
         selected_node = selected_nodes[0]
@@ -127,10 +126,10 @@ class ToAnnotateBox(NavigationBox):
             # Found the track in annotations - update counter and remove grey
             self.current_annotation_index = index
             self.toannotate_counter.setText(f"{index + 1}/{len(self.databasehandler.toannotate)}")
-            self.toannotate_counter.setStyleSheet("")
+            self.toggle_buttons(True)
         except IndexError:
-            # Track not found in annotations - grey out counter
-            self.toannotate_counter.setStyleSheet("color: gray;")
+            # Track not found in annotations - disable counter and buttons
+            self.toggle_buttons(False)
 
     def on_hair_clicked(self):
         # print("Hair button clicked")
@@ -148,8 +147,11 @@ class ToAnnotateBox(NavigationBox):
         label_int = self.get_label_int(label_str)
         track_id = self.databasehandler.toannotate.iloc[self.current_annotation_index]["track_id"]
         print(f"Annotating track_id {track_id} as {label_str}")
-        self.databasehandler.annotate_track(track_id,label_int)
-        self.refresh_annotation_layer.emit()
+        self.databasehandler.annotate_track(track_id,label_int)     # make changes in the database
+        self.update_toannotate()                                    # update the toannotate list
+        self._check_selected_node_matches_annotation()              # update the counter and buttons
+        self.refresh_annotation_layer.emit()                        # refresh the annotation layer
+        # self.goto_annotation()                                      # jump to the annotation
 
     def get_label_int(self, label_str: str):
         if label_str == "hair":
@@ -160,3 +162,16 @@ class ToAnnotateBox(NavigationBox):
             return 3
         else:
             raise ValueError(f"Invalid label: {label_str}")
+        
+    def toggle_buttons(self, toggle: bool):
+        if toggle:
+            self.toannotate_counter.setStyleSheet("")
+        else:
+            self.toannotate_counter.setStyleSheet("color: gray;")
+
+        self.toannotate_prev_btn.setEnabled(toggle)
+        self.toannotate_next_btn.setEnabled(toggle)
+        self.hair_btn.setEnabled(toggle)
+        self.support_btn.setEnabled(toggle)
+        self.mantle_btn.setEnabled(toggle)
+        

@@ -213,32 +213,42 @@ class DatabaseHandler:
         log_filename_new = f"data_v{version_number}_changelog.txt"
         return db_filename_new, log_filename_new
 
-    def change_value(self, index, field, value):
-        index = [int(index)]
-        value = [int(value)]
-
-        old_val = get_node_values(
-            self.config_adjusted.data_config, indices=index, values=field
-        )
-        set_node_values(
-            self.config_adjusted.data_config, indices=index, **{field.name: value}
-        )
-        new_val = get_node_values(
-            self.config_adjusted.data_config, indices=index, values=field
-        )
-        message = f"db: setting {field.name}[id={index}] = {new_val} (was {old_val})"
-        self.log(message)
-
     def change_values(self, indices, field, value):
-        values = [int(value)] * len(indices)
+        """Change values in the database for one or multiple indices.
+        
+        Parameters
+        ----------
+        indices : int or list
+            Single index or list of indices to change
+        field : Column
+            Database field to change
+        value : int
+            Value to set
+        """
+        # Convert single index to list
+        if isinstance(indices, (int, np.integer)):
+            indices = [int(indices)]
+        else:
+            indices = [int(i) for i in indices]
+            
+        value = int(value)
+        values = [value] * len(indices)
+        
+        # Get old values for logging
         old_vals = get_node_values(
             self.config_adjusted.data_config, indices=indices, values=field
         )
+        
+        # Set new values
         set_node_values(
             self.config_adjusted.data_config, indices=indices, **{field.name: values}
         )
+        
+        # Log changes
         for i in range(len(indices)):
-            message = f"db: setting {field.name}[id={indices[i]}] = {value} (was {old_vals.iloc[i]})"
+            # handle different types of old_vals (list, np.ndarray, pd.Series)
+            old_val = old_vals[i] if isinstance(old_vals, (list, np.ndarray)) else old_vals.iloc[i] if hasattr(old_vals, 'iloc') else old_vals
+            message = f"db: setting {field.name}[id={indices[i]}] = {value} (was {old_val})"
             self.log(message)
 
     def calc_time_window(self):
@@ -604,7 +614,7 @@ class DatabaseHandler:
         print("exporting finished!")
 
     def annotate_track(self, track_id: int, label: int):
-        """Annotate all cells of atrack in the database with a given label."""
+        """Annotate all cells of a track in the database with a given label."""
 
         df = self.db_to_df(entire_database=True)
         #ToDo: make df_full a property of the DatabaseHandler class
@@ -613,3 +623,40 @@ class DatabaseHandler:
         indices = df[df['track_id'] == track_id].index.tolist()
 
         self.change_values(indices, NodeDB.generic, label)
+
+    def clear_nodes_annotations(self, nodes):
+        """Clear the annotations for the entire track of a list of nodes. Called when a node is deleted."""
+
+        df = self.db_to_df(entire_database=True)
+
+        # get the track_id of the nodes
+        track_ids = df[df['id'].isin(nodes)]['track_id'].unique()
+
+        # get the indices of the nodes in the track
+        for track_id in track_ids:
+            indices = df[df['track_id'] == track_id].index.tolist()
+            self.change_values(indices, NodeDB.generic, NodeDB.generic.default.arg)
+
+    def clear_edges_annotations(self, edges):
+        """Clear annotations for all nodes involved in the given edges.
+        
+        Parameters
+        ----------
+        edges : List[Tuple[int, int]]
+            List of edges, where each edge is a tuple of (source_node, target_node)
+        """
+        # Flatten the list of edge tuples to get all node IDs
+        node_ids = set()
+        for source, target in edges:
+            node_ids.add(source)
+            node_ids.add(target)
+
+        df = self.db_to_df(entire_database=True)
+
+        # get the track_id of the nodes
+        track_ids = df[df['id'].isin(node_ids)]['track_id'].unique()
+
+        # get the indices of the nodes in the track
+        for track_id in track_ids:
+            indices = df[df['track_id'] == track_id].index.tolist()
+            self.change_values(indices, NodeDB.generic, NodeDB.generic.default.arg)

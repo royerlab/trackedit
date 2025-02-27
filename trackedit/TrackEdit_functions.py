@@ -55,9 +55,9 @@ class TrackEditClass:
         color_mapping = {
             -1: [0.5, 0.5, 0.5, 1.0],  # gray
             0: [0.0, 0.0, 0.0, 0.0],   # transparent
-            1: [1.0, 0.0, 0.0, 1.0],   # red
-            2: [0.0, 1.0, 0.0, 1.0],   # green
-            3: [0.0, 0.0, 1.0, 1.0],   # blue
+            1: [0.0, 1.0, 0.0, 1.0],   # green (hair cell)
+            2: [1.0, 0.1, 0.6, 1.0],   # pink (support cell)
+            3: [0.0, 0.0, 0.9, 1.0],   # blue (mantle cell)
             None: [0.0, 0.0, 0.0, 0.0], # default: transparent for any unmapped values
         }
         cmap = DirectLabelColormap(color_dict=color_mapping)
