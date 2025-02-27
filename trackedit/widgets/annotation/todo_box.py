@@ -15,6 +15,9 @@ class ToAnnotateBox(NavigationBox):
         self.databasehandler = databasehandler
         self.current_annotation_index = 0
 
+        # Create inverse mapping from string labels to integers
+        self.label_int_mapping = {v: k for k, v in self.databasehandler.label_mapping_dict.items()}
+
         # Create controls
         self.toannotate_counter = ClickableLabel("0/0")
         self.toannotate_counter.setFixedWidth(80)
@@ -154,13 +157,10 @@ class ToAnnotateBox(NavigationBox):
         # self.goto_annotation()                                      # jump to the annotation
 
     def get_label_int(self, label_str: str):
-        if label_str == "hair":
-            return 1
-        elif label_str == "support":
-            return 2
-        elif label_str == "mantle":
-            return 3
-        else:
+        # Use inverse of databasehandler's label_mapping
+        try:
+            return self.label_int_mapping[label_str]
+        except KeyError:
             raise ValueError(f"Invalid label: {label_str}")
         
     def toggle_buttons(self, toggle: bool):

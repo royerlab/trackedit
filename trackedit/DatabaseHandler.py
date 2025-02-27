@@ -14,8 +14,7 @@ from ultrack.core.export.utils import solution_dataframe_from_sql
 from ultrack.tracks.graph import add_track_ids_to_tracks_df
 
 from trackedit.arrays.DatabaseArray import DatabaseArray
-
-from trackedit.arrays.DatabaseArray import DatabaseArray
+from trackedit.utils.utils import annotations_to_zarr
 
 NodeDB.generic = Column(Integer, default=-1)
 
@@ -84,6 +83,13 @@ class DatabaseHandler:
         self.divisions = self.find_all_divisions()
         self.red_flags_ignore_list = []
         self.log(f"Log file created")
+
+        self.label_mapping_dict = {
+            NodeDB.generic.default.arg: "none",     #-1
+            1: "hair",
+            2: "support",
+            3: "mantle"
+        }
 
     def initialize_logfile(self, log_filename_new):
         """Initialize the logger with a file path. Raises an error if the file already exists."""
@@ -207,9 +213,9 @@ class DatabaseHandler:
 
         # Create the new filename
         self.extension_string = (
-            f"_v{version_number}"  # "_v3" (saved for export function)
+            f"v{version_number}"  # "_v3" (saved for export function)
         )
-        db_filename_new = f"{base_name}{self.extension_string}{ext}"
+        db_filename_new = f"{base_name}_{self.extension_string}{ext}"
         log_filename_new = f"data_v{version_number}_changelog.txt"
         return db_filename_new, log_filename_new
 
@@ -517,13 +523,14 @@ class DatabaseHandler:
         for _, row in dividing_cells.iterrows():
             # Find parent info in the frame before division
             parent_info = df[(df["id"] == row["parent_id"]) & (df["t"] == row["t"] - 1)]
-
+            daughters_info = df[(df["parent_id"] == row["parent_id"]) & (df["t"] == row["t"])]
             if not parent_info.empty:
                 divisions.append(
                     {
                         "t": parent_info["t"].iloc[0],
                         "track_id": parent_info["track_id"].iloc[0],
                         "id": row["parent_id"],
+                        "daughters": daughters_info["track_id"].tolist(),
                     }
                 )
 
@@ -592,8 +599,8 @@ class DatabaseHandler:
         """Export tracks to a CSV file"""
         print("exporting...")
 
-        # CSV
-        csv_filename = self.working_directory / f"tracks{self.extension_string}.csv"
+        # tracks.csv
+        csv_filename = self.working_directory / f"{self.extension_string}_tracks.csv"
         df_full = self.db_to_df(entire_database=True)
         try:
             df_full.to_csv(csv_filename, index=False)
@@ -602,8 +609,37 @@ class DatabaseHandler:
 
             show_error(f"Error exporting tracks.csv: {str(e)}")
 
-        # Zarr
-        zarr_filename = self.working_directory / f"segments{self.extension_string}.zarr"
+        #annotations.csv
+        csv_filename = self.working_directory / f"{self.extension_string}_annotations.csv"
+        # Group by track_id and take the first label for each track
+        df_full['label'] = df_full['generic'].map(self.label_mapping)
+        df_full = df_full[['track_id', 'generic', 'label']]
+        df_grouped = df_full.groupby('track_id').first().reset_index()
+        df_grouped.to_csv(csv_filename, index=False)
+        #ToDo: check if only one label per track_id
+
+        #divisions.txt
+        txt_filename = self.working_directory / f"{self.extension_string}_divisions.txt"
+        df_full = self.db_to_df(entire_database=True)
+        
+        # Create a mapping of track_id to its label
+        track_labels = df_full.groupby('track_id')['generic'].first().apply(self.label_mapping)
+        
+        with open(txt_filename, 'w') as f:
+            for _, row in self.divisions.iterrows():
+                parent_id = row['track_id']
+                daughter_tracks = row['daughters']
+                if isinstance(daughter_tracks, str):  # Convert string representation to list if needed
+                    daughter_tracks = eval(daughter_tracks)
+                
+                parent_label = track_labels.get(parent_id, 'other')
+                daughter1_label = track_labels.get(daughter_tracks[0], 'other')
+                daughter2_label = track_labels.get(daughter_tracks[1], 'other')
+                
+                f.write(f"division: {parent_id} ({parent_label}) > {daughter_tracks[0]} ({daughter1_label}) + {daughter_tracks[1]} ({daughter2_label})\n")
+
+        # segments.zarr
+        zarr_filename = self.working_directory / f"{self.extension_string}_segments.zarr"
         tracks_to_zarr(
             config=self.config_adjusted,
             tracks_df=df_full,
@@ -611,7 +647,19 @@ class DatabaseHandler:
             overwrite=True,
         )
 
+        #annotations.zarr
+        zarr_filename = self.working_directory / f"{self.extension_string}_annotations.zarr"
+        annotations_to_zarr(
+            config=self.config_adjusted,
+            tracks_df=df_full,
+            store_or_path=zarr_filename,
+            overwrite=True,
+        )
         print("exporting finished!")
+
+    def label_mapping(self, label):
+        """Map the label to the generic column."""
+        return self.label_mapping_dict.get(label, "other")
 
     def annotate_track(self, track_id: int, label: int):
         """Annotate all cells of a track in the database with a given label."""
@@ -627,6 +675,7 @@ class DatabaseHandler:
     def clear_nodes_annotations(self, nodes):
         """Clear the annotations for the entire track of a list of nodes. Called when a node is deleted."""
 
+        print(f"clearing annotations for nodes: {nodes}")
         df = self.db_to_df(entire_database=True)
 
         # get the track_id of the nodes
@@ -645,6 +694,8 @@ class DatabaseHandler:
         edges : List[Tuple[int, int]]
             List of edges, where each edge is a tuple of (source_node, target_node)
         """
+
+        print(f"clearing annotations for edges: {edges}")
         # Flatten the list of edge tuples to get all node IDs
         node_ids = set()
         for source, target in edges:

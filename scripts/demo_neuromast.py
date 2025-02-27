@@ -11,7 +11,7 @@ from motile_tracker.data_model.actions import (
 )
 from trackedit.DatabaseHandler import DatabaseHandler
 from trackedit.motile_overwrites import *
-from trackedit.TrackEdit_functions import *
+from trackedit.TrackEditClass import *
 from trackedit.utils.utils import wrap_default_widgets_in_tabs
 
 warnings.filterwarnings("ignore", category=FutureWarning, message=".*qt_viewer.*")
