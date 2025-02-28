@@ -15,14 +15,15 @@ Current UI:
 - [Installation](#installation)
 - [License](#license)
 
-## Installation
+## Installation HPC
 
 ```console
 git clone https://github.com/royerlab/trackedit.git
 cd trackedit
+module load pixi
 pixi install
 pixi shell
-python scripts/demo_neuromast.py
+python scripts/demo_neuromast.py  #after changing working directory path in this file
 ```
 
 ## License
