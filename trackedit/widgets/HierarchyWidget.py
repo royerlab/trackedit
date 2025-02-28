@@ -45,7 +45,6 @@ class HierarchyLabels(napari.layers.Labels):
                     dims_displayed=event.dims_displayed,
                     world=True,
                 )
-                print("clicked label:", label)
                 if (label is not None) and (label != 0):
                     self.signals.click_on_hierarchy_cell.emit(int(label))
                 else:

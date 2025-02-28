@@ -120,11 +120,9 @@ class ToAnnotateBox(NavigationBox):
 
         selected_node = selected_nodes[0]
         
-        # First get the track_id of the selected node from the database
-        track_id = self.databasehandler.df[self.databasehandler.df['id'] == selected_node]['track_id'].iloc[0]
-        
-        # Then find this track_id in the toannotate
-        try:
+        # First get the track_id of the selected node from the database. Then find this track_id in the toannotate
+        try:        
+            track_id = self.databasehandler.df[self.databasehandler.df['id'] == selected_node]['track_id'].iloc[0]
             index = self.databasehandler.toannotate[self.databasehandler.toannotate['track_id'] == track_id].index[0]
             # Found the track in annotations - update counter and remove grey
             self.current_annotation_index = index

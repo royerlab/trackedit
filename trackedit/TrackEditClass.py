@@ -13,14 +13,13 @@ from trackedit.DatabaseHandler import DatabaseHandler
 from trackedit.widgets.HierarchyWidget import HierarchyVizWidget
 from trackedit.widgets.navigation.navigation_widget import NavigationWidget
 from trackedit.widgets.annotation.annotation_widget import AnnotationWidget
-from trackedit.widgets.CustomEditingMenu import CustomEditingMenu
+from trackedit.widgets.CustomEditingWidget import CustomEditingMenu
 from trackedit.widgets.HierarchyWidget import HierarchyVizWidget
 from trackedit.widgets.NavigationWidget import NavigationWidget
 
 from qtpy.QtWidgets import (
     QTabWidget,
 )
-
 
 class TrackEditClass:
     def __init__(self, viewer: napari.Viewer, databasehandler: DatabaseHandler):
