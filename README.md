@@ -18,7 +18,11 @@ Current UI:
 ## Installation
 
 ```console
-pip install trackedit
+git clone https://github.com/royerlab/trackedit.git
+cd trackedit
+pixi install
+pixi shell
+python scripts/demo_neuromast.py
 ```
 
 ## License
