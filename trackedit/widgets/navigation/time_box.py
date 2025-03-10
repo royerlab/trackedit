@@ -1,8 +1,9 @@
 from napari.utils.notifications import show_warning
+from PyQt5.QtGui import QIntValidator, QValidator
 from qtpy.QtCore import Signal
 from qtpy.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QPushButton
 
-from trackedit.widgets.navigation.base_box import NavigationBox
+from trackedit.widgets.base_box import NavigationBox
 
 
 class TimeBox(NavigationBox):
@@ -27,6 +28,10 @@ class TimeBox(NavigationBox):
         # Define time input field
         self.time_input = QLineEdit()
         self.time_input.setPlaceholderText("Enter time")
+        validator = QIntValidator()
+        validator.setBottom(0)  # Prevent negative numbers
+        self.time_input.setValidator(validator)
+        self.time_input.textChanged.connect(self.update_time_input_state)
         self.time_input.returnPressed.connect(self.on_time_input_entered)
 
         self.chunk_label = QLabel("temp. label")
@@ -68,11 +73,18 @@ class TimeBox(NavigationBox):
     def press_next(self):
         self.change_chunk.emit("next")
 
+    def update_time_input_state(self, text):
+        self.time_input_valid = (
+            (
+            self.time_input.validator().validate(text, 0)[0] == QValidator.Acceptable
+        )
+        )
+
     def on_time_input_entered(self):
-        try:
+        if self.time_input_valid:
             frame = int(self.time_input.text())
             self.goto_frame.emit(frame)
-        except ValueError:
+        else:
             cur_frame = self.viewer.dims.current_step[0]
             self.goto_frame.emit(cur_frame)
             show_warning("Time invalid, nothing changed.")
