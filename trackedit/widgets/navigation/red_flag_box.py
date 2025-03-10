@@ -2,8 +2,8 @@ import numpy as np
 from qtpy.QtCore import Signal
 from qtpy.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout
 
+from trackedit.widgets.base_box import NavigationBox
 from trackedit.widgets.ClickableLabel import ClickableLabel
-from trackedit.widgets.navigation.base_box import NavigationBox
 
 
 class RedFlagBox(NavigationBox):

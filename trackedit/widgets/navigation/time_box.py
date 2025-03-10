@@ -3,7 +3,7 @@ from PyQt5.QtGui import QIntValidator, QValidator
 from qtpy.QtCore import Signal
 from qtpy.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QPushButton
 
-from trackedit.widgets.navigation.base_box import NavigationBox
+from trackedit.widgets.base_box import NavigationBox
 
 
 class TimeBox(NavigationBox):
@@ -75,7 +75,9 @@ class TimeBox(NavigationBox):
 
     def update_time_input_state(self, text):
         self.time_input_valid = (
+            (
             self.time_input.validator().validate(text, 0)[0] == QValidator.Acceptable
+        )
         )
 
     def on_time_input_entered(self):
