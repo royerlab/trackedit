@@ -86,7 +86,6 @@ class CustomEditingMenu(EditingMenu):
         self.duplicate_cell_button_pressed.emit(node_id, time)
 
     def click_on_hierarchy_cell(self, label: int):
-        print("EditingMenu: click_on_hierarchy_cell", label)
         if label > 0:
             self.add_cell_input.setText(str(label))
             self.duplicate_cell_id_input.setText(str(label))

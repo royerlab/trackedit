@@ -23,6 +23,7 @@ Edge: TypeAlias = tuple[Node, Node]
 def create_db_add_nodes(DB_handler):
     def db_add_nodes(self):
         # don't use full old function, because it includes painting pixels in segmentation
+        print("AddNodes:", self.nodes)
 
         # overwrite self.positions with values from database, scaled with z_scale
         new_pos = []
@@ -40,20 +41,23 @@ def create_db_add_nodes(DB_handler):
         self.tracks.add_nodes(
             self.nodes, self.times, self.positions, attrs=self.attributes
         )
-        print("AddNodes:", self.nodes)
         for n in self.nodes:
-            DB_handler.change_value(index=n, field=NodeDB.selected, value=1)
+            DB_handler.change_values(indices=n, field=NodeDB.selected, value=1)
+            DB_handler.change_values(
+                indices=n, field=NodeDB.generic, value=NodeDB.generic.default.arg
+            )
 
     return db_add_nodes
 
 
 def create_db_delete_nodes(DB_handler):
     def db_delete_nodes(self):
-        # don't use full old function, because it includes painting pixels in segmentation
-        self.tracks.remove_nodes(self.nodes)
         print("DeleteNodes:", self.nodes)
+        # don't use full old function, because it includes painting pixels in segmentation
+        DB_handler.clear_nodes_annotations(self.nodes)
+        self.tracks.remove_nodes(self.nodes)
         for n in self.nodes:
-            DB_handler.change_value(index=n, field=NodeDB.selected, value=0)
+            DB_handler.change_values(indices=n, field=NodeDB.selected, value=0)
 
     return db_delete_nodes
 
@@ -63,10 +67,11 @@ _old_add_edges_apply = AddEdges._apply
 
 def create_db_add_edges(DB_handler):
     def db_add_edges(self):
-        _old_add_edges_apply(self)
         print("AddEdges:", self.edges)
+        _old_add_edges_apply(self)
+        DB_handler.clear_edges_annotations(self.edges)
         for e in self.edges:
-            DB_handler.change_value(index=e[1], field=NodeDB.parent_id, value=e[0])
+            DB_handler.change_values(indices=e[1], field=NodeDB.parent_id, value=e[0])
 
     return db_add_edges
 
@@ -76,10 +81,10 @@ _old_delete_edges_apply = DeleteEdges._apply
 
 def create_db_delete_edges(DB_handler):
     def db_delete_edges(self):
-        _old_delete_edges_apply(self)
         print("DeleteEdges:", self.edges)
+        _old_delete_edges_apply(self)
         for e in self.edges:
-            DB_handler.change_value(index=e[1], field=NodeDB.parent_id, value=-1)
+            DB_handler.change_values(indices=e[1], field=NodeDB.parent_id, value=-1)
 
     return db_delete_edges
 
@@ -91,7 +96,7 @@ def _empty_compute_node_attrs(
         NodeAttr.POS.value: [],
         NodeAttr.AREA.value: [],
     }
-    for n in nodes:
+    for _ in nodes:
         attrs[NodeAttr.POS.value].append([0, 0, 0])
         attrs[NodeAttr.AREA.value].append(0)
     attrs[NodeAttr.POS.value] = np.array(attrs[NodeAttr.POS.value])
@@ -126,7 +131,11 @@ def create_tracks_viewer_and_segments_refresh(layer_name):
         self, node: str | None = None, refresh_view: bool = False
     ) -> None:
         _old_tracks_viewer_refresh(self, node, refresh_view)
+        # refill and refresh the segments and annotations layers
+        self.viewer.layers[layer_name + "_seg"].data.force_refill()
         self.viewer.layers[layer_name + "_seg"].refresh()
+        self.viewer.layers["annotations"].data.force_refill()
+        self.viewer.layers["annotations"].refresh()
         print("refreshed \n")
 
     return tracks_viewer_refresh_with_segments_refresh
@@ -188,3 +197,7 @@ def patched_create_pyqtgraph_content(self, track_df, feature):
 
 
 TreePlot._create_pyqtgraph_content = patched_create_pyqtgraph_content
+
+# def get_status(self, position, view_direction=None, dims_displayed=None, world=True):
+#     return "True" #works to allow napari grid view, but not for cursor position/value display
+# TrackLabels.get_status = get_status
