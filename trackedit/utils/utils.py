@@ -1,23 +1,22 @@
 import multiprocessing as mp
+import warnings
+from pathlib import Path
+from typing import Any, Callable, List, Optional, Sequence, Tuple, Union
+
 import numpy as np
 import pandas as pd
-import zarr
 import sqlalchemy as sqla
-import warnings
-
-from tqdm import tqdm
-from zarr.storage import Store
+import zarr
 from qtpy.QtWidgets import QTabWidget
-from toolz import curry
 from sqlalchemy.orm import Session
-from pathlib import Path
-from typing import Optional, Tuple, Union, Callable, List, Any, Sequence
-
-from ultrack.config.dataconfig import DataConfig
+from toolz import curry
+from tqdm import tqdm
 from ultrack.config.config import MainConfig
-from ultrack.utils.array import create_zarr, large_chunk_size
+from ultrack.config.dataconfig import DataConfig
 from ultrack.core.database import NodeDB
-from ultrack.core.segmentation.node import Node
+from ultrack.utils.array import create_zarr, large_chunk_size
+from zarr.storage import Store
+
 
 def wrap_default_widgets_in_tabs(viewer):
     # -- 1) Identify the default dock widgets by going up the parent chain.
@@ -61,7 +60,6 @@ def wrap_default_widgets_in_tabs(viewer):
 
     # (Optional) Also update the internal dict of dock widgets if needed:
     # viewer.window._dock_widgets['Layer List'] = new_dock
-
 
 
 @curry
@@ -112,6 +110,7 @@ def _query_and_export_data_to_frame(
 
         export_func(time, buffer)
 
+
 def multiprocessing_apply(
     func: Callable[[Any], None],
     sequence: Sequence[Any],
@@ -143,6 +142,7 @@ def multiprocessing_apply(
             return list(tqdm(pool.imap(func, sequence), desc=desc, total=length))
     else:
         return [func(t) for t in tqdm(sequence, desc=desc)]
+
 
 def export_annotation_generic(
     data_config: DataConfig,
@@ -178,6 +178,7 @@ def export_annotation_generic(
         n_workers=data_config.n_workers,
         desc="Exporting annotations",
     )
+
 
 def annotations_to_zarr(
     config: MainConfig,

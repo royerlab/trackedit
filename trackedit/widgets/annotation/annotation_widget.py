@@ -1,13 +1,11 @@
 import napari
-import numpy as np
-from motile_tracker.data_views import TracksViewer   
-from trackedit.DatabaseHandler import DatabaseHandler
 from qtpy.QtCore import Signal
-from qtpy.QtWidgets import (
-    QWidget, 
-    QVBoxLayout, 
-)
+from qtpy.QtWidgets import QVBoxLayout, QWidget
+
+from motile_tracker.data_views import TracksViewer
+from trackedit.DatabaseHandler import DatabaseHandler
 from trackedit.widgets.annotation.todo_box import ToAnnotateBox
+
 
 class AnnotationWidget(QWidget):
 
@@ -36,5 +34,5 @@ class AnnotationWidget(QWidget):
         self.setLayout(main_layout)
 
     def refresh_annotation_layer(self):
-        self.viewer.layers['annotations'].data.force_refill()
-        self.viewer.layers['annotations'].refresh()
+        self.viewer.layers["annotations"].data.force_refill()
+        self.viewer.layers["annotations"].refresh()

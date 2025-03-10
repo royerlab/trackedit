@@ -1,15 +1,13 @@
 import napari
-import numpy as np
-from motile_tracker.data_views import TracksViewer   
-from trackedit.DatabaseHandler import DatabaseHandler
 from qtpy.QtCore import Signal
-from qtpy.QtWidgets import (
-    QWidget, 
-    QVBoxLayout, 
-)
-from .time_box import TimeBox
-from .red_flag_box import RedFlagBox
-from .division_box import DivisionBox
+from qtpy.QtWidgets import QVBoxLayout, QWidget
+
+from motile_tracker.data_views import TracksViewer
+from trackedit.DatabaseHandler import DatabaseHandler
+from trackedit.widgets.navigation.division_box import DivisionBox
+from trackedit.widgets.navigation.red_flag_box import RedFlagBox
+from trackedit.widgets.navigation.time_box import TimeBox
+
 
 class NavigationWidget(QWidget):
 

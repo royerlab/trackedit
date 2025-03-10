@@ -12,7 +12,6 @@ from motile_tracker.data_model.solution_tracks import SolutionTracks
 from motile_tracker.data_model.tracks_controller import TracksController
 from motile_tracker.data_views import TracksViewer
 from motile_tracker.data_views.views.tree_view.tree_widget import TreePlot
-from motile_tracker.data_views.views.layers.track_labels import TrackLabels
 
 AttrValue: TypeAlias = Any
 AttrValues: TypeAlias = Sequence[AttrValue]
@@ -44,7 +43,10 @@ def create_db_add_nodes(DB_handler):
         )
         for n in self.nodes:
             DB_handler.change_values(indices=n, field=NodeDB.selected, value=1)
-            DB_handler.change_values(indices=n, field=NodeDB.generic, value=NodeDB.generic.default.arg)
+            DB_handler.change_values(
+                indices=n, field=NodeDB.generic, value=NodeDB.generic.default.arg
+            )
+
     return db_add_nodes
 
 
@@ -56,6 +58,7 @@ def create_db_delete_nodes(DB_handler):
         self.tracks.remove_nodes(self.nodes)
         for n in self.nodes:
             DB_handler.change_values(indices=n, field=NodeDB.selected, value=0)
+
     return db_delete_nodes
 
 
@@ -69,6 +72,7 @@ def create_db_add_edges(DB_handler):
         DB_handler.clear_edges_annotations(self.edges)
         for e in self.edges:
             DB_handler.change_values(indices=e[1], field=NodeDB.parent_id, value=e[0])
+
     return db_add_edges
 
 
@@ -81,6 +85,7 @@ def create_db_delete_edges(DB_handler):
         _old_delete_edges_apply(self)
         for e in self.edges:
             DB_handler.change_values(indices=e[1], field=NodeDB.parent_id, value=-1)
+
     return db_delete_edges
 
 
@@ -126,12 +131,13 @@ def create_tracks_viewer_and_segments_refresh(layer_name):
         self, node: str | None = None, refresh_view: bool = False
     ) -> None:
         _old_tracks_viewer_refresh(self, node, refresh_view)
-        #refill and refresh the segments and annotations layers
-        self.viewer.layers[layer_name + '_seg'].data.force_refill()
-        self.viewer.layers[layer_name + '_seg'].refresh()
-        self.viewer.layers['annotations'].data.force_refill()
-        self.viewer.layers['annotations'].refresh()
-        print('refreshed \n')
+        # refill and refresh the segments and annotations layers
+        self.viewer.layers[layer_name + "_seg"].data.force_refill()
+        self.viewer.layers[layer_name + "_seg"].refresh()
+        self.viewer.layers["annotations"].data.force_refill()
+        self.viewer.layers["annotations"].refresh()
+        print("refreshed \n")
+
     return tracks_viewer_refresh_with_segments_refresh
 
 

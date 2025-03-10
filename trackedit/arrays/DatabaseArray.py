@@ -3,8 +3,8 @@ from typing import Tuple, Union
 
 import numpy as np
 import sqlalchemy as sqla
-from sqlalchemy.orm import Session
 from sqlalchemy import Column
+from sqlalchemy.orm import Session
 from ultrack.core.database import NodeDB
 
 # import traceback

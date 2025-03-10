@@ -1,25 +1,21 @@
 import napari
 import numpy as np
 from motile_toolbox.candidate_graph import NodeAttr
+from napari.utils.colormaps import DirectLabelColormap
 from napari.utils.notifications import show_warning
 from qtpy.QtWidgets import QTabWidget
 from ultrack.core.database import NodeDB, get_node_values
 from ultrack.core.interactive import add_new_node
-from napari.utils.colormaps import DirectLabelColormap
 
 from motile_tracker.data_model.solution_tracks import SolutionTracks
 from motile_tracker.data_views import TracksViewer, TreeWidget
 from trackedit.DatabaseHandler import DatabaseHandler
-from trackedit.widgets.HierarchyWidget import HierarchyVizWidget
-from trackedit.widgets.navigation.navigation_widget import NavigationWidget
 from trackedit.widgets.annotation.annotation_widget import AnnotationWidget
 from trackedit.widgets.CustomEditingWidget import CustomEditingMenu
 from trackedit.widgets.HierarchyWidget import HierarchyVizWidget
+from trackedit.widgets.navigation.navigation_widget import NavigationWidget
 from trackedit.widgets.NavigationWidget import NavigationWidget
 
-from qtpy.QtWidgets import (
-    QTabWidget,
-)
 
 class TrackEditClass:
     def __init__(self, viewer: napari.Viewer, databasehandler: DatabaseHandler):
@@ -36,8 +32,10 @@ class TrackEditClass:
         tabwidget_right.addTab(self.NavigationWidget, "Navigation")
         tabwidget_right.addTab(self.EditingMenu, "Edit Tracks")
         tabwidget_right.addTab(self.AnnotationWidget, "Annotations")
-        tabwidget_right.setMaximumWidth(330) 
-        self.viewer.window.add_dock_widget(tabwidget_right, area='right', name='TrackEdit Widgets')
+        tabwidget_right.setMaximumWidth(330)
+        self.viewer.window.add_dock_widget(
+            tabwidget_right, area="right", name="TrackEdit Widgets"
+        )
 
         self.hier_widget = HierarchyVizWidget(
             viewer=viewer,
@@ -48,20 +46,15 @@ class TrackEditClass:
         tmax = self.databasehandler.data_shape_chunk[0]
         self.hier_widget.ultrack_array.shape = (tmax, *hier_shape[1:])
 
-        #Add annotation layer to viewer
-        self.viewer.add_labels(self.databasehandler.annotArray, name='annotations', scale=self.databasehandler.scale)
-        #add custom colormap (-1=gray, 0=transparent, 1/2/3=rgb)
-        color_mapping = {
-            -1: [0.5, 0.5, 0.5, 1.0],  # gray
-            0: [0.0, 0.0, 0.0, 0.0],   # transparent
-            1: [0.0, 1.0, 0.0, 1.0],   # green (hair cell)
-            2: [1.0, 0.1, 0.6, 1.0],   # pink (support cell)
-            3: [0.0, 0.0, 0.9, 1.0],   # blue (mantle cell)
-            None: [0.0, 0.0, 0.0, 0.0], # default: transparent for any unmapped values
-        }
-        cmap = DirectLabelColormap(color_dict=color_mapping)
-        self.viewer.layers['annotations'].colormap = cmap
-
+        # Add annotation layer to viewer
+        self.viewer.add_labels(
+            self.databasehandler.annotArray,
+            name="annotations",
+            scale=self.databasehandler.scale,
+        )
+        self.viewer.layers["annotations"].colormap = DirectLabelColormap(
+            color_dict=self.databasehandler.color_mapping
+        )
 
         # Store reference to the existing hierarchy layer
         self.hierarchy_layer = self.hier_widget.labels_layer
@@ -81,7 +74,9 @@ class TrackEditClass:
         self.NavigationWidget.red_flag_box.update_chunk_from_frame_signal.connect(
             self.update_chunk_from_frame
         )
-        self.AnnotationWidget.todo_box.update_chunk_from_frame_signal.connect(self.update_chunk_from_frame)
+        self.AnnotationWidget.todo_box.update_chunk_from_frame_signal.connect(
+            self.update_chunk_from_frame
+        )
         self.EditingMenu.add_cell_button_pressed.connect(self.add_cell_from_database)
         self.EditingMenu.duplicate_cell_button_pressed.connect(
             self.duplicate_cell_from_database

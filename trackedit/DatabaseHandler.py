@@ -18,6 +18,7 @@ from trackedit.utils.utils import annotations_to_zarr
 
 NodeDB.generic = Column(Integer, default=-1)
 
+
 class DatabaseHandler:
     def __init__(
         self,
@@ -68,14 +69,18 @@ class DatabaseHandler:
         self.add_missing_columns_to_db()
 
         # DatabaseArray()
-        self.segments = DatabaseArray(database_path=self.db_path_new,
-                                shape=self.data_shape_chunk,
-                                time_window=self.time_window,
-                                color_by_field = NodeDB.id)
-        self.annotArray = DatabaseArray(database_path=self.db_path_new, 
-                                 shape=self.data_shape_chunk,
-                                 time_window = self.time_window,
-                                 color_by_field = NodeDB.generic)
+        self.segments = DatabaseArray(
+            database_path=self.db_path_new,
+            shape=self.data_shape_chunk,
+            time_window=self.time_window,
+            color_by_field=NodeDB.id,
+        )
+        self.annotArray = DatabaseArray(
+            database_path=self.db_path_new,
+            shape=self.data_shape_chunk,
+            time_window=self.time_window,
+            color_by_field=NodeDB.generic,
+        )
         self.df = self.db_to_df()
         self.nxgraph = self.df_to_nxgraph()
         self.red_flags = self.find_all_red_flags()
@@ -85,10 +90,13 @@ class DatabaseHandler:
         self.log(f"Log file created")
 
         self.label_mapping_dict = {
-            NodeDB.generic.default.arg: "none",     #-1
-            1: "hair",
-            2: "support",
-            3: "mantle"
+            NodeDB.generic.default.arg: {  # -1
+                "name": "none",
+                "color": [0.5, 0.5, 0.5, 1.0],  # gray
+            },
+            1: {"name": "hair", "color": [0.0, 1.0, 0.0, 1.0]},  # green
+            2: {"name": "support", "color": [1.0, 0.1, 0.6, 1.0]},  # pink
+            3: {"name": "mantle", "color": [0.0, 0.0, 0.9, 1.0]},  # blue
         }
 
     def initialize_logfile(self, log_filename_new):
@@ -184,11 +192,13 @@ class DatabaseHandler:
                 col_definition += f" DEFAULT {default_value}"
 
             expected_columns[column.name] = col_definition
-        
+
         # Add the new generic column using the same default as NodeDB.generic
         generic_default = NodeDB.generic.default.arg if NodeDB.generic.default else None
-        expected_columns['generic'] = f'INTEGER{" DEFAULT " + str(generic_default) if generic_default is not None else ""}'
-        
+        expected_columns[
+            "generic"
+        ] = f'INTEGER{" DEFAULT " + str(generic_default) if generic_default is not None else ""}'
+
         return expected_columns
 
     def get_next_db_filename(self, old_filename):
@@ -221,7 +231,7 @@ class DatabaseHandler:
 
     def change_values(self, indices, field, value):
         """Change values in the database for one or multiple indices.
-        
+
         Parameters
         ----------
         indices : int or list
@@ -236,25 +246,33 @@ class DatabaseHandler:
             indices = [int(indices)]
         else:
             indices = [int(i) for i in indices]
-            
+
         value = int(value)
         values = [value] * len(indices)
-        
+
         # Get old values for logging
         old_vals = get_node_values(
             self.config_adjusted.data_config, indices=indices, values=field
         )
-        
+
         # Set new values
         set_node_values(
             self.config_adjusted.data_config, indices=indices, **{field.name: values}
         )
-        
+
         # Log changes
         for i in range(len(indices)):
             # handle different types of old_vals (list, np.ndarray, pd.Series)
-            old_val = old_vals[i] if isinstance(old_vals, (list, np.ndarray)) else old_vals.iloc[i] if hasattr(old_vals, 'iloc') else old_vals
-            message = f"db: setting {field.name}[id={indices[i]}] = {value} (was {old_val})"
+            old_val = (
+                old_vals[i]
+                if isinstance(old_vals, (list, np.ndarray))
+                else old_vals.iloc[i]
+                if hasattr(old_vals, "iloc")
+                else old_vals
+            )
+            message = (
+                f"db: setting {field.name}[id={indices[i]}] = {value} (was {old_val})"
+            )
             self.log(message)
 
     def calc_time_window(self):
@@ -318,16 +336,18 @@ class DatabaseHandler:
         """
         ndim = len(self.data_shape_full)
 
-        df = solution_dataframe_from_sql(self.db_path_new,
-                                         columns = (
-                                            NodeDB.id,
-                                            NodeDB.parent_id,
-                                            NodeDB.t,
-                                            NodeDB.z,
-                                            NodeDB.y,
-                                            NodeDB.x,
-                                            NodeDB.generic,
-                                        ))
+        df = solution_dataframe_from_sql(
+            self.db_path_new,
+            columns=(
+                NodeDB.id,
+                NodeDB.parent_id,
+                NodeDB.t,
+                NodeDB.z,
+                NodeDB.y,
+                NodeDB.x,
+                NodeDB.generic,
+            ),
+        )
         df = add_track_ids_to_tracks_df(df)
         df.sort_values(by=["track_id", "t"], inplace=True)
 
@@ -523,7 +543,9 @@ class DatabaseHandler:
         for _, row in dividing_cells.iterrows():
             # Find parent info in the frame before division
             parent_info = df[(df["id"] == row["parent_id"]) & (df["t"] == row["t"] - 1)]
-            daughters_info = df[(df["parent_id"] == row["parent_id"]) & (df["t"] == row["t"])]
+            daughters_info = df[
+                (df["parent_id"] == row["parent_id"]) & (df["t"] == row["t"])
+            ]
             if not parent_info.empty:
                 divisions.append(
                     {
@@ -535,40 +557,40 @@ class DatabaseHandler:
                 )
 
         return pd.DataFrame(divisions)
-    
+
     def find_all_toannotate(self) -> pd.DataFrame:
         """
         Find all track IDs that have no annotations (generic = 0), with their mean appearance time and first ID.
-        
+
         Returns
         -------
         pd.DataFrame
             DataFrame with columns: track_id, first_t, first_id, sorted by mean appearance time
         """
         df = self.db_to_df(entire_database=True)
-        
         # Get rows with no annotations
-        unannotated = df[df['generic'] == NodeDB.generic.default.arg]
-        
-        # For each track_id, get the median time and corresponding middle ID
-        todo_annotations = (unannotated
-                          .groupby('track_id')
-                          .agg({'t': 'median'})
-                          .astype({'t': int})  # Convert median to integer
-                          .reset_index()
-                          .rename(columns={'t': 'middle_t'})
-                          .sort_values('middle_t')
-                          .reset_index(drop=True))
-        
-        # Get the IDs at these middle times
-        todo_annotations = (todo_annotations.merge(unannotated[['track_id', 't', 'id']], 
-                                                 left_on=['track_id', 'middle_t'],
-                                                 right_on=['track_id', 't'])
-                          [['track_id', 'middle_t', 'id']]
-                          .rename(columns={'id': 'middle_id'}))
-        
+        unannotated = df[df["generic"] == NodeDB.generic.default.arg]
+
+        # For each track_id, get the first time point and corresponding first ID
+        todo_annotations = (
+            unannotated.groupby("track_id")
+            .agg({"t": "first"})  # Get the first time point of each track
+            .astype({"t": int})  # Convert first time to integer
+            .reset_index()
+            .rename(columns={"t": "first_t"})
+            .sort_values("first_t")
+            .reset_index(drop=True)
+        )
+
+        # Get the IDs at these first times
+        todo_annotations = todo_annotations.merge(
+            unannotated[["track_id", "t", "id"]],
+            left_on=["track_id", "first_t"],
+            right_on=["track_id", "t"],
+        )[["track_id", "first_t", "id"]].rename(columns={"id": "first_id"})
+
         return todo_annotations
-    
+
     def recompute_red_flags(self):
         """called by update_red_flags in TrackEditClass upon tracks_updated signal in TracksViewer"""
         self.red_flags = self.find_all_red_flags()
@@ -609,37 +631,47 @@ class DatabaseHandler:
 
             show_error(f"Error exporting tracks.csv: {str(e)}")
 
-        #annotations.csv
-        csv_filename = self.working_directory / f"{self.extension_string}_annotations.csv"
+        # annotations.csv
+        csv_filename = (
+            self.working_directory / f"{self.extension_string}_annotations.csv"
+        )
         # Group by track_id and take the first label for each track
-        df_full['label'] = df_full['generic'].map(self.label_mapping)
-        df_full = df_full[['track_id', 'generic', 'label']]
-        df_grouped = df_full.groupby('track_id').first().reset_index()
+        df_full["label"] = df_full["generic"].map(self.label_mapping)
+        df_full = df_full[["track_id", "generic", "label"]]
+        df_grouped = df_full.groupby("track_id").first().reset_index()
         df_grouped.to_csv(csv_filename, index=False)
-        #ToDo: check if only one label per track_id
+        # ToDo: check if only one label per track_id
 
-        #divisions.txt
+        # divisions.txt
         txt_filename = self.working_directory / f"{self.extension_string}_divisions.txt"
         df_full = self.db_to_df(entire_database=True)
-        
+
         # Create a mapping of track_id to its label
-        track_labels = df_full.groupby('track_id')['generic'].first().apply(self.label_mapping)
-        
-        with open(txt_filename, 'w') as f:
+        track_labels = (
+            df_full.groupby("track_id")["generic"].first().apply(self.label_mapping)
+        )
+
+        with open(txt_filename, "w") as f:
             for _, row in self.divisions.iterrows():
-                parent_id = row['track_id']
-                daughter_tracks = row['daughters']
-                if isinstance(daughter_tracks, str):  # Convert string representation to list if needed
+                parent_id = row["track_id"]
+                daughter_tracks = row["daughters"]
+                if isinstance(
+                    daughter_tracks, str
+                ):  # Convert string representation to list if needed
                     daughter_tracks = eval(daughter_tracks)
-                
-                parent_label = track_labels.get(parent_id, 'other')
-                daughter1_label = track_labels.get(daughter_tracks[0], 'other')
-                daughter2_label = track_labels.get(daughter_tracks[1], 'other')
-                
-                f.write(f"division: {parent_id} ({parent_label}) > {daughter_tracks[0]} ({daughter1_label}) + {daughter_tracks[1]} ({daughter2_label})\n")
+
+                parent_label = track_labels.get(parent_id, "other")
+                daughter1_label = track_labels.get(daughter_tracks[0], "other")
+                daughter2_label = track_labels.get(daughter_tracks[1], "other")
+
+                f.write(
+                    f"division: {parent_id} ({parent_label}) > {daughter_tracks[0]} ({daughter1_label}) + {daughter_tracks[1]} ({daughter2_label})\n"
+                )
 
         # segments.zarr
-        zarr_filename = self.working_directory / f"{self.extension_string}_segments.zarr"
+        zarr_filename = (
+            self.working_directory / f"{self.extension_string}_segments.zarr"
+        )
         tracks_to_zarr(
             config=self.config_adjusted,
             tracks_df=df_full,
@@ -647,8 +679,10 @@ class DatabaseHandler:
             overwrite=True,
         )
 
-        #annotations.zarr
-        zarr_filename = self.working_directory / f"{self.extension_string}_annotations.zarr"
+        # annotations.zarr
+        zarr_filename = (
+            self.working_directory / f"{self.extension_string}_annotations.zarr"
+        )
         annotations_to_zarr(
             config=self.config_adjusted,
             tracks_df=df_full,
@@ -659,16 +693,24 @@ class DatabaseHandler:
 
     def label_mapping(self, label):
         """Map the label to the generic column."""
-        return self.label_mapping_dict.get(label, "other")
+        return self.label_mapping_dict.get(label, {"name": "other"})["name"]
+
+    @property
+    def color_mapping(self):
+        """Get the color mapping from the label_mapping_dict."""
+        color_dict = {k: v["color"] for k, v in self.label_mapping_dict.items()}
+        color_dict[0] = [0.0, 0.0, 0.0, 0.0]  # transparent
+        color_dict[None] = [0.0, 0.0, 0.0, 0.0]  # default: transparent
+        return color_dict
 
     def annotate_track(self, track_id: int, label: int):
         """Annotate all cells of a track in the database with a given label."""
 
         df = self.db_to_df(entire_database=True)
-        #ToDo: make df_full a property of the DatabaseHandler class
+        # ToDo: make df_full a property of the DatabaseHandler class
 
         # Then find this track_id in the toannotate
-        indices = df[df['track_id'] == track_id].index.tolist()
+        indices = df[df["track_id"] == track_id].index.tolist()
 
         self.change_values(indices, NodeDB.generic, label)
 
@@ -679,16 +721,16 @@ class DatabaseHandler:
         df = self.db_to_df(entire_database=True)
 
         # get the track_id of the nodes
-        track_ids = df[df['id'].isin(nodes)]['track_id'].unique()
+        track_ids = df[df["id"].isin(nodes)]["track_id"].unique()
 
         # get the indices of the nodes in the track
         for track_id in track_ids:
-            indices = df[df['track_id'] == track_id].index.tolist()
+            indices = df[df["track_id"] == track_id].index.tolist()
             self.change_values(indices, NodeDB.generic, NodeDB.generic.default.arg)
 
     def clear_edges_annotations(self, edges):
         """Clear annotations for all nodes involved in the given edges.
-        
+
         Parameters
         ----------
         edges : List[Tuple[int, int]]
@@ -705,9 +747,9 @@ class DatabaseHandler:
         df = self.db_to_df(entire_database=True)
 
         # get the track_id of the nodes
-        track_ids = df[df['id'].isin(node_ids)]['track_id'].unique()
+        track_ids = df[df["id"].isin(node_ids)]["track_id"].unique()
 
         # get the indices of the nodes in the track
         for track_id in track_ids:
-            indices = df[df['track_id'] == track_id].index.tolist()
+            indices = df[df["track_id"] == track_id].index.tolist()
             self.change_values(indices, NodeDB.generic, NodeDB.generic.default.arg)
