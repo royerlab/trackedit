@@ -4,6 +4,7 @@ import shutil
 from pathlib import Path
 from typing import List
 
+import dask.array as da
 import networkx as nx
 from motile_toolbox.candidate_graph import NodeAttr
 from sqlalchemy import create_engine, inspect, text
@@ -31,6 +32,8 @@ class DatabaseHandler:
         time_chunk_length: int = 105,
         time_chunk_overlap: int = 5,
         allow_overwrite: bool = False,
+        imaging_zarr_file: str = None,
+        imaging_channel: str = None,
     ):
 
         # inputs
@@ -45,6 +48,8 @@ class DatabaseHandler:
         self.time_chunk = time_chunk
         self.time_chunk_length = time_chunk_length
         self.time_chunk_overlap = time_chunk_overlap
+        self.imaging_zarr_file = imaging_zarr_file
+        self.imaging_channel = imaging_channel
 
         # calculate time chunk
         self.time_window, self.time_chunk_starts = self.calc_time_window()
@@ -80,6 +85,9 @@ class DatabaseHandler:
             shape=self.data_shape_chunk,
             time_window=self.time_window,
             color_by_field=NodeDB.generic,
+        )
+        self.imaging_data = da.from_zarr(
+            self.imaging_zarr_file, component=self.imaging_channel
         )
         self.df = self.db_to_df()
         self.nxgraph = self.df_to_nxgraph()
