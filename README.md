@@ -3,7 +3,7 @@
 
 # TrackEdit
 
-Set of napari widget to interactively proofread, edit, and annotate, cell tracking data tracked with [Ultrack](https://github.com/royerlab/ultrack). 
+Set of napari widget to interactively proofread, edit, and annotate, cell tracking data tracked with [Ultrack](https://github.com/royerlab/ultrack).
 
 -----
 
@@ -28,4 +28,3 @@ The `TrackEdit` widget structure is inspired by, and built upon, [Motile_tracker
 ## License
 
 `trackedit` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.
-
