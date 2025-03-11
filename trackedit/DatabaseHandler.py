@@ -50,6 +50,7 @@ class DatabaseHandler:
         self.time_chunk_overlap = time_chunk_overlap
         self.imaging_zarr_file = imaging_zarr_file
         self.imaging_channel = imaging_channel
+        self.imaging_flag = True if self.imaging_zarr_file is not None else False
 
         # calculate time chunk
         self.time_window, self.time_chunk_starts = self.calc_time_window()
@@ -86,11 +87,13 @@ class DatabaseHandler:
             time_window=self.time_window,
             color_by_field=NodeDB.generic,
         )
-        self.imagingArray = SimpleImageArray(
-            imaging_zarr_file=self.imaging_zarr_file,
-            channel=self.imaging_channel,
-            time_window=self.time_window,
-        )
+        self.check_zarr_existance()
+        if self.imaging_flag:
+            self.imagingArray = SimpleImageArray(
+                imaging_zarr_file=self.imaging_zarr_file,
+                channel=self.imaging_channel,
+                time_window=self.time_window,
+            )
         self.df = self.db_to_df()
         self.nxgraph = self.df_to_nxgraph()
         self.red_flags = self.find_all_red_flags()
@@ -314,6 +317,8 @@ class DatabaseHandler:
             self.time_window, _ = self.calc_time_window()
             self.segments.set_time_window(self.time_window)
             self.annotArray.set_time_window(self.time_window)
+            if self.imaging_flag:
+                self.imagingArray.set_time_window(self.time_window)
             self.df = self.db_to_df()
             self.nxgraph = self.df_to_nxgraph()
 
@@ -763,3 +768,30 @@ class DatabaseHandler:
         for track_id in track_ids:
             indices = df[df["track_id"] == track_id].index.tolist()
             self.change_values(indices, NodeDB.generic, NodeDB.generic.default.arg)
+
+    def check_zarr_existance(self):
+        # check if zarr file and channel exists:
+        if self.imaging_flag:
+            if not self.imaging_zarr_file or not self.imaging_channel:
+                self.imaging_flag = False
+                print(
+                    "Warning: Imaging zarr file or channel not specified. Imaging data not shown."
+                )
+                return
+
+            # Check if the zarr root exists by looking for .zgroup
+            zarr_root = Path(self.imaging_zarr_file)
+            if not (zarr_root / ".zgroup").exists():
+                self.imaging_flag = False
+                print(
+                    f"Warning: Not a valid zarr dataset at {self.imaging_zarr_file} (missing .zgroup). Imaging data not shown."
+                )
+                return
+
+            # Check if the channel is a valid zarr array by looking for .zarray
+            channel_path = zarr_root / Path(self.imaging_channel)
+            if not (channel_path / ".zarray").exists():
+                self.imaging_flag = False
+                print(
+                    f"Warning: Not a valid zarr array at channel path {self.imaging_channel} (missing .zarray). Imaging data not shown."
+                )

@@ -21,7 +21,6 @@ class SimpleImageArray:
         """
         # Load the full stack using dask
         self._full_stack = da.from_zarr(imaging_zarr_file, component=channel)
-
         # Initialize time window to full range
         self._time_window = time_window
 
@@ -52,18 +51,17 @@ class SimpleImageArray:
         """Get current time window"""
         return tuple(self._time_window)
 
-    @time_window.setter
-    def time_window(self, window: Tuple[int, int]) -> None:
+    def set_time_window(self, window: Tuple[int, int]) -> None:
         """
         Set time window and update stack accordingly
 
         Args:
             window: Tuple of (start_time, end_time)
         """
-        if not isinstance(window, (tuple, list)) or len(window) != 2:
-            raise ValueError(
-                "Time window must be a tuple/list of (start_time, end_time)"
-            )
+        if not isinstance(window, tuple):
+            raise ValueError("Time window must be a tuple of (start_time, end_time)")
+        if len(window) != 2:
+            raise ValueError("Time window must contain exactly two values")
 
         start, end = window
         if start < 0 or end > self._full_stack.shape[0] or start >= end:

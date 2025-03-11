@@ -57,25 +57,24 @@ class TrackEditClass:
         )
 
         # Add Imaging layer to viewer
-        layer_nuc = self.viewer.add_image(
-            self.databasehandler.imagingArray.nuclear,
-            name="im_nuclear",
-            colormap="green",
-            scale=self.databasehandler.scale,
-            visible=False,
-        )
-
-        # Add membrane channel using the property
-        layer_mem = self.viewer.add_image(
-            self.databasehandler.imagingArray.membrane,
-            name="im_membrane",
-            colormap="red",
-            opacity=0.5,
-            scale=self.databasehandler.scale,
-            visible=False,
-        )
-        layer_nuc.reset_contrast_limits()
-        layer_mem.reset_contrast_limits()
+        if self.databasehandler.imaging_flag:
+            layer_nuc = self.viewer.add_image(
+                self.databasehandler.imagingArray.nuclear,
+                name="im_nuclear",
+                colormap="green",
+                scale=self.databasehandler.scale,
+                visible=False,
+            )
+            layer_nuc.reset_contrast_limits()
+            layer_mem = self.viewer.add_image(
+                self.databasehandler.imagingArray.membrane,
+                name="im_membrane",
+                colormap="red",
+                opacity=0.5,
+                scale=self.databasehandler.scale,
+                visible=False,
+            )
+            layer_mem.reset_contrast_limits()
 
         # Store reference to the existing hierarchy layer
         self.hierarchy_layer = self.hier_widget.labels_layer
@@ -174,7 +173,14 @@ class TrackEditClass:
             new_chunk = self.databasehandler.num_time_chunks - 1
 
         self.databasehandler.set_time_chunk(new_chunk)
-        self.update_pop_add_hierarchy_layer()
+        self.update_hierarchy_layer()
+        if self.databasehandler.imaging_flag:
+            self.viewer.layers[
+                "im_nuclear"
+            ].data = self.databasehandler.imagingArray.nuclear
+            self.viewer.layers[
+                "im_membrane"
+            ].data = self.databasehandler.imagingArray.membrane
 
         self.add_tracks()
 
@@ -217,7 +223,14 @@ class TrackEditClass:
         cur_chunk = self.databasehandler.time_chunk
 
         self.databasehandler.set_time_chunk(new_chunk)
-        self.update_pop_add_hierarchy_layer()
+        self.update_hierarchy_layer()
+        if self.databasehandler.imaging_flag:
+            self.viewer.layers[
+                "im_nuclear"
+            ].data = self.databasehandler.imagingArray.nuclear
+            self.viewer.layers[
+                "im_membrane"
+            ].data = self.databasehandler.imagingArray.membrane
 
         if cur_chunk != new_chunk:
             self.add_tracks()
@@ -244,7 +257,7 @@ class TrackEditClass:
         ]
         self.viewer.layers.link_layers(layers_to_link)
 
-    def update_pop_add_hierarchy_layer(self):
+    def update_hierarchy_layer(self):
         """Update the hierarchy layer with the new chunk."""
         self.hier_widget.ultrack_array.set_time_window(self.databasehandler.time_window)
         self.hier_widget.labels_layer.refresh()  # This should trigger proper update while maintaining callbacks
