@@ -27,16 +27,16 @@ python demo_neuromast.py #_after changing relevant parameters
 ```
 Note: make sure to first `pixi shell` in the $MYDATA directory, before running the python script. This is the equivalent of `conda activate ...`
 
-## Keyboard shortcuts ⌨️
+### Keyboard shortcuts ⌨️
 
-### Napari Viewer and Layer Controls
+#### Napari Viewer and Layer Controls
 | Mouse / Key binding | Action |
 |-------------------|---------|
 | Click on point/label | Select node (centers view if needed) |
 | SHIFT + click | Add node to selection |
 | Q | Toggle between all nodes view and selected lineages only |
 
-### Tree View Controls
+#### Tree View Controls
 | Mouse / Key binding | Action |
 |-------------------|---------|
 | Click on node | Select node (centers view if needed) |
@@ -54,7 +54,7 @@ Note: make sure to first `pixi shell` in the $MYDATA directory, before running t
 | ↑ | Select parent node (vertical) or next lineage (horizontal) |
 | ↓ | Select child node (vertical) or previous lineage (horizontal) |
 
-### Track Editing
+#### Track Editing
 | Mouse / Key binding | Action |
 |-------------------|---------|
 | D | Delete selected nodes |
