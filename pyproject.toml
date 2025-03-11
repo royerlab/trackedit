@@ -87,6 +87,7 @@ pre-commit = ">=4.1.0,<5"
 
 [tool.pixi.feature.test.dependencies]
 pytest = "*"
+pytest-qt = ">=4.4.0,<5"
 
 [tool.pixi.environments]
 test = { features = ["test"], solve-group = "default" }
