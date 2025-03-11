@@ -15,7 +15,7 @@ Set of napari widget to interactively proofread, edit, and annotate, cell tracki
 
 1. Clone repo in $MYDATA and install pixi environment
 ```console
-git clone https://github.com/royerlab/trackedit.git
+git clone https://github.com/royerlab/trackedit.git --recurse-submodules
 cd trackedit
 module load pixi
 pixi install
