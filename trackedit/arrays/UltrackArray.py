@@ -107,7 +107,6 @@ class UltrackArray:
                     idx_to_plot.append(idx)
 
             id_to_plot = [q[0] for idx, q in enumerate(query) if idx in idx_to_plot]
-            label_list = np.arange(1, len(query) + 1, dtype=int)
 
             to_remove = []
             for idx in idx_to_plot:

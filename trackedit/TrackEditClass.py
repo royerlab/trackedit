@@ -13,7 +13,6 @@ from trackedit.DatabaseHandler import DatabaseHandler
 from trackedit.widgets.annotation.annotation_widget import AnnotationWidget
 from trackedit.widgets.CustomEditingWidget import CustomEditingMenu
 from trackedit.widgets.HierarchyWidget import HierarchyVizWidget
-from trackedit.widgets.navigation.navigation_widget import NavigationWidget
 from trackedit.widgets.NavigationWidget import NavigationWidget
 
 
@@ -277,7 +276,7 @@ class TrackEditClass:
                 self.databasehandler.config_adjusted.data_config, node_id, NodeDB.t
             )
             add_flag = True
-        except:
+        except Exception:
             show_warning("Cell does not exist in database")
 
         # check if node_is is already in solution (selected==1), but only check if node_id exists in database
@@ -326,7 +325,7 @@ class TrackEditClass:
                 self.databasehandler.config_adjusted.data_config, node_id, NodeDB.z
             )
             add_flag = True
-        except:
+        except Exception:
             show_warning("Cell does not exist in database")
 
         # check if node_is is already in solution (selected==1), but only check if node_id exists in database
@@ -339,16 +338,16 @@ class TrackEditClass:
             time_original = get_node_values(
                 self.databasehandler.config_adjusted.data_config, node_id, NodeDB.t
             )
-            if (selected == True) or (time_original == time):
+            if selected or (time_original == time):
                 add_flag = False
                 self.EditingMenu.duplicate_cell_id_input.setText("")
                 self.EditingMenu.duplicate_time_input.setText("")
                 self.EditingMenu.add_cell_input.setText("")
-                if selected == True:
+                if selected:
                     show_warning(f"Cell is already in solution at this time {time}")
                 if time_original == time:
                     show_warning(
-                        f"Cell is from this time point, use 'Add Cell' field above to add this cell, it is not a duplication"
+                        "Cell is from this time point, use 'Add Cell' field above to add this cell, it is not a duplication"
                     )
 
         if add_flag:

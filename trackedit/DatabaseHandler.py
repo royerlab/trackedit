@@ -5,10 +5,18 @@ from pathlib import Path
 from typing import List
 
 import networkx as nx
+import numpy as np
+import pandas as pd
 from motile_toolbox.candidate_graph import NodeAttr
 from sqlalchemy import create_engine, inspect, text
 from ultrack.config import MainConfig
-from ultrack.core.database import *
+from ultrack.core.database import (
+    Column,
+    Integer,
+    NodeDB,
+    get_node_values,
+    set_node_values,
+)
 from ultrack.core.export import tracks_layer_to_networkx, tracks_to_zarr
 from ultrack.core.export.utils import solution_dataframe_from_sql
 from ultrack.tracks.graph import add_track_ids_to_tracks_df
@@ -100,7 +108,7 @@ class DatabaseHandler:
         self.toannotate = self.find_all_toannotate()
         self.divisions = self.find_all_divisions()
         self.red_flags_ignore_list = []
-        self.log(f"Log file created")
+        self.log("Log file created")
 
         self.label_mapping_dict = {
             NodeDB.generic.default.arg: {  # -1
@@ -307,7 +315,6 @@ class DatabaseHandler:
         return time_window, time_chunk_starts
 
     def set_time_chunk(self, time_chunk):
-        # ToDo: separate into two functions, one for setting time chunk and one for updating the graph/segments > maybe not necessary!
         if time_chunk >= self.num_time_chunks:
             raise ValueError(
                 f"Time chunk {time_chunk} out of range. Maximum time chunk is {self.num_time_chunks-1}"
@@ -624,7 +631,11 @@ class DatabaseHandler:
     def seg_ignore_red_flag(self, id):
         self.red_flags_ignore_list.append(id)
 
-        message = f"ignore red flag: cell {id} {self.red_flags.loc[self.red_flags['id'] == id, 'event'].values[0]} at time {self.red_flags.loc[self.red_flags['id'] == id, 't'].values[0]} "
+        # Get the values first for clarity
+        event = self.red_flags.loc[self.red_flags["id"] == id, "event"].values[0]
+        time = self.red_flags.loc[self.red_flags["id"] == id, "t"].values[0]
+
+        message = f"ignore red flag: cell {id} {event} " f"at time {time}"
         self.log(message)
 
         # remove the ignores red flag from the red flags
