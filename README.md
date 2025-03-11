@@ -13,14 +13,19 @@ Set of napari widget to interactively proofread, edit, and annotate, cell tracki
 
 ## Installation HPC 🖥️
 
+1. Clone repo in $MYDATA and install pixi environment
 ```console
 git clone https://github.com/royerlab/trackedit.git
 cd trackedit
 module load pixi
 pixi install
 pixi shell
-python scripts/demo_neuromast.py  #after changing working directory path in this file
 ```
+2. `cd` to relevant data folder, copy `scripts/demo.py` script, change relevant input parameters, and run inTRACKtive:
+```
+python demo_neuromast.py #_after changing relevant parameters
+```
+Note: make sure to first `pixi shell` in the $MYDATA directory, before running the python script. This is the equivalent of `conda activate ...`
 
 ## Keyboard shortcuts ⌨️
 
