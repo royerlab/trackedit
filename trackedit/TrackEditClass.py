@@ -56,6 +56,27 @@ class TrackEditClass:
             color_dict=self.databasehandler.color_mapping
         )
 
+        # Add Imaging layer to viewer
+        layer_nuc = self.viewer.add_image(
+            self.databasehandler.imagingArray.nuclear,
+            name="im_nuclear",
+            colormap="green",
+            scale=self.databasehandler.scale,
+            visible=False,
+        )
+
+        # Add membrane channel using the property
+        layer_mem = self.viewer.add_image(
+            self.databasehandler.imagingArray.membrane,
+            name="im_membrane",
+            colormap="red",
+            opacity=0.5,
+            scale=self.databasehandler.scale,
+            visible=False,
+        )
+        layer_nuc.reset_contrast_limits()
+        layer_mem.reset_contrast_limits()
+
         # Store reference to the existing hierarchy layer
         self.hierarchy_layer = self.hier_widget.labels_layer
         self.hierarchy_layer.visible = False

@@ -4,7 +4,6 @@ import shutil
 from pathlib import Path
 from typing import List
 
-import dask.array as da
 import networkx as nx
 from motile_toolbox.candidate_graph import NodeAttr
 from sqlalchemy import create_engine, inspect, text
@@ -15,6 +14,7 @@ from ultrack.core.export.utils import solution_dataframe_from_sql
 from ultrack.tracks.graph import add_track_ids_to_tracks_df
 
 from trackedit.arrays.DatabaseArray import DatabaseArray
+from trackedit.arrays.ImagingArray import SimpleImageArray
 from trackedit.utils.utils import annotations_to_zarr
 
 NodeDB.generic = Column(Integer, default=-1)
@@ -86,8 +86,10 @@ class DatabaseHandler:
             time_window=self.time_window,
             color_by_field=NodeDB.generic,
         )
-        self.imaging_data = da.from_zarr(
-            self.imaging_zarr_file, component=self.imaging_channel
+        self.imagingArray = SimpleImageArray(
+            imaging_zarr_file=self.imaging_zarr_file,
+            channel=self.imaging_channel,
+            time_window=self.time_window,
         )
         self.df = self.db_to_df()
         self.nxgraph = self.df_to_nxgraph()
