@@ -5,6 +5,7 @@ from pathlib import Path
 import napari
 import numpy as np
 
+# Databases saved with numpy>2 need np._core.numeric, which is not available in numpy<2, hence the following hack
 sys.modules["numpy._core.numeric"] = np.core.numeric
 
 from motile_tracker.data_model.actions import (
