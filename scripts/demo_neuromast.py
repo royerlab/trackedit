@@ -27,11 +27,12 @@ working_directory = Path(
 )
 # working_directory = Path("/Users/teun.huijben/Documents/data/Akila/20241003_neuromast4/adjusted/")
 # working_directory = Path("/hpc/projects/jacobo_group/iSim_processed_files/steady_state_timelapses/20241003_2dpf_myo6b_bactin_GFP_she_h2b_gfp_cldnb_lyn_mScarlet/46hpf_fish1_1/4_tracking/database/")
-db_filename_old = "data.db"
-data_shape_full = [600, 73, 1024, 1024]  # T,(Z),Y,X       (851,73,1024,1024)
-scale = (2.31, 1, 1)
-layer_name = "ultrack"
-allow_overwrite = True  # overwrite existing database/changelog
+                                                # path to the working directory that contains the database file AND metadata.toml
+db_filename_old = "data.db"                     # name of the database file to start from
+data_shape_full = [600, 73, 1024, 1024]         # T,(Z),Y,X       (851,73,1024,1024)
+scale = (2.31, 1, 1)                            # (Z),Y,X
+layer_name = "ultrack"                          # name of the layer in napari
+allow_overwrite = True                          # overwrite existing database/changelog
 # *************************
 
 
