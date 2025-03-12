@@ -1,7 +1,11 @@
+import sys
 import warnings
 from pathlib import Path
 
 import napari
+import numpy as np
+
+sys.modules["numpy._core.numeric"] = np.core.numeric
 
 from motile_tracker.data_model.actions import (
     AddEdges,
