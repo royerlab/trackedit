@@ -1,4 +1,10 @@
-from typing import Any, Iterable, Mapping, Sequence, TypeAlias
+from typing import TYPE_CHECKING, Any, Iterable, Mapping, Sequence
+
+if TYPE_CHECKING:
+    from typing import TypeAlias
+else:
+    # For Python < 3.10
+    TypeAlias = str  # or = Any
 
 import numpy as np
 import pyqtgraph as pg

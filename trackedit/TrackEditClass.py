@@ -13,7 +13,6 @@ from trackedit.DatabaseHandler import DatabaseHandler
 from trackedit.widgets.annotation.annotation_widget import AnnotationWidget
 from trackedit.widgets.CustomEditingWidget import CustomEditingMenu
 from trackedit.widgets.HierarchyWidget import HierarchyVizWidget
-from trackedit.widgets.navigation.navigation_widget import NavigationWidget
 from trackedit.widgets.NavigationWidget import NavigationWidget
 
 
@@ -55,6 +54,26 @@ class TrackEditClass:
         self.viewer.layers["annotations"].colormap = DirectLabelColormap(
             color_dict=self.databasehandler.color_mapping
         )
+
+        # Add Imaging layer to viewer
+        if self.databasehandler.imaging_flag:
+            layer_nuc = self.viewer.add_image(
+                self.databasehandler.imagingArray.nuclear,
+                name="im_nuclear",
+                colormap="green",
+                scale=self.databasehandler.scale,
+                visible=False,
+            )
+            layer_nuc.reset_contrast_limits()
+            layer_mem = self.viewer.add_image(
+                self.databasehandler.imagingArray.membrane,
+                name="im_membrane",
+                colormap="red",
+                opacity=0.5,
+                scale=self.databasehandler.scale,
+                visible=False,
+            )
+            layer_mem.reset_contrast_limits()
 
         # Store reference to the existing hierarchy layer
         self.hierarchy_layer = self.hier_widget.labels_layer
@@ -153,7 +172,14 @@ class TrackEditClass:
             new_chunk = self.databasehandler.num_time_chunks - 1
 
         self.databasehandler.set_time_chunk(new_chunk)
-        self.update_pop_add_hierarchy_layer()
+        self.update_hierarchy_layer()
+        if self.databasehandler.imaging_flag:
+            self.viewer.layers[
+                "im_nuclear"
+            ].data = self.databasehandler.imagingArray.nuclear
+            self.viewer.layers[
+                "im_membrane"
+            ].data = self.databasehandler.imagingArray.membrane
 
         self.add_tracks()
 
@@ -196,7 +222,14 @@ class TrackEditClass:
         cur_chunk = self.databasehandler.time_chunk
 
         self.databasehandler.set_time_chunk(new_chunk)
-        self.update_pop_add_hierarchy_layer()
+        self.update_hierarchy_layer()
+        if self.databasehandler.imaging_flag:
+            self.viewer.layers[
+                "im_nuclear"
+            ].data = self.databasehandler.imagingArray.nuclear
+            self.viewer.layers[
+                "im_membrane"
+            ].data = self.databasehandler.imagingArray.membrane
 
         if cur_chunk != new_chunk:
             self.add_tracks()
@@ -223,7 +256,7 @@ class TrackEditClass:
         ]
         self.viewer.layers.link_layers(layers_to_link)
 
-    def update_pop_add_hierarchy_layer(self):
+    def update_hierarchy_layer(self):
         """Update the hierarchy layer with the new chunk."""
         self.hier_widget.ultrack_array.set_time_window(self.databasehandler.time_window)
         self.hier_widget.labels_layer.refresh()  # This should trigger proper update while maintaining callbacks
@@ -243,7 +276,7 @@ class TrackEditClass:
                 self.databasehandler.config_adjusted.data_config, node_id, NodeDB.t
             )
             add_flag = True
-        except:
+        except Exception:
             show_warning("Cell does not exist in database")
 
         # check if node_is is already in solution (selected==1), but only check if node_id exists in database
@@ -292,7 +325,7 @@ class TrackEditClass:
                 self.databasehandler.config_adjusted.data_config, node_id, NodeDB.z
             )
             add_flag = True
-        except:
+        except Exception:
             show_warning("Cell does not exist in database")
 
         # check if node_is is already in solution (selected==1), but only check if node_id exists in database
@@ -305,16 +338,16 @@ class TrackEditClass:
             time_original = get_node_values(
                 self.databasehandler.config_adjusted.data_config, node_id, NodeDB.t
             )
-            if (selected == True) or (time_original == time):
+            if selected or (time_original == time):
                 add_flag = False
                 self.EditingMenu.duplicate_cell_id_input.setText("")
                 self.EditingMenu.duplicate_time_input.setText("")
                 self.EditingMenu.add_cell_input.setText("")
-                if selected == True:
+                if selected:
                     show_warning(f"Cell is already in solution at this time {time}")
                 if time_original == time:
                     show_warning(
-                        f"Cell is from this time point, use 'Add Cell' field above to add this cell, it is not a duplication"
+                        "Cell is from this time point, use 'Add Cell' field above to add this cell, it is not a duplication"
                     )
 
         if add_flag:

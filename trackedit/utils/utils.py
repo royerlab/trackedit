@@ -59,7 +59,7 @@ def wrap_default_widgets_in_tabs(viewer):
     viewer.window.qt_viewer._layers = list_container
 
     # (Optional) Also update the internal dict of dock widgets if needed:
-    # viewer.window._dock_widgets['Layer List'] = new_dock
+    viewer.window._dock_widgets["Layer List"] = new_dock
 
 
 @curry
