@@ -2,11 +2,11 @@ import os
 import re
 import shutil
 from pathlib import Path
-from typing import List
 
 import networkx as nx
 import numpy as np
 import pandas as pd
+import toml
 from motile_toolbox.candidate_graph import NodeAttr
 from sqlalchemy import create_engine, inspect, text
 from ultrack.config import MainConfig
@@ -33,7 +33,7 @@ class DatabaseHandler:
         self,
         db_filename_old: str,
         working_directory: Path,
-        data_shape_full: List[int],  # T(Z)YX
+        Tmax: int,
         scale: tuple,
         name: str,
         time_chunk: int = 0,
@@ -47,8 +47,7 @@ class DatabaseHandler:
         # inputs
         self.db_filename_old = db_filename_old
         self.working_directory = working_directory
-        self.data_shape_full = data_shape_full
-        self.Tmax = self.data_shape_full[0]
+        self.Tmax = Tmax
         self.scale = scale
         self.z_scale = self.scale[0]
         self.name = name
@@ -60,14 +59,6 @@ class DatabaseHandler:
         self.imaging_channel = imaging_channel
         self.imaging_flag = True if self.imaging_zarr_file is not None else False
 
-        # calculate time chunk
-        self.time_window, self.time_chunk_starts = self.calc_time_window()
-        self.data_shape_chunk = self.data_shape_full.copy()
-        self.data_shape_chunk[0] = time_chunk_length
-        self.num_time_chunks = int(
-            np.ceil(self.data_shape_full[0] / self.time_chunk_length)
-        )
-
         # Filenames / directories
         self.extension_string = ""
         self.db_filename_new, self.log_filename_new = self.copy_database(
@@ -78,8 +69,31 @@ class DatabaseHandler:
         self.db_path_new = f"sqlite:///{self.working_directory/self.db_filename_new}"
         self.log_file = self.initialize_logfile(self.log_filename_new)
 
+        # get data shape from metadata.toml
         self.config_adjusted = self.initialize_config()
-        self.config_adjusted.data_config.metadata_add({"shape": self.data_shape_full})
+        metadata_path = self.working_directory / "metadata.toml"
+        if metadata_path.exists():
+            with open(metadata_path) as f:
+                metadata_loaded = toml.load(f)
+                print("metadata_loaded:", metadata_loaded)
+            self.config_adjusted.data_config.metadata.update(metadata_loaded)
+        else:
+            print("No metadata.toml file found")
+        self.data_shape_full = self.config_adjusted.data_config.metadata["shape"]
+        if self.Tmax > self.data_shape_full[0]:
+            self.Tmax = self.data_shape_full[0]
+        else:
+            self.data_shape_full[0] = self.Tmax
+            print("full datashape:", self.data_shape_full)
+
+        # calculate time chunk
+        self.time_window, self.time_chunk_starts = self.calc_time_window()
+        self.data_shape_chunk = self.data_shape_full.copy()
+        self.data_shape_chunk[0] = time_chunk_length
+        self.num_time_chunks = int(
+            np.ceil(self.data_shape_full[0] / self.time_chunk_length)
+        )
+
         self.add_missing_columns_to_db()
 
         # DatabaseArray()
