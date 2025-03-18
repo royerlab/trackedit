@@ -48,7 +48,7 @@ Note: make sure to first `pixi shell` in the $MYDATA directory, before running t
 | SHIFT + Mouse drag | Rectangular node selection |
 | Right click | Reset view |
 | Q | Toggle between all lineages (vertical) and selected lineages (horizontal) |
-| W | Switch between lineage tree and object size plot |
+| ~~W~~ | ~~Switch between lineage tree and object size plot~~ |
 | ← | Select node to the left |
 | → | Select node to the right |
 | ↑ | Select parent node (vertical) or next lineage (horizontal) |
