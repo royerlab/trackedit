@@ -2,18 +2,27 @@ import os
 import re
 import shutil
 from pathlib import Path
-from typing import List
 
 import networkx as nx
+import numpy as np
+import pandas as pd
+import toml
 from motile_toolbox.candidate_graph import NodeAttr
 from sqlalchemy import create_engine, inspect, text
 from ultrack.config import MainConfig
-from ultrack.core.database import *
+from ultrack.core.database import (
+    Column,
+    Integer,
+    NodeDB,
+    get_node_values,
+    set_node_values,
+)
 from ultrack.core.export import tracks_layer_to_networkx, tracks_to_zarr
 from ultrack.core.export.utils import solution_dataframe_from_sql
 from ultrack.tracks.graph import add_track_ids_to_tracks_df
 
 from trackedit.arrays.DatabaseArray import DatabaseArray
+from trackedit.arrays.ImagingArray import SimpleImageArray
 from trackedit.utils.utils import annotations_to_zarr
 
 NodeDB.generic = Column(Integer, default=-1)
@@ -24,20 +33,21 @@ class DatabaseHandler:
         self,
         db_filename_old: str,
         working_directory: Path,
-        data_shape_full: List[int],  # T(Z)YX
+        Tmax: int,
         scale: tuple,
         name: str,
         time_chunk: int = 0,
         time_chunk_length: int = 105,
         time_chunk_overlap: int = 5,
         allow_overwrite: bool = False,
+        imaging_zarr_file: str = None,
+        imaging_channel: str = None,
     ):
 
         # inputs
         self.db_filename_old = db_filename_old
         self.working_directory = working_directory
-        self.data_shape_full = data_shape_full
-        self.Tmax = self.data_shape_full[0]
+        self.Tmax = Tmax
         self.scale = scale
         self.z_scale = self.scale[0]
         self.name = name
@@ -45,14 +55,9 @@ class DatabaseHandler:
         self.time_chunk = time_chunk
         self.time_chunk_length = time_chunk_length
         self.time_chunk_overlap = time_chunk_overlap
-
-        # calculate time chunk
-        self.time_window, self.time_chunk_starts = self.calc_time_window()
-        self.data_shape_chunk = self.data_shape_full.copy()
-        self.data_shape_chunk[0] = time_chunk_length
-        self.num_time_chunks = int(
-            np.ceil(self.data_shape_full[0] / self.time_chunk_length)
-        )
+        self.imaging_zarr_file = imaging_zarr_file
+        self.imaging_channel = imaging_channel
+        self.imaging_flag = True if self.imaging_zarr_file is not None else False
 
         # Filenames / directories
         self.extension_string = ""
@@ -64,8 +69,31 @@ class DatabaseHandler:
         self.db_path_new = f"sqlite:///{self.working_directory/self.db_filename_new}"
         self.log_file = self.initialize_logfile(self.log_filename_new)
 
+        # get data shape from metadata.toml
         self.config_adjusted = self.initialize_config()
-        self.config_adjusted.data_config.metadata_add({"shape": self.data_shape_full})
+        metadata_path = self.working_directory / "metadata.toml"
+        if metadata_path.exists():
+            with open(metadata_path) as f:
+                metadata_loaded = toml.load(f)
+                print("metadata_loaded:", metadata_loaded)
+            self.config_adjusted.data_config.metadata.update(metadata_loaded)
+        else:
+            print("No metadata.toml file found")
+        self.data_shape_full = self.config_adjusted.data_config.metadata["shape"]
+        if self.Tmax > self.data_shape_full[0]:
+            self.Tmax = self.data_shape_full[0]
+        else:
+            self.data_shape_full[0] = self.Tmax
+            print("full datashape:", self.data_shape_full)
+
+        # calculate time chunk
+        self.time_window, self.time_chunk_starts = self.calc_time_window()
+        self.data_shape_chunk = self.data_shape_full.copy()
+        self.data_shape_chunk[0] = time_chunk_length
+        self.num_time_chunks = int(
+            np.ceil(self.data_shape_full[0] / self.time_chunk_length)
+        )
+
         self.add_missing_columns_to_db()
 
         # DatabaseArray()
@@ -81,13 +109,20 @@ class DatabaseHandler:
             time_window=self.time_window,
             color_by_field=NodeDB.generic,
         )
+        self.check_zarr_existance()
+        if self.imaging_flag:
+            self.imagingArray = SimpleImageArray(
+                imaging_zarr_file=self.imaging_zarr_file,
+                channel=self.imaging_channel,
+                time_window=self.time_window,
+            )
         self.df = self.db_to_df()
         self.nxgraph = self.df_to_nxgraph()
         self.red_flags = self.find_all_red_flags()
         self.toannotate = self.find_all_toannotate()
         self.divisions = self.find_all_divisions()
         self.red_flags_ignore_list = []
-        self.log(f"Log file created")
+        self.log("Log file created")
 
         self.label_mapping_dict = {
             NodeDB.generic.default.arg: {  # -1
@@ -294,7 +329,6 @@ class DatabaseHandler:
         return time_window, time_chunk_starts
 
     def set_time_chunk(self, time_chunk):
-        # ToDo: separate into two functions, one for setting time chunk and one for updating the graph/segments > maybe not necessary!
         if time_chunk >= self.num_time_chunks:
             raise ValueError(
                 f"Time chunk {time_chunk} out of range. Maximum time chunk is {self.num_time_chunks-1}"
@@ -304,6 +338,8 @@ class DatabaseHandler:
             self.time_window, _ = self.calc_time_window()
             self.segments.set_time_window(self.time_window)
             self.annotArray.set_time_window(self.time_window)
+            if self.imaging_flag:
+                self.imagingArray.set_time_window(self.time_window)
             self.df = self.db_to_df()
             self.nxgraph = self.df_to_nxgraph()
 
@@ -609,7 +645,11 @@ class DatabaseHandler:
     def seg_ignore_red_flag(self, id):
         self.red_flags_ignore_list.append(id)
 
-        message = f"ignore red flag: cell {id} {self.red_flags.loc[self.red_flags['id'] == id, 'event'].values[0]} at time {self.red_flags.loc[self.red_flags['id'] == id, 't'].values[0]} "
+        # Get the values first for clarity
+        event = self.red_flags.loc[self.red_flags["id"] == id, "event"].values[0]
+        time = self.red_flags.loc[self.red_flags["id"] == id, "t"].values[0]
+
+        message = f"ignore red flag: cell {id} {event} " f"at time {time}"
         self.log(message)
 
         # remove the ignores red flag from the red flags
@@ -753,3 +793,30 @@ class DatabaseHandler:
         for track_id in track_ids:
             indices = df[df["track_id"] == track_id].index.tolist()
             self.change_values(indices, NodeDB.generic, NodeDB.generic.default.arg)
+
+    def check_zarr_existance(self):
+        # check if zarr file and channel exists:
+        if self.imaging_flag:
+            if not self.imaging_zarr_file or not self.imaging_channel:
+                self.imaging_flag = False
+                print(
+                    "Warning: Imaging zarr file or channel not specified. Imaging data not shown."
+                )
+                return
+
+            # Check if the zarr root exists by looking for .zgroup
+            zarr_root = Path(self.imaging_zarr_file)
+            if not (zarr_root / ".zgroup").exists():
+                self.imaging_flag = False
+                print(
+                    f"Warning: Not a valid zarr dataset at {self.imaging_zarr_file} (missing .zgroup). Imaging data not shown."
+                )
+                return
+
+            # Check if the channel is a valid zarr array by looking for .zarray
+            channel_path = zarr_root / Path(self.imaging_channel)
+            if not (channel_path / ".zarray").exists():
+                self.imaging_flag = False
+                print(
+                    f"Warning: Not a valid zarr array at channel path {self.imaging_channel} (missing .zarray). Imaging data not shown."
+                )

@@ -13,25 +13,30 @@ Set of napari widget to interactively proofread, edit, and annotate, cell tracki
 
 ## Installation HPC 🖥️
 
+1. Clone repo in $MYDATA and install pixi environment
 ```console
-git clone https://github.com/royerlab/trackedit.git
+git clone https://github.com/royerlab/trackedit.git --recurse-submodules
 cd trackedit
 module load pixi
 pixi install
 pixi shell
-python scripts/demo_neuromast.py  #after changing working directory path in this file
 ```
+2. `cd` to relevant data folder (that contains `data.db` and `metadata.toml`), copy `scripts/demo.py` script, change relevant input parameters, and run inTRACKtive:
+```
+python demo_neuromast.py #_after changing relevant parameters
+```
+Note: make sure to first `pixi shell` in the $MYDATA directory, before running the python script. This is the equivalent of `conda activate ...`
 
-## Keyboard shortcuts ⌨️
+### Keyboard shortcuts ⌨️
 
-### Napari Viewer and Layer Controls
+#### Napari Viewer and Layer Controls
 | Mouse / Key binding | Action |
 |-------------------|---------|
 | Click on point/label | Select node (centers view if needed) |
 | SHIFT + click | Add node to selection |
 | Q | Toggle between all nodes view and selected lineages only |
 
-### Tree View Controls
+#### Tree View Controls
 | Mouse / Key binding | Action |
 |-------------------|---------|
 | Click on node | Select node (centers view if needed) |
@@ -43,13 +48,13 @@ python scripts/demo_neuromast.py  #after changing working directory path in this
 | SHIFT + Mouse drag | Rectangular node selection |
 | Right click | Reset view |
 | Q | Toggle between all lineages (vertical) and selected lineages (horizontal) |
-| W | Switch between lineage tree and object size plot |
+| ~~W~~ | ~~Switch between lineage tree and object size plot~~ |
 | ← | Select node to the left |
 | → | Select node to the right |
 | ↑ | Select parent node (vertical) or next lineage (horizontal) |
 | ↓ | Select child node (vertical) or previous lineage (horizontal) |
 
-### Track Editing
+#### Track Editing
 | Mouse / Key binding | Action |
 |-------------------|---------|
 | D | Delete selected nodes |

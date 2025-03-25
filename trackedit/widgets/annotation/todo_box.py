@@ -68,8 +68,7 @@ class ToAnnotateBox(NavigationBox):
         self.hair_btn.clicked.connect(self.on_hair_clicked)
         self.support_btn.clicked.connect(self.on_support_clicked)
         self.mantle_btn.clicked.connect(self.on_mantle_clicked)
-
-        # Connect to selection changes
+        self.tracks_viewer.tracks_updated.connect(self.update_toannotate)
         self.tracks_viewer.selected_nodes.list_updated.connect(self._update_upon_click)
 
     def update_toannotate(self):
@@ -211,9 +210,7 @@ class ToAnnotateBox(NavigationBox):
 
         # update counter and buttons
         try:
-            track_id = self.databasehandler.df.loc[self.current_selected_cell][
-                "track_id"
-            ]
+            track_id = df.loc[self.current_selected_cell]["track_id"]
             index = self.databasehandler.toannotate.index[
                 self.databasehandler.toannotate["track_id"] == track_id
             ][0]
