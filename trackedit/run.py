@@ -28,34 +28,32 @@ def run_trackedit(
     tmax: int = None,
     scale: Tuple[float, ...] = (1, 1, 1),
     layer_name: str = "ultrack",
+    time_chunk: int = 0,
+    time_chunk_length: int = 105,
+    time_chunk_overlap: int = 5,
     allow_overwrite: bool = False,
     imaging_zarr_file: Optional[str] = None,
     imaging_channel: Optional[str] = None,
     viewer: Optional[napari.Viewer] = None,
-) -> napari.Viewer:
-    """
-    Run TrackEdit with the specified parameters.
+) -> Tuple[napari.Viewer, TrackEditClass]:
+    """Run TrackEdit on a database file.
 
-    Parameters
-    ----------
-    working_directory : Path
-        Path to the working directory containing the database file and metadata.toml
-    db_filename : str, optional
-        Name of the database file to start from, by default "data.db"
-    tmax : int, optional
-        Maximum number of frames to display, by default None (use all frames)
-    scale : Tuple[float, ...], optional
-        Scale factors for (Z),Y,X dimensions, by default (1, 1, 1)
-    layer_name : str, optional
-        Name of the layer in napari, by default "ultrack"
-    allow_overwrite : bool, optional
-        Whether to overwrite existing database/changelog, by default False
-    imaging_zarr_file : str, optional
-        Path to zarr file containing imaging data, by default None
-    imaging_channel : str, optional
-        Channel specification for imaging data, by default None
-    viewer : Optional[napari.Viewer], optional
-        Existing napari viewer to use, by default None
+    Args:
+        working_directory: Path to working directory
+        db_filename: Name of database file
+        tmax: Maximum time point
+        scale: Scale factors for each dimension
+        name: Name for the tracks layer
+        time_chunk: Starting time chunk
+        time_chunk_length: Length of time chunks
+        time_chunk_overlap: Overlap between time chunks
+        allow_overwrite: Allow overwriting existing files
+        imaging_zarr_file: Path to imaging zarr file
+        imaging_channel: Channel to use from imaging file
+        viewer: Optional existing napari viewer
+
+    Returns:
+        Tuple[napari.Viewer, TrackEditClass]: The viewer instance and TrackEdit instance
     """
     viewer_provided = viewer is not None
     if not viewer_provided:
@@ -67,6 +65,9 @@ def run_trackedit(
         Tmax=tmax,
         scale=scale,
         name="ultrack",
+        time_chunk=time_chunk,
+        time_chunk_length=time_chunk_length,
+        time_chunk_overlap=time_chunk_overlap,
         allow_overwrite=allow_overwrite,
         imaging_zarr_file=imaging_zarr_file,
         imaging_channel=imaging_channel,
@@ -81,7 +82,7 @@ def run_trackedit(
         layer_name=layer_name
     )
 
-    _trackeditclass = TrackEditClass(viewer, databasehandler=DB_handler)
+    track_edit = TrackEditClass(viewer, databasehandler=DB_handler)
     viewer.dims.ndisplay = 3  # 3D view
     wrap_default_widgets_in_tabs(viewer)
     viewer.dims.current_step = (2, *viewer.dims.current_step[1:])
@@ -89,4 +90,4 @@ def run_trackedit(
     if not viewer_provided:
         napari.run()
 
-    return viewer
+    return track_edit

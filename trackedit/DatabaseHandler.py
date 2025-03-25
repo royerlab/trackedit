@@ -90,8 +90,8 @@ class DatabaseHandler:
         self.time_window, self.time_chunk_starts = self.calc_time_window()
         self.data_shape_chunk = self.data_shape_full.copy()
         self.data_shape_chunk[0] = time_chunk_length
-        self.num_time_chunks = int(
-            np.ceil(self.data_shape_full[0] / self.time_chunk_length)
+        self.num_time_chunks = len(
+            np.arange(0, self.Tmax, self.time_chunk_length - self.time_chunk_overlap)
         )
 
         self.add_missing_columns_to_db()
