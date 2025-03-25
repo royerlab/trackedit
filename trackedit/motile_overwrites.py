@@ -47,11 +47,12 @@ def create_db_add_nodes(DB_handler):
         self.tracks.add_nodes(
             self.nodes, self.times, self.positions, attrs=self.attributes
         )
-        for n in self.nodes:
-            DB_handler.change_values(indices=n, field=NodeDB.selected, value=1)
-            DB_handler.change_values(
-                indices=n, field=NodeDB.generic, value=NodeDB.generic.default.arg
-            )
+
+        # Change the selected/annotation status of the nodes
+        DB_handler.change_values(indices=self.nodes, field=NodeDB.selected, values=1)
+        DB_handler.change_values(
+            indices=self.nodes, field=NodeDB.generic, values=NodeDB.generic.default.arg
+        )
 
     return db_add_nodes
 
@@ -62,8 +63,18 @@ def create_db_delete_nodes(DB_handler):
         # don't use full old function, because it includes painting pixels in segmentation
         DB_handler.clear_nodes_annotations(self.nodes)
         self.tracks.remove_nodes(self.nodes)
-        for n in self.nodes:
-            DB_handler.change_values(indices=n, field=NodeDB.selected, value=0)
+
+        # First disconnect orphaned children BEFORE we delete the nodes
+        orphaned_children = DB_handler.df_full[
+            DB_handler.df_full["parent_id"].isin(self.nodes)
+        ].index.tolist()
+        if orphaned_children:
+            DB_handler.change_values(
+                indices=orphaned_children, field=NodeDB.parent_id, values=-1
+            )
+
+        # Set nodes as unselected
+        DB_handler.change_values(indices=self.nodes, field=NodeDB.selected, values=0)
 
     return db_delete_nodes
 
@@ -76,8 +87,15 @@ def create_db_add_edges(DB_handler):
         print("AddEdges:", self.edges)
         _old_add_edges_apply(self)
         DB_handler.clear_edges_annotations(self.edges)
-        for e in self.edges:
-            DB_handler.change_values(indices=e[1], field=NodeDB.parent_id, value=e[0])
+
+        # Extract child nodes and parent nodes from edges
+        child_nodes = [e[1] for e in self.edges]
+        parent_nodes = [e[0] for e in self.edges]
+
+        # Batch the changes into a single call
+        DB_handler.change_values(
+            indices=child_nodes, field=NodeDB.parent_id, values=parent_nodes
+        )
 
     return db_add_edges
 
@@ -89,8 +107,12 @@ def create_db_delete_edges(DB_handler):
     def db_delete_edges(self):
         print("DeleteEdges:", self.edges)
         _old_delete_edges_apply(self)
-        for e in self.edges:
-            DB_handler.change_values(indices=e[1], field=NodeDB.parent_id, value=-1)
+
+        # Extract child nodes from edges
+        child_nodes = [e[1] for e in self.edges]
+
+        # Batch the changes into a single call
+        DB_handler.change_values(indices=child_nodes, field=NodeDB.parent_id, values=-1)
 
     return db_delete_edges
 

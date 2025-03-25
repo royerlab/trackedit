@@ -116,7 +116,7 @@ class DatabaseHandler:
                 channel=self.imaging_channel,
                 time_window=self.time_window,
             )
-        self.df = self.db_to_df()
+        self.df_full = self.db_to_df(entire_database=True)
         self.nxgraph = self.df_to_nxgraph()
         self.red_flags = self.find_all_red_flags()
         self.toannotate = self.find_all_toannotate()
@@ -264,7 +264,7 @@ class DatabaseHandler:
         log_filename_new = f"data_v{version_number}_changelog.txt"
         return db_filename_new, log_filename_new
 
-    def change_values(self, indices, field, value):
+    def change_values(self, indices, field, values):
         """Change values in the database for one or multiple indices.
 
         Parameters
@@ -273,8 +273,9 @@ class DatabaseHandler:
             Single index or list of indices to change
         field : Column
             Database field to change
-        value : int
-            Value to set
+        value : int or list
+            Value(s) to set. If a single value is provided, it will be applied to all indices.
+            If a list is provided, it must match the length of indices.
         """
         # Convert single index to list
         if isinstance(indices, (int, np.integer)):
@@ -282,8 +283,16 @@ class DatabaseHandler:
         else:
             indices = [int(i) for i in indices]
 
-        value = int(value)
-        values = [value] * len(indices)
+        # Handle value input
+        if isinstance(values, (list, np.ndarray)):
+            if len(values) != len(indices):
+                raise ValueError(
+                    f"Length of values ({len(values)}) must match length of indices ({len(indices)})"
+                )
+            values = [int(v) for v in values]
+        else:
+            values = int(values)
+            values = [values] * len(indices)
 
         # Get old values for logging
         old_vals = get_node_values(
@@ -295,6 +304,9 @@ class DatabaseHandler:
             self.config_adjusted.data_config, indices=indices, **{field.name: values}
         )
 
+        # Update the dataframe
+        self.df_full = self.db_to_df(entire_database=True)
+
         # Log changes
         for i in range(len(indices)):
             # handle different types of old_vals (list, np.ndarray, pd.Series)
@@ -305,9 +317,7 @@ class DatabaseHandler:
                 if hasattr(old_vals, "iloc")
                 else old_vals
             )
-            message = (
-                f"db: setting {field.name}[id={indices[i]}] = {value} (was {old_val})"
-            )
+            message = f"db: setting {field.name}[id={indices[i]}] = {values[i]} (was {old_val})"
             self.log(message)
 
     def calc_time_window(self):
@@ -340,7 +350,6 @@ class DatabaseHandler:
             self.annotArray.set_time_window(self.time_window)
             if self.imaging_flag:
                 self.imagingArray.set_time_window(self.time_window)
-            self.df = self.db_to_df()
             self.nxgraph = self.df_to_nxgraph()
 
     def find_chunk_from_frame(self, frame):
@@ -428,7 +437,7 @@ class DatabaseHandler:
 
         """
         # apply scale, only do this here to avoid scaling the original dataframe
-        df_scaled = self.df.copy()
+        df_scaled = self.db_to_df()
         df_scaled.loc[:, "z"] = df_scaled.z * self.z_scale  # apply scale
 
         nxgraph = tracks_layer_to_networkx(df_scaled)
@@ -464,7 +473,7 @@ class DatabaseHandler:
         For single-point tracks (tracks that exist at only one timepoint), only the 'added'
         event is reported to avoid duplicate flags for a single cell.
         """
-        df = self.db_to_df(entire_database=True)
+        df = self.df_full.copy()
 
         # Define a continuous range of timepoints.
         time_range = range(df["t"].min(), df["t"].max() + 1)
@@ -560,10 +569,8 @@ class DatabaseHandler:
         pd.DataFrame
             DataFrame with columns: 't', 'track_id', 'id'
         """
-        df = self.db_to_df(entire_database=True)
-
         # Get all cells that have parents (parent_id != -1)
-        cells_with_parents = df[df["parent_id"] != -1]
+        cells_with_parents = self.df_full[self.df_full["parent_id"] != -1]
 
         # Group by parent_id and time to count daughters per parent per timepoint
         daughter_counts = cells_with_parents.groupby(["parent_id", "t"]).size()
@@ -578,9 +585,13 @@ class DatabaseHandler:
         divisions = []
         for _, row in dividing_cells.iterrows():
             # Find parent info in the frame before division
-            parent_info = df[(df["id"] == row["parent_id"]) & (df["t"] == row["t"] - 1)]
-            daughters_info = df[
-                (df["parent_id"] == row["parent_id"]) & (df["t"] == row["t"])
+            parent_info = self.df_full[
+                (self.df_full["id"] == row["parent_id"])
+                & (self.df_full["t"] == row["t"] - 1)
+            ]
+            daughters_info = self.df_full[
+                (self.df_full["parent_id"] == row["parent_id"])
+                & (self.df_full["t"] == row["t"])
             ]
             if not parent_info.empty:
                 divisions.append(
@@ -603,12 +614,13 @@ class DatabaseHandler:
         pd.DataFrame
             DataFrame with columns: track_id, first_t, first_id, sorted by mean appearance time
         """
-        df = self.db_to_df(entire_database=True)
         # Get rows with no annotations
-        unannotated = df[df["generic"] == NodeDB.generic.default.arg]
+        unannotated = self.df_full[
+            self.df_full["generic"] == NodeDB.generic.default.arg
+        ]
 
         # For each track_id, get the first time point and corresponding first ID
-        todo_annotations = (
+        to_annotate = (
             unannotated.groupby("track_id")
             .agg({"t": "first"})  # Get the first time point of each track
             .astype({"t": int})  # Convert first time to integer
@@ -619,13 +631,13 @@ class DatabaseHandler:
         )
 
         # Get the IDs at these first times
-        todo_annotations = todo_annotations.merge(
+        to_annotate = to_annotate.merge(
             unannotated[["track_id", "t", "id"]],
             left_on=["track_id", "first_t"],
             right_on=["track_id", "t"],
         )[["track_id", "first_t", "id"]].rename(columns={"id": "first_id"})
 
-        return todo_annotations
+        return to_annotate
 
     def recompute_red_flags(self):
         """called by update_red_flags in TrackEditClass upon tracks_updated signal in TracksViewer"""
@@ -663,9 +675,8 @@ class DatabaseHandler:
 
         # tracks.csv
         csv_filename = self.working_directory / f"{self.extension_string}_tracks.csv"
-        df_full = self.db_to_df(entire_database=True)
         try:
-            df_full.to_csv(csv_filename, index=False)
+            self.df_full.to_csv(csv_filename, index=False)
         except Exception as e:
             from napari.utils.notifications import show_error
 
@@ -676,19 +687,19 @@ class DatabaseHandler:
             self.working_directory / f"{self.extension_string}_annotations.csv"
         )
         # Group by track_id and take the first label for each track
-        df_full["label"] = df_full["generic"].map(self.label_mapping)
-        df_full = df_full[["track_id", "generic", "label"]]
-        df_grouped = df_full.groupby("track_id").first().reset_index()
+        annotations_df = self.df_full[["track_id", "generic"]].copy()
+        annotations_df["label"] = annotations_df["generic"].map(self.label_mapping)
+        df_grouped = annotations_df.groupby("track_id").first().reset_index()
         df_grouped.to_csv(csv_filename, index=False)
         # ToDo: check if only one label per track_id
 
         # divisions.txt
         txt_filename = self.working_directory / f"{self.extension_string}_divisions.txt"
-        df_full = self.db_to_df(entire_database=True)
-
         # Create a mapping of track_id to its label
         track_labels = (
-            df_full.groupby("track_id")["generic"].first().apply(self.label_mapping)
+            self.df_full.groupby("track_id")["generic"]
+            .first()
+            .apply(self.label_mapping)
         )
 
         with open(txt_filename, "w") as f:
@@ -714,7 +725,7 @@ class DatabaseHandler:
         )
         tracks_to_zarr(
             config=self.config_adjusted,
-            tracks_df=df_full,
+            tracks_df=self.df_full,
             store_or_path=zarr_filename,
             overwrite=True,
         )
@@ -725,7 +736,7 @@ class DatabaseHandler:
         )
         annotations_to_zarr(
             config=self.config_adjusted,
-            tracks_df=df_full,
+            tracks_df=self.df_full,
             store_or_path=zarr_filename,
             overwrite=True,
         )
@@ -746,11 +757,8 @@ class DatabaseHandler:
     def annotate_track(self, track_id: int, label: int):
         """Annotate all cells of a track in the database with a given label."""
 
-        df = self.db_to_df(entire_database=True)
-        # ToDo: make df_full a property of the DatabaseHandler class
-
         # Then find this track_id in the toannotate
-        indices = df[df["track_id"] == track_id].index.tolist()
+        indices = self.df_full[self.df_full["track_id"] == track_id].index.tolist()
 
         self.change_values(indices, NodeDB.generic, label)
 
@@ -758,15 +766,19 @@ class DatabaseHandler:
         """Clear the annotations for the entire track of a list of nodes. Called when a node is deleted."""
 
         print(f"clearing annotations for nodes: {nodes}")
-        df = self.db_to_df(entire_database=True)
 
         # get the track_id of the nodes
-        track_ids = df[df["id"].isin(nodes)]["track_id"].unique()
+        track_ids = self.df_full[self.df_full["id"].isin(nodes)]["track_id"].unique()
 
-        # get the indices of the nodes in the track
+        # Collect all node indices of which the track_id is in track_ids
+        all_indices = []
         for track_id in track_ids:
-            indices = df[df["track_id"] == track_id].index.tolist()
-            self.change_values(indices, NodeDB.generic, NodeDB.generic.default.arg)
+            indices = self.df_full[self.df_full["track_id"] == track_id].index.tolist()
+            all_indices.extend(indices)
+
+        # Make a single call with all indices
+        if all_indices:
+            self.change_values(all_indices, NodeDB.generic, NodeDB.generic.default.arg)
 
     def clear_edges_annotations(self, edges):
         """Clear annotations for all nodes involved in the given edges.
@@ -784,15 +796,18 @@ class DatabaseHandler:
             node_ids.add(source)
             node_ids.add(target)
 
-        df = self.db_to_df(entire_database=True)
-
         # get the track_id of the nodes
-        track_ids = df[df["id"].isin(node_ids)]["track_id"].unique()
+        track_ids = self.df_full[self.df_full["id"].isin(node_ids)]["track_id"].unique()
 
-        # get the indices of the nodes in the track
+        # Collect all indices that need to be changed
+        all_indices = []
         for track_id in track_ids:
-            indices = df[df["track_id"] == track_id].index.tolist()
-            self.change_values(indices, NodeDB.generic, NodeDB.generic.default.arg)
+            indices = self.df_full[self.df_full["track_id"] == track_id].index.tolist()
+            all_indices.extend(indices)
+
+        # Only make the call if we have indices to change
+        if all_indices:
+            self.change_values(all_indices, NodeDB.generic, NodeDB.generic.default.arg)
 
     def check_zarr_existance(self):
         # check if zarr file and channel exists:
