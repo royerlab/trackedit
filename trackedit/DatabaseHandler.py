@@ -117,6 +117,7 @@ class DatabaseHandler:
                 time_window=self.time_window,
             )
         self.df_full = self.db_to_df(entire_database=True)
+        #ToDo: df_full might be very large for large datasets, but annotation/redflags/division need it
         self.nxgraph = self.df_to_nxgraph()
         self.red_flags = self.find_all_red_flags()
         self.toannotate = self.find_all_toannotate()
