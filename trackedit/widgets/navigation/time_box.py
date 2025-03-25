@@ -14,6 +14,7 @@ class TimeBox(NavigationBox):
         super().__init__("Time navigation", max_height=120)
         self.viewer = viewer
         self.databasehandler = databasehandler
+        self.setObjectName("TimeBox")
 
         # Define the buttons
         self.time_prev_btn = QPushButton("prev (<)")

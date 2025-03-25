@@ -89,6 +89,7 @@ dask = ">=2025.2.0,<2026"
 [tool.pixi.feature.test.dependencies]
 pytest = "*"
 pytest-qt = ">=4.4.0,<5"
+pytest-cov = ">=6.0.0,<7"
 
 [tool.pixi.environments]
 test = { features = ["test"], solve-group = "default" }

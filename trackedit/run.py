@@ -1,18 +1,26 @@
 from pathlib import Path
 from typing import Optional, Tuple
+
 import napari
-from motile_tracker.data_model.actions import AddEdges, AddNodes, DeleteEdges, DeleteNodes
+
+from motile_tracker.data_model.actions import (
+    AddEdges,
+    AddNodes,
+    DeleteEdges,
+    DeleteNodes,
+)
 from motile_tracker.data_views import TracksViewer
-from .DatabaseHandler import DatabaseHandler
-from .motile_overwrites import (
+from trackedit.DatabaseHandler import DatabaseHandler
+from trackedit.motile_overwrites import (
     create_db_add_edges,
     create_db_add_nodes,
     create_db_delete_edges,
     create_db_delete_nodes,
     create_tracks_viewer_and_segments_refresh,
 )
-from .TrackEditClass import TrackEditClass
-from .utils.utils import wrap_default_widgets_in_tabs
+from trackedit.TrackEditClass import TrackEditClass
+from trackedit.utils.utils import wrap_default_widgets_in_tabs
+
 
 def run_trackedit(
     working_directory: Path,
@@ -27,7 +35,7 @@ def run_trackedit(
 ) -> napari.Viewer:
     """
     Run TrackEdit with the specified parameters.
-    
+
     Parameters
     ----------
     working_directory : Path
@@ -52,7 +60,7 @@ def run_trackedit(
     viewer_provided = viewer is not None
     if not viewer_provided:
         viewer = napari.Viewer()
-        
+
     DB_handler = DatabaseHandler(
         db_filename_old=db_filename,
         working_directory=working_directory,
@@ -77,8 +85,8 @@ def run_trackedit(
     viewer.dims.ndisplay = 3  # 3D view
     wrap_default_widgets_in_tabs(viewer)
     viewer.dims.current_step = (2, *viewer.dims.current_step[1:])
-    
+
     if not viewer_provided:
         napari.run()
-    
-    return viewer 
+
+    return viewer
