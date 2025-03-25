@@ -186,7 +186,7 @@ class DatabaseHandler:
         # Check if the new database file already exists
         if new_db_path.exists() & (not allow_overwrite):
             raise FileExistsError(
-                f"Error: {db_filename_new} already exists. Copy operation aborted."
+                f"Error: {db_filename_new} already exists. Set 'allow_overwrite' to 'True', or choose a different database filename."
             )
         else:
             shutil.copy(old_db_path, new_db_path)
@@ -461,8 +461,11 @@ class DatabaseHandler:
     def find_all_red_flags(self) -> pd.DataFrame:
         """
         Identify tracking red flags ('added' or 'removed') from one timepoint to the next.
-        For single-point tracks (tracks that exist at only one timepoint), only the 'added'
-        event is reported to avoid duplicate flags for a single cell.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with columns: 't', 'track_id', 'id', 'event'
         """
         df = self.db_to_df(entire_database=True)
 
@@ -545,7 +548,11 @@ class DatabaseHandler:
 
         result_df = pd.DataFrame(events)
 
-        # ignore events at t=1
+        # If no events were found, return empty DataFrame with correct columns
+        if result_df.empty:
+            return pd.DataFrame(columns=["t", "track_id", "id", "event"])
+
+        # Only filter if we have any events
         result_df = result_df[result_df["t"] != 1]
 
         return result_df
@@ -630,9 +637,12 @@ class DatabaseHandler:
     def recompute_red_flags(self):
         """called by update_red_flags in TrackEditClass upon tracks_updated signal in TracksViewer"""
         self.red_flags = self.find_all_red_flags()
-        self.red_flags = self.red_flags[
-            ~self.red_flags["id"].isin(self.red_flags_ignore_list)
-        ]
+
+        # Only filter if we have any red flags
+        if not self.red_flags.empty:
+            self.red_flags = self.red_flags[
+                ~self.red_flags["id"].isin(self.red_flags_ignore_list)
+            ]
 
     def recompute_divisions(self):
         """called by update_divisions in TrackEditClass upon tracks_updated signal in TracksViewer"""

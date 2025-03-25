@@ -12,6 +12,7 @@ class RedFlagBox(NavigationBox):
 
     def __init__(self, tracks_viewer, databasehandler):
         super().__init__("Red Flags", max_height=120)
+        self.setObjectName("RedFlagBox")
         self.tracks_viewer = tracks_viewer
         self.databasehandler = databasehandler
         self.current_red_flag_index = 0
@@ -86,6 +87,10 @@ class RedFlagBox(NavigationBox):
 
     def goto_red_flag(self):
         """Jump to the time of the current red flag."""
+        # Check if there are any red flags before trying to access them
+        if self.databasehandler.red_flags.empty:
+            return
+
         red_flag_time = int(
             self.databasehandler.red_flags.iloc[self.current_red_flag_index]["t"]
         )

@@ -12,6 +12,7 @@ class DivisionBox(NavigationBox):
 
     def __init__(self, tracks_viewer, databasehandler):
         super().__init__("Divisions", max_height=80)
+        self.setObjectName("DivisionBox")
         self.tracks_viewer = tracks_viewer
         self.databasehandler = databasehandler
         self.current_division_index = 0
@@ -75,6 +76,10 @@ class DivisionBox(NavigationBox):
 
     def goto_division(self):
         """Jump to the time of the current division."""
+        # Check if there are any divisions before trying to access them
+        if self.databasehandler.divisions.empty:
+            return
+
         division_time = int(
             self.databasehandler.divisions.iloc[self.current_division_index]["t"]
         )
