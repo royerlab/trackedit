@@ -136,7 +136,9 @@ class ToAnnotateBox(NavigationBox):
     def annotate_track(self, label_str: str):
         label_int = self.get_label_int(label_str)
 
-        track_id = self.databasehandler.df_full.loc[self.current_selected_cell]["track_id"]
+        track_id = self.databasehandler.df_full.loc[self.current_selected_cell][
+            "track_id"
+        ]
 
         self.databasehandler.annotate_track(
             track_id, label_int
@@ -212,7 +214,9 @@ class ToAnnotateBox(NavigationBox):
 
         # update counter and buttons
         try:
-            track_id = self.databasehandler.df_full.loc[self.current_selected_cell]["track_id"]
+            track_id = self.databasehandler.df_full.loc[self.current_selected_cell][
+                "track_id"
+            ]
             index = self.databasehandler.toannotate.index[
                 self.databasehandler.toannotate["track_id"] == track_id
             ][0]
@@ -232,7 +236,9 @@ class ToAnnotateBox(NavigationBox):
         It: - updates the label with the selected cell information
         """
         # update label
-        cell_info = self.databasehandler.df_full[self.databasehandler.df_full["id"] == selected_node].iloc[0]
+        cell_info = self.databasehandler.df_full[
+            self.databasehandler.df_full["id"] == selected_node
+        ].iloc[0]
         generic_value = cell_info["generic"]  # type(generic_value) = int
         label = self.databasehandler.label_mapping(generic_value)  # type(label) = str
         self.selected_cell_label.setText(f"Selected cell: {selected_node} ({label})")

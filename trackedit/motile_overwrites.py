@@ -72,7 +72,8 @@ def create_db_delete_nodes(DB_handler):
             DB_handler.change_values(
                 indices=orphaned_children, field=NodeDB.parent_id, values=-1
             )
-            #ToDo: potentially only remove orphan edges into the next time window, because normal edges are already properly removed
+            # ToDo: potentially only remove orphan edges into the next time window,
+            # because normal edges are already properly removed
 
         # Set nodes as unselected
         DB_handler.change_values(indices=self.nodes, field=NodeDB.selected, values=0)
