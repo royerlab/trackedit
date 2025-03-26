@@ -52,8 +52,8 @@ def viewer_and_trackedit(
     indirect=True,
 )
 def test_trackedit_widgets(
-    viewer_and_trackedit, timelapse_mock_data, request
-):  # noqa: F811
+    viewer_and_trackedit, timelapse_mock_data, request  # noqa: F811
+):
     """Test UI interactions with the viewer and widgets"""
     viewer, track_edit = viewer_and_trackedit
 
