@@ -32,7 +32,7 @@ def viewer_and_trackedit(
     track_edit = run_trackedit(
         working_directory=working_directory,
         db_filename="data.db",
-        tmax=5,
+        tmax=4,
         scale=(1, 1, 1),
         allow_overwrite=True,
         time_chunk_length=3,
@@ -48,7 +48,7 @@ def viewer_and_trackedit(
 @pytest.mark.parametrize(
     "timelapse_mock_data",  # noqa: F811
     [
-        {"length": 5, "size": 64, "n_dim": 3},
+        {"length": 4, "size": 64, "n_dim": 3},
     ],
     indirect=True,
 )

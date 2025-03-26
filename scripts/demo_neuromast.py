@@ -12,6 +12,8 @@ sys.modules["numpy._core.numeric"] = np.core.numeric
 warnings.filterwarnings("ignore", category=FutureWarning, message=".*qt_viewer.*")
 
 # **********INPUTS*********
+# path to the working directory that contains the database file AND metadata.toml:
+
 working_directory = Path(
     "/home/teun.huijben/Documents/data/Akila/20241003/neuromast4_t851/adjusted/"
 )
@@ -25,11 +27,10 @@ working_directory = Path(
 #     "46hpf_fish1_1/4_tracking/database/"
 # )
 
-# path to the working directory that contains the database file AND metadata.toml
 db_filename_start = (
     "data.db"  # name of the database file to start from, defaults to "data.db"
 )
-tmax = 30  # maximum number of frames display, defaults to None (use all frames)
+tmax = 600  # maximum number of frames display, defaults to None (use all frames)
 scale = (2.31, 1, 1)  # (Z),Y,X, defaults to (1, 1, 1)
 allow_overwrite = True  # overwrite existing database/changelog, defaults to False
 
@@ -44,7 +45,6 @@ allow_overwrite = True  # overwrite existing database/changelog, defaults to Fal
 imaging_zarr_file = None
 imaging_channel = None
 # *************************
-
 
 if __name__ == "__main__":
     run_trackedit(
