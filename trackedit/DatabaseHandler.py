@@ -552,8 +552,8 @@ class DatabaseHandler:
         if result_df.empty:
             return pd.DataFrame(columns=["t", "track_id", "id", "event"])
 
-        # Only filter if we have any events
-        result_df = result_df[result_df["t"] != 1]
+        # ToDo: make option to filter redflags in the first two timepoints (usefull for neuromast with suboptimal beginning)
+        # result_df = result_df[result_df["t"] != 1]
 
         return result_df
 
@@ -652,7 +652,7 @@ class DatabaseHandler:
         """called by update_toannotate in TrackEditClass upon tracks_updated signal in TracksViewer"""
         self.toannotate = self.find_all_toannotate()
 
-    def seg_ignore_red_flag(self, id):
+    def ignore_red_flag(self, id):
         self.red_flags_ignore_list.append(id)
 
         # Get the values first for clarity

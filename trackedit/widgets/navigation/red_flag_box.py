@@ -57,6 +57,12 @@ class RedFlagBox(NavigationBox):
         self.databasehandler.recompute_red_flags()
         self.update_red_flag_counter_and_info()
 
+    def _update_button_states(self):
+        """Update the enabled state of navigation buttons based on red flag count."""
+        has_flags = len(self.databasehandler.red_flags) > 0
+        self.red_flag_prev_btn.setEnabled(has_flags)
+        self.red_flag_next_btn.setEnabled(has_flags)
+
     def update_red_flag_counter_and_info(self):
         """Update the red flag label to show the current red flag index and total count."""
         total = len(self.databasehandler.red_flags)
@@ -68,6 +74,7 @@ class RedFlagBox(NavigationBox):
         else:
             self.red_flag_counter.setText("0/0")
             self.red_flag_info.setText("-")
+        self._update_button_states()
 
     def go_to_next_red_flag(self):
         """Navigate to the next red flag in the list and jump to that timepoint."""
@@ -106,12 +113,31 @@ class RedFlagBox(NavigationBox):
 
     def ignore_red_flag(self):
         """Ignore the current red flag and remove it from the list."""
-        id = self.databasehandler.red_flags.iloc[self.current_red_flag_index]["id"]
-        self.databasehandler.seg_ignore_red_flag(id)
+        # Get the ID before we remove the red flag
+        current_id = self.databasehandler.red_flags.iloc[self.current_red_flag_index][
+            "id"
+        ]
+        total_flags = len(self.databasehandler.red_flags)
 
-        if self.current_red_flag_index >= len(self.databasehandler.red_flags):
-            self.current_red_flag_index = self.current_red_flag_index - 1
-        self.goto_red_flag()
+        # Remove the red flag
+        self.databasehandler.ignore_red_flag(current_id)
+
+        # Update index for remaining flags (if any)
+        total_flags -= 1  # one was just removed
+        if total_flags == 0:
+            self.current_red_flag_index = 0
+        else:
+            # Keep same index unless we're beyond the end
+            self.current_red_flag_index = min(
+                self.current_red_flag_index, total_flags - 1
+            )
+
+        self.update_red_flag_counter_and_info()
+        if total_flags > 0:
+            self.goto_red_flag()
+
+        # Update button states
+        self._check_selected_node_matches_red_flag()
 
     def _check_selected_node_matches_red_flag(self):
         """Check if the selected node matches the current red flag label."""
@@ -120,6 +146,7 @@ class RedFlagBox(NavigationBox):
         if len(selected_nodes) != 1:
             self.red_flag_counter.setStyleSheet("color: gray;")
             self.red_flag_ignore_btn.setEnabled(False)
+            self._update_button_states()
             return
 
         selected_node = selected_nodes[0]
@@ -138,3 +165,5 @@ class RedFlagBox(NavigationBox):
             # Node not found in red flags - grey out counter
             self.red_flag_counter.setStyleSheet("color: gray;")
             self.red_flag_ignore_btn.setEnabled(False)
+
+        self._update_button_states()

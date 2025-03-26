@@ -1,0 +1,34 @@
+name: Tests
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Pixi
+        uses: prefix-dev/setup-pixi@v0.5.1
+
+      - uses: tlambert03/setup-qt-libs@v1
+      
+      - name: Install dependencies
+        run: |
+          pixi install
+          pip install pre-commit
+
+      - name: Run pre-commit
+        run: pre-commit run --all-files
+
+      - name: Run tests
+        uses: GabrielBB/xvfb-action@v1
+        with:
+          run: pixi shell --environment test -c "pytest -v --cov=trackedit --cov-report=xml"
+        env:
+          PLATFORM: ubuntu-latest
+          BACKEND: pyqt5
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage.xml

@@ -64,11 +64,12 @@ def test_ui_interactions(viewer_and_trackedit):
     check_selection(TV)
     check_time_box(time_box)
     check_editing(TV)
-    check_red_flag_box(red_flag_box)
+    check_red_flag_box(TV, red_flag_box)
+    check_division_box(TV, division_box)
 
     # Keep the viewer open
-    viewer.window.show()
-    qtbot.stop()
+    # viewer.window.show()
+    # qtbot.stop()
 
 
 def check_selection(TV):
@@ -103,6 +104,9 @@ def check_time_box(time_box):
     time_box.time_input.setText(str(2))
     time_box.on_time_input_entered()
 
+    time_box.press_next()
+    time_box.press_prev()
+
 
 def check_editing(TV):
     """Check track editing functionality"""
@@ -131,7 +135,39 @@ def check_editing(TV):
     TV.create_edge()
 
 
-def check_red_flag_box(red_flag_box):
+def check_red_flag_box(TV, red_flag_box):
     """Check red flag box functionality"""
-    # red_flag_box.red_flag_button.click()
-    # red_flag_box.red_flag_button.click()
+
+    # remove an extra node > create two extra red flags
+    TV.selected_nodes.add(3000011, append=False)
+    TV.delete_node()
+
+    assert len(red_flag_box.databasehandler.red_flags) == 3
+
+    TV.undo()
+
+    assert len(red_flag_box.databasehandler.red_flags) == 1
+
+    TV.redo()
+
+    assert len(red_flag_box.databasehandler.red_flags) == 3
+
+    red_flag_box.goto_red_flag()
+    red_flag_box.go_to_next_red_flag()
+    red_flag_box.go_to_prev_red_flag()
+
+    while len(red_flag_box.databasehandler.red_flags) > 0:
+        red_flag_box.ignore_red_flag()
+
+    assert len(red_flag_box.databasehandler.red_flags) == 0
+
+    red_flag_box.goto_red_flag()
+    red_flag_box.go_to_next_red_flag()
+    red_flag_box.go_to_prev_red_flag()
+
+
+def check_division_box(TV, division_box):
+    """Check division box functionality"""
+    division_box.goto_division()
+    division_box.go_to_next_division()
+    division_box.go_to_prev_division()
