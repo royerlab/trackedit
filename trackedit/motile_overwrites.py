@@ -30,6 +30,8 @@ def create_db_add_nodes(DB_handler):
     def db_add_nodes(self):
         # don't use full old function, because it includes painting pixels in segmentation
         print("AddNodes:", self.nodes)
+        if len(self.nodes) == 0:  # Skip if no nodes to add
+            return
 
         # overwrite self.positions with values from database, scaled with z_scale
         new_pos = []
@@ -61,6 +63,9 @@ def create_db_delete_nodes(DB_handler):
     def db_delete_nodes(self):
         print("DeleteNodes:", self.nodes)
         # don't use full old function, because it includes painting pixels in segmentation
+        if len(self.nodes) == 0:  # Skip if no nodes to delete
+            return
+
         DB_handler.clear_nodes_annotations(self.nodes)
         self.tracks.remove_nodes(self.nodes)
 
@@ -68,9 +73,13 @@ def create_db_delete_nodes(DB_handler):
         orphaned_children = DB_handler.df_full[
             DB_handler.df_full["parent_id"].isin(self.nodes)
         ].index.tolist()
+        print("orphaned_children", orphaned_children)
         if orphaned_children:
             DB_handler.change_values(
                 indices=orphaned_children, field=NodeDB.parent_id, values=-1
+            )
+            show_warning(
+                "An edge in the next time window is removed, so 'UNDO' will not work."
             )
             # ToDo: potentially only remove orphan edges into the next time window,
             # because normal edges are already properly removed
@@ -88,6 +97,10 @@ def create_db_add_edges(DB_handler):
     def db_add_edges(self):
         print("AddEdges:", self.edges)
         _old_add_edges_apply(self)
+
+        if len(self.edges) == 0:  # Check length instead of direct boolean
+            return
+
         DB_handler.clear_edges_annotations(self.edges)
 
         # Extract child nodes and parent nodes from edges
@@ -109,6 +122,9 @@ def create_db_delete_edges(DB_handler):
     def db_delete_edges(self):
         print("DeleteEdges:", self.edges)
         _old_delete_edges_apply(self)
+
+        if len(self.edges) == 0:  # Check length instead of direct boolean
+            return
 
         # Extract child nodes from edges
         child_nodes = [e[1] for e in self.edges]

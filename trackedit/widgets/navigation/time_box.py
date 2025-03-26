@@ -65,8 +65,10 @@ class TimeBox(NavigationBox):
 
     def check_navigation_button_validity(self) -> None:
         chunk = self.databasehandler.time_chunk
-        self.time_prev_btn.setEnabled(chunk != 0)
-        self.time_next_btn.setEnabled(chunk != self.databasehandler.num_time_chunks - 1)
+        self.time_prev_btn.setEnabled(int(chunk) != 0)
+        self.time_next_btn.setEnabled(
+            int(chunk) != int(self.databasehandler.num_time_chunks - 1)
+        )
 
     def press_prev(self):
         self.change_chunk.emit("prev")

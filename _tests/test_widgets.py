@@ -3,6 +3,8 @@ from typing import Callable
 
 import napari
 import pytest
+from PyQt5.QtCore import QTimer
+from PyQt5.QtWidgets import QApplication, QPushButton
 from ultrack.config import MainConfig
 from ultrack.utils.test_utils import (  # noqa: F401, F811
     config_content,
@@ -73,7 +75,7 @@ def test_trackedit_widgets(
     division_box = navigation_widget.division_box
     assert division_box is not None, "DivisionBox not found"
 
-    toAnnotateBox = track_edit.AnnotationWidget.todo_box
+    toAnnotateBox = track_edit.AnnotationWidget.toannotate_box
     assert toAnnotateBox is not None, "ToAnnotateBox not found"
 
     TV = track_edit.tracksviewer
@@ -81,10 +83,10 @@ def test_trackedit_widgets(
     check_selection(TV)
     check_time_box(time_box)
     check_editing(TV, editing_menu)
-    # check_red_flag_box(TV, red_flag_box)
-    # check_division_box(division_box)
-    # check_annotation(toAnnotateBox)
-    # check_export(navigation_widget)
+    check_red_flag_box(TV, red_flag_box)
+    check_division_box(division_box)
+    check_annotation(toAnnotateBox)
+    check_export(navigation_widget)
 
     if request.config.getoption("--show-napari-viewer"):
         napari.run()
@@ -126,57 +128,60 @@ def check_time_box(time_box):
 
 def check_editing(TV, editing_menu):
     """Check track editing functionality"""
-    # Test: delete cell and undo
-    # TV.selected_nodes.add(3000009, append=False)
-    # TV.delete_node()
-    # TV.undo()
+    # # Test: delete cell and undo
+    # Note: this is a node in the last frame of this timewindow, so the edge in the
+    # next window will be removed, which is not recovered by undo. So we have 2 red
+    # flags, one from the broken edge, one for the not-recovered on the next window
+    TV.selected_nodes.add(3000009, append=False)
+    TV.delete_node()
+    TV.undo()
 
-    # # # Test: redo and undo deletion
-    # TV.redo()
-    # TV.undo()
+    # # Test: redo and undo deletion
+    TV.redo()
+    TV.undo()
 
     # # Function to handle dialog
-    # def handle_dialog():
-    #     print("handling dialog")
-    #     for widget in QApplication.topLevelWidgets():
-    #         if widget.windowTitle() == "Delete existing edge?":
-    #             for button in widget.findChildren(QPushButton):
-    #                 if button.text() == "&OK":
-    #                     button.click()
-    #                     break
+    def handle_dialog():
+        print("handling dialog")
+        for widget in QApplication.topLevelWidgets():
+            if widget.windowTitle() == "Delete existing edge?":
+                for button in widget.findChildren(QPushButton):
+                    if button.text() == "&OK":
+                        button.click()
+                        break
 
-    # # # Test: break/add edge
-    # TV.selected_nodes.add(2000009, append=False)
-    # TV.selected_nodes.add(3000010, append=True)
-    # QTimer.singleShot(100, handle_dialog)  # handle popup window
-    # TV.create_edge()
-    # print("dialog correctly handled")
+    # # Test: break/add edge
+    TV.selected_nodes.add(2000009, append=False)
+    TV.selected_nodes.add(3000010, append=True)
+    QTimer.singleShot(100, handle_dialog)  # handle popup window
+    TV.create_edge()
+    print("dialog correctly handled")
 
-    # # # Test: add node
-    # editing_menu.click_on_hierarchy_cell(3000012)
-    # editing_menu.add_cell_from_button()
-    # TV.undo()
+    # # Test: add node
+    editing_menu.click_on_hierarchy_cell(3000012)
+    editing_menu.add_cell_from_button()
+    TV.undo()
 
-    # # # Test: duplicate node
-    # editing_menu.click_on_hierarchy_cell(3000012)
-    # editing_menu.duplicate_cell_id_input.setText(str(3000012))
-    # editing_menu.duplicate_time_input.setText(str(1))
-    # editing_menu.duplicate_cell_from_button()
-    # TV.undo()
+    # # Test: duplicate node
+    editing_menu.click_on_hierarchy_cell(3000012)
+    editing_menu.duplicate_cell_id_input.setText(str(3000012))
+    editing_menu.duplicate_time_input.setText(str(1))
+    editing_menu.duplicate_cell_from_button()
+    TV.undo()
 
 
 def check_red_flag_box(TV, red_flag_box):
     """Check red flag box functionality"""
 
     # remove an extra node > create two extra red flags
-    TV.selected_nodes.add(3000011, append=False)
+    TV.selected_nodes.add(2000011, append=False)
     TV.delete_node()
 
     assert len(red_flag_box.databasehandler.red_flags) == 3
 
     TV.undo()
 
-    assert len(red_flag_box.databasehandler.red_flags) == 1
+    assert len(red_flag_box.databasehandler.red_flags) == 2
 
     TV.redo()
 
