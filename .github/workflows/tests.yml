@@ -26,12 +26,12 @@ jobs:
         run: pixi install
 
       - name: Run pre-commit
-        run: pixi precommit
+        run: pixi run pre-commit run --all-files
 
       - name: Run tests
         uses: GabrielBB/xvfb-action@v1
         with:
-          run: pixi test
+          run: pixi run --environment test -- pytest -v --cov=trackedit --cov-report=xml
         env:
           PLATFORM: ubuntu-latest
           BACKEND: pyqt5

@@ -91,9 +91,9 @@ pytest = "*"
 pytest-qt = ">=4.4.0,<5"
 pytest-cov = ">=6.0.0,<7"
 
-[tool.pixi.feature.test.task]
-precommit = "pre-commit run --all-files"
-test = "pytest -v --cov=trackedit --cov-report=xml"
+[tool.pixi.feature.test.tasks]
+# precommit = "pre-commit run --all-files"
+# _test = "pytest -v --cov=trackedit --cov-report=xml"
 
 [tool.pixi.environments]
 test = { features = ["test"], solve-group = "default" }
