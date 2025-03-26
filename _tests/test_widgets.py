@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Callable
 
 import napari
 import pytest
@@ -19,9 +20,14 @@ from trackedit.run import run_trackedit
 
 
 @pytest.fixture
-def viewer_and_trackedit(tracked_database_mock_data: MainConfig, qtbot):  # noqa: F811
+def viewer_and_trackedit(
+    tracked_database_mock_data: MainConfig,
+    make_napari_viewer: Callable[[], napari.Viewer],
+    qtbot,
+    request,
+):  # noqa: F811
     """Fixture to create viewer and trackedit instance for testing"""
-    viewer = napari.Viewer()
+    viewer = make_napari_viewer()
     data_config = tracked_database_mock_data.data_config
     working_directory = Path(data_config.working_dir)
 
@@ -37,6 +43,9 @@ def viewer_and_trackedit(tracked_database_mock_data: MainConfig, qtbot):  # noqa
         viewer=viewer,
     )
 
+    if request.config.getoption("--show-napari-viewer"):
+        napari.run()
+
     return viewer, track_edit, qtbot
 
 
@@ -47,13 +56,16 @@ def viewer_and_trackedit(tracked_database_mock_data: MainConfig, qtbot):  # noqa
     ],
     indirect=True,
 )
-def test_ui_interactions(viewer_and_trackedit, timelapse_mock_data):  # noqa: F811
+def test_trackedit_widgets(viewer_and_trackedit, timelapse_mock_data):  # noqa: F811
     """Test UI interactions with the viewer and widgets"""
     viewer, track_edit, qtbot = viewer_and_trackedit
 
     # Get the NavigationWidget directly from TrackEdit instance
     navigation_widget = track_edit.NavigationWidget
     assert navigation_widget is not None, "NavigationWidget not found"
+
+    editing_menu = track_edit.EditingMenu
+    assert editing_menu is not None, "EditingMenu not found"
 
     # Get boxes through the properly connected NavigationWidget
     time_box = navigation_widget.time_box
@@ -69,13 +81,13 @@ def test_ui_interactions(viewer_and_trackedit, timelapse_mock_data):  # noqa: F8
 
     check_selection(TV)
     check_time_box(time_box)
-    check_editing(TV)
+    check_editing(TV, editing_menu)
     check_red_flag_box(TV, red_flag_box)
     check_division_box(TV, division_box)
 
     # Keep the viewer open
-    # viewer.window.show()
-    # qtbot.stop()
+    viewer.window.show()
+    qtbot.stop()
 
 
 def check_selection(TV):
@@ -112,7 +124,7 @@ def check_time_box(time_box):
     time_box.press_prev()
 
 
-def check_editing(TV):
+def check_editing(TV, editing_menu):
     """Check track editing functionality"""
     # Test: delete cell and undo
     TV.selected_nodes.add(3000009, append=False)
@@ -137,6 +149,18 @@ def check_editing(TV):
     TV.selected_nodes.add(3000010, append=True)
     QTimer.singleShot(100, handle_dialog)  # handle popup window
     TV.create_edge()
+
+    # Test: add node
+    editing_menu.click_on_hierarchy_cell(3000012)
+    editing_menu.add_cell_from_button()
+    TV.undo()
+
+    # Test: duplicate node
+    # editing_menu.click_on_hierarchy_cell(3000012)
+    # editing_menu.duplicate_cell_id_input.setText(str(3000012))
+    # editing_menu.duplicate_time_input.setText(str(1))
+    # editing_menu.duplicate_cell_from_button()
+    # TV.undo()
 
 
 def check_red_flag_box(TV, red_flag_box):
