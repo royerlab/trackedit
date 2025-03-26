@@ -6,24 +6,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Install Pixi
-        uses: prefix-dev/setup-pixi@v0.5.1
+        run: |
+          curl -sSf https://pixi.sh/install.sh | bash -s -- -y
+          echo "$HOME/.pixi/bin" >> $GITHUB_PATH
 
       - uses: tlambert03/setup-qt-libs@v1
-      
-      - name: Install dependencies
-        run: |
-          pixi install
-          pip install pre-commit
+
+      - name: Set up Pixi environment
+        run: pixi install
 
       - name: Run pre-commit
-        run: pre-commit run --all-files
+        run: pixi run pre-commit run --all-files
 
       - name: Run tests
         uses: GabrielBB/xvfb-action@v1
         with:
-          run: pixi shell --environment test -c "pytest -v --cov=trackedit --cov-report=xml"
+          run: pixi run pytest -v --cov=trackedit --cov-report=xml
         env:
           PLATFORM: ubuntu-latest
           BACKEND: pyqt5
