@@ -12,6 +12,7 @@ class ToAnnotateBox(NavigationBox):
 
     def __init__(self, tracks_viewer, databasehandler):
         super().__init__("Annotations", max_height=200)
+        self.setObjectName("ToAnnotateBox")
         self.tracks_viewer = tracks_viewer
         self.databasehandler = databasehandler
         self.current_annotation_index = 0

@@ -52,9 +52,22 @@ class RedFlagBox(NavigationBox):
             self._check_selected_node_matches_red_flag
         )
 
-    def update_red_flags(self):
-        """Update the red flags and counter"""
+    def update_red_flags(self, *args):
+        """Update the red flags display"""
         self.databasehandler.recompute_red_flags()
+
+        # Updating the red flags might be increased/decreased the number of red flags
+        total_flags = len(self.databasehandler.red_flags)
+
+        # Update current_red_flag_index based on total flags
+        if total_flags == 0:
+            self.current_red_flag_index = 0
+        else:
+            # Keep same index unless we're beyond the end
+            self.current_red_flag_index = min(
+                self.current_red_flag_index, total_flags - 1
+            )
+
         self.update_red_flag_counter_and_info()
 
     def _update_button_states(self):

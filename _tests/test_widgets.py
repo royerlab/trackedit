@@ -23,13 +23,9 @@ from trackedit.run import run_trackedit
 def viewer_and_trackedit(
     tracked_database_mock_data: MainConfig,  # noqa: F811
     make_napari_viewer: Callable[[], napari.Viewer],
-    qtbot,
-    request,
 ):
     """Fixture to create viewer and trackedit instance for testing"""
-    print("before viewer opens")
     viewer = make_napari_viewer()
-    print("after viewer opens")
     data_config = tracked_database_mock_data.data_config
     working_directory = Path(data_config.working_dir)
 
@@ -45,10 +41,7 @@ def viewer_and_trackedit(
         viewer=viewer,
     )
 
-    if request.config.getoption("--show-napari-viewer"):
-        napari.run()
-
-    return viewer, track_edit, qtbot
+    return viewer, track_edit
 
 
 @pytest.mark.parametrize(
@@ -58,9 +51,11 @@ def viewer_and_trackedit(
     ],
     indirect=True,
 )
-def test_trackedit_widgets(viewer_and_trackedit, timelapse_mock_data):  # noqa: F811
+def test_trackedit_widgets(
+    viewer_and_trackedit, timelapse_mock_data, request
+):  # noqa: F811
     """Test UI interactions with the viewer and widgets"""
-    viewer, track_edit, qtbot = viewer_and_trackedit
+    viewer, track_edit = viewer_and_trackedit
 
     # Get the NavigationWidget directly from TrackEdit instance
     navigation_widget = track_edit.NavigationWidget
@@ -79,17 +74,22 @@ def test_trackedit_widgets(viewer_and_trackedit, timelapse_mock_data):  # noqa: 
     division_box = navigation_widget.division_box
     assert division_box is not None, "DivisionBox not found"
 
+    toAnnotateBox = track_edit.AnnotationWidget.todo_box
+    assert toAnnotateBox is not None, "ToAnnotateBox not found"
+
     TV = track_edit.tracksviewer
 
     check_selection(TV)
     check_time_box(time_box)
     check_editing(TV, editing_menu)
     check_red_flag_box(TV, red_flag_box)
-    check_division_box(TV, division_box)
+    check_division_box(division_box)
+    check_annotation(toAnnotateBox)
 
-    # Keep the viewer open
-    # viewer.window.show()
-    # qtbot.stop()
+    check_export(navigation_widget)
+
+    if request.config.getoption("--show-napari-viewer"):
+        napari.run()
 
 
 def check_selection(TV):
@@ -133,12 +133,13 @@ def check_editing(TV, editing_menu):
     TV.delete_node()
     TV.undo()
 
-    # Test: redo and undo deletion
+    # # Test: redo and undo deletion
     TV.redo()
     TV.undo()
 
     # Function to handle dialog
     def handle_dialog():
+        print("handling dialog")
         for widget in QApplication.topLevelWidgets():
             if widget.windowTitle() == "Delete existing edge?":
                 for button in widget.findChildren(QPushButton):
@@ -146,23 +147,24 @@ def check_editing(TV, editing_menu):
                         button.click()
                         break
 
-    # Test: break/add edge
+    # # Test: break/add edge
     TV.selected_nodes.add(2000009, append=False)
     TV.selected_nodes.add(3000010, append=True)
     QTimer.singleShot(100, handle_dialog)  # handle popup window
     TV.create_edge()
+    print("dialog correctly handled")
 
-    # Test: add node
+    # # Test: add node
     editing_menu.click_on_hierarchy_cell(3000012)
     editing_menu.add_cell_from_button()
     TV.undo()
 
-    # Test: duplicate node
-    # editing_menu.click_on_hierarchy_cell(3000012)
-    # editing_menu.duplicate_cell_id_input.setText(str(3000012))
-    # editing_menu.duplicate_time_input.setText(str(1))
-    # editing_menu.duplicate_cell_from_button()
-    # TV.undo()
+    # # Test: duplicate node
+    editing_menu.click_on_hierarchy_cell(3000012)
+    editing_menu.duplicate_cell_id_input.setText(str(3000012))
+    editing_menu.duplicate_time_input.setText(str(1))
+    editing_menu.duplicate_cell_from_button()
+    TV.undo()
 
 
 def check_red_flag_box(TV, red_flag_box):
@@ -196,8 +198,25 @@ def check_red_flag_box(TV, red_flag_box):
     red_flag_box.go_to_prev_red_flag()
 
 
-def check_division_box(TV, division_box):
+def check_division_box(division_box):
     """Check division box functionality"""
     division_box.goto_division()
     division_box.go_to_next_division()
     division_box.go_to_prev_division()
+
+
+def check_annotation(toAnnotateBox):
+    """Check annotation functionality"""
+
+    toAnnotateBox.goto_annotation()
+    toAnnotateBox.on_hair_clicked()
+    toAnnotateBox.on_support_clicked()
+    toAnnotateBox.on_mantle_clicked()
+
+    toAnnotateBox.go_to_next_annotation()
+    toAnnotateBox.go_to_prev_annotation()
+
+
+def check_export(navigation_widget):
+    """Check export functionality"""
+    navigation_widget.export_btn.click()
