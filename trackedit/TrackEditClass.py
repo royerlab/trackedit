@@ -311,7 +311,9 @@ class TrackEditClass:
             }
 
             self.tracksviewer.tracks_controller.add_nodes(attributes, pixels)
-            # ToDo: this is probably wrong, because graph.node attributes are set after _add_nodes is used, so graph nodes do not have (correct) time attribute (used to check if track_id already exists in TC._add_nodes)
+            # ToDo: this is probably wrong, because graph.node attributes are set after _add_nodes is used,
+            # so graph nodes do not have (correct) time attribute
+            # (used to check if track_id already exists in TC._add_nodes)
             self.EditingMenu.add_cell_input.setText("")
             self.EditingMenu.duplicate_cell_id_input.setText("")
             self.EditingMenu.duplicate_time_input.setText("")
@@ -347,7 +349,8 @@ class TrackEditClass:
                     show_warning(f"Cell is already in solution at this time {time}")
                 if time_original == time:
                     show_warning(
-                        "Cell is from this time point, use 'Add Cell' field above to add this cell, it is not a duplication"
+                        "Cell is from this time point, use 'Add Cell' field above to add this cell,"
+                        " it is not a duplication"
                     )
 
         if add_flag:

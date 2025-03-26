@@ -4,10 +4,7 @@ import napari
 import pytest
 from qtpy.QtCore import QTimer
 from qtpy.QtWidgets import QApplication, QPushButton
-
-# from qtpy.QtGui import QPoint
 from ultrack.config import MainConfig
-from ultrack.utils.test_utils import *  # Import all ultrack test utilities/fixtures
 
 from trackedit.run import run_trackedit
 
@@ -41,7 +38,7 @@ def viewer_and_trackedit(tracked_database_mock_data: MainConfig, qtbot):
     ],
     indirect=True,
 )
-def test_ui_interactions(viewer_and_trackedit):
+def test_ui_interactions(viewer_and_trackedit, timelapse_mock_data):
     """Test UI interactions with the viewer and widgets"""
     viewer, track_edit, qtbot = viewer_and_trackedit
 
@@ -80,7 +77,6 @@ def check_selection(TV):
     TV.selected_nodes.add(3000009, append=False)
     num_selected_after = len(TV.selected_nodes)
     TV.selected_nodes.reset()
-    print("num_selected_cells", num_selected_before, num_selected_after)
     assert num_selected_after == num_selected_before + 1, "Cell selection failed"
 
     # Test: Select multiple cells
@@ -89,7 +85,6 @@ def check_selection(TV):
     TV.selected_nodes.add(3000009, append=True)
     num_selected_after = len(TV.selected_nodes)
     TV.selected_nodes.reset()
-    print("num_selected_cells", num_selected_before, num_selected_after)
     assert (
         num_selected_after == num_selected_before + 2
     ), "Multiple cell selection failed"

@@ -78,7 +78,8 @@ class DatabaseArray:
 
         if (time != self.current_time) or (
             time == 0
-        ):  # always refill if time is 0, because napari regularly fetches time 0, so sometimes the current time is not 0, but we still need to refill after an update
+        ):  # always refill if time is 0, because napari regularly fetches time 0,
+            # so sometimes the current time is not 0, but we still need to refill after an update
             self.current_time = time
             self.fill_array(
                 time=time,

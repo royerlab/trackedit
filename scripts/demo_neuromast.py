@@ -15,8 +15,15 @@ warnings.filterwarnings("ignore", category=FutureWarning, message=".*qt_viewer.*
 working_directory = Path(
     "/home/teun.huijben/Documents/data/Akila/20241003/neuromast4_t851/adjusted/"
 )
-# working_directory = Path("/Users/teun.huijben/Documents/data/Akila/20241003_neuromast4/adjusted/")
-# working_directory = Path("/hpc/projects/jacobo_group/iSim_processed_files/steady_state_timelapses/20241003_2dpf_myo6b_bactin_GFP_she_h2b_gfp_cldnb_lyn_mScarlet/46hpf_fish1_1/4_tracking/database/")
+# working_directory = Path(
+#     "/Users/teun.huijben/Documents/data/Akila/"
+#     "20241003_neuromast4/adjusted/"
+# )
+# working_directory = Path(
+#     "/hpc/projects/jacobo_group/iSim_processed_files/steady_state_timelapses/"
+#     "20241003_2dpf_myo6b_bactin_GFP_she_h2b_gfp_cldnb_lyn_mScarlet/"
+#     "46hpf_fish1_1/4_tracking/database/"
+# )
 
 # path to the working directory that contains the database file AND metadata.toml
 db_filename_start = (
@@ -27,7 +34,12 @@ scale = (2.31, 1, 1)  # (Z),Y,X, defaults to (1, 1, 1)
 allow_overwrite = True  # overwrite existing database/changelog, defaults to False
 
 # OPTIONAL: imaging data
-# imaging_zarr_file = "/hpc/projects/jacobo_group/iSim_processed_files/steady_state_timelapses/20241003_2dpf_myo6b_bactin_GFP_she_h2b_gfp_cldnb_lyn_mScarlet/46hpf_fish1_1/2_deconvolution_and_registration/deconvolved_and_registered_corrected_cropped850.zarr"
+# imaging_zarr_file = (
+#     "/hpc/projects/jacobo_group/iSim_processed_files/steady_state_timelapses/"
+#     "20241003_2dpf_myo6b_bactin_GFP_she_h2b_gfp_cldnb_lyn_mScarlet/"
+#     "46hpf_fish1_1/2_deconvolution_and_registration/"
+#     "deconvolved_and_registered_corrected_cropped850.zarr"
+# )
 # imaging_channel = "0/4/0/0"
 imaging_zarr_file = None
 imaging_channel = None

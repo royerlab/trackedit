@@ -171,17 +171,20 @@ class ToAnnotateBox(NavigationBox):
             if label_int == self.label_int_mapping["hair"]:
                 color = self.databasehandler.label_mapping_dict[label_int]["color"]
                 self.hair_btn.setStyleSheet(
-                    f"background-color: rgba({int(color[0]*255)}, {int(color[1]*255)}, {int(color[2]*255)}, {opacity_factor});"
+                    f"background-color: rgba({int(color[0]*255)}, {int(color[1]*255)}, {int(color[2]*255)}, "
+                    f"{opacity_factor});"
                 )
             elif label_int == self.label_int_mapping["support"]:
                 color = self.databasehandler.label_mapping_dict[label_int]["color"]
                 self.support_btn.setStyleSheet(
-                    f"background-color: rgba({int(color[0]*255)}, {int(color[1]*255)}, {int(color[2]*255)}, {opacity_factor});"
+                    f"background-color: rgba({int(color[0]*255)}, {int(color[1]*255)}, {int(color[2]*255)}, "
+                    f"{opacity_factor});"
                 )
             elif label_int == self.label_int_mapping["mantle"]:
                 color = self.databasehandler.label_mapping_dict[label_int]["color"]
                 self.mantle_btn.setStyleSheet(
-                    f"background-color: rgba({int(color[0]*255)}, {int(color[1]*255)}, {int(color[2]*255)}, {opacity_factor});"
+                    f"background-color: rgba({int(color[0]*255)}, {int(color[1]*255)}, {int(color[2]*255)}, "
+                    f"{opacity_factor});"
                 )
         else:
             # Reset all buttons to default style

@@ -186,7 +186,9 @@ class DatabaseHandler:
         # Check if the new database file already exists
         if new_db_path.exists() & (not allow_overwrite):
             raise FileExistsError(
-                f"Error: {db_filename_new} already exists. Set 'allow_overwrite' to 'True', or choose a different database filename."
+                f"Error: {db_filename_new} already exists. "
+                "Set 'allow_overwrite' to 'True', or "
+                "choose a different database filename."
             )
         else:
             shutil.copy(old_db_path, new_db_path)
@@ -552,7 +554,8 @@ class DatabaseHandler:
         if result_df.empty:
             return pd.DataFrame(columns=["t", "track_id", "id", "event"])
 
-        # ToDo: make option to filter redflags in the first two timepoints (usefull for neuromast with suboptimal beginning)
+        # ToDo: make option to filter redflags in the first two timepoints
+        # (useful for neuromast with suboptimal beginning)
         # result_df = result_df[result_df["t"] != 1]
 
         return result_df
@@ -715,7 +718,8 @@ class DatabaseHandler:
                 daughter2_label = track_labels.get(daughter_tracks[1], "other")
 
                 f.write(
-                    f"division: {parent_id} ({parent_label}) > {daughter_tracks[0]} ({daughter1_label}) + {daughter_tracks[1]} ({daughter2_label})\n"
+                    f"division: {parent_id} ({parent_label}) > {daughter_tracks[0]} ({daughter1_label})"
+                    f" + {daughter_tracks[1]} ({daughter2_label})\n"
                 )
 
         # segments.zarr
@@ -819,7 +823,8 @@ class DatabaseHandler:
             if not (zarr_root / ".zgroup").exists():
                 self.imaging_flag = False
                 print(
-                    f"Warning: Not a valid zarr dataset at {self.imaging_zarr_file} (missing .zgroup). Imaging data not shown."
+                    f"Warning: Not a valid zarr dataset at {self.imaging_zarr_file} (missing .zgroup). "
+                    "Imaging data not shown."
                 )
                 return
 
@@ -828,5 +833,6 @@ class DatabaseHandler:
             if not (channel_path / ".zarray").exists():
                 self.imaging_flag = False
                 print(
-                    f"Warning: Not a valid zarr array at channel path {self.imaging_channel} (missing .zarray). Imaging data not shown."
+                    f"Warning: Not a valid zarr array at channel path {self.imaging_channel} (missing .zarray). "
+                    "Imaging data not shown."
                 )
