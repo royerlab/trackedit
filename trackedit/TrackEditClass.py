@@ -93,7 +93,7 @@ class TrackEditClass:
         self.NavigationWidget.red_flag_box.update_chunk_from_frame_signal.connect(
             self.update_chunk_from_frame
         )
-        self.AnnotationWidget.todo_box.update_chunk_from_frame_signal.connect(
+        self.AnnotationWidget.toannotate_box.update_chunk_from_frame_signal.connect(
             self.update_chunk_from_frame
         )
         self.EditingMenu.add_cell_button_pressed.connect(self.add_cell_from_database)
