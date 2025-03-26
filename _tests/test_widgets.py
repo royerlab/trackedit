@@ -21,11 +21,11 @@ from trackedit.run import run_trackedit
 
 @pytest.fixture
 def viewer_and_trackedit(
-    tracked_database_mock_data: MainConfig,
+    tracked_database_mock_data: MainConfig,  # noqa: F811
     make_napari_viewer: Callable[[], napari.Viewer],
     qtbot,
     request,
-):  # noqa: F811
+):
     """Fixture to create viewer and trackedit instance for testing"""
     viewer = make_napari_viewer()
     data_config = tracked_database_mock_data.data_config
