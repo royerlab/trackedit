@@ -5,12 +5,21 @@ import pytest
 from qtpy.QtCore import QTimer
 from qtpy.QtWidgets import QApplication, QPushButton
 from ultrack.config import MainConfig
+from ultrack.utils.test_utils import (  # noqa: F401, F811
+    config_content,
+    config_instance,
+    config_path,
+    linked_database_mock_data,
+    segmentation_database_mock_data,
+    timelapse_mock_data,
+    tracked_database_mock_data,
+)
 
 from trackedit.run import run_trackedit
 
 
 @pytest.fixture
-def viewer_and_trackedit(tracked_database_mock_data: MainConfig, qtbot):
+def viewer_and_trackedit(tracked_database_mock_data: MainConfig, qtbot):  # noqa: F811
     """Fixture to create viewer and trackedit instance for testing"""
     viewer = napari.Viewer()
     data_config = tracked_database_mock_data.data_config
@@ -32,13 +41,13 @@ def viewer_and_trackedit(tracked_database_mock_data: MainConfig, qtbot):
 
 
 @pytest.mark.parametrize(
-    "timelapse_mock_data",
+    "timelapse_mock_data",  # noqa: F811
     [
         {"length": 20, "size": 64, "n_dim": 3},
     ],
     indirect=True,
 )
-def test_ui_interactions(viewer_and_trackedit, timelapse_mock_data):
+def test_ui_interactions(viewer_and_trackedit, timelapse_mock_data):  # noqa: F811
     """Test UI interactions with the viewer and widgets"""
     viewer, track_edit, qtbot = viewer_and_trackedit
 

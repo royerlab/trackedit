@@ -31,7 +31,7 @@ jobs:
       - name: Run tests
         uses: GabrielBB/xvfb-action@v1
         with:
-          run: pixi run pytest -v --cov=trackedit --cov-report=xml
+          run: pixi shell --environment test "pytest -v --cov=trackedit --cov-report=xml"
         env:
           PLATFORM: ubuntu-latest
           BACKEND: pyqt5
