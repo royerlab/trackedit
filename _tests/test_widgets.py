@@ -86,8 +86,8 @@ def test_trackedit_widgets(viewer_and_trackedit, timelapse_mock_data):  # noqa: 
     check_division_box(TV, division_box)
 
     # Keep the viewer open
-    viewer.window.show()
-    qtbot.stop()
+    # viewer.window.show()
+    # qtbot.stop()
 
 
 def check_selection(TV):
