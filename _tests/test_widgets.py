@@ -27,7 +27,9 @@ def viewer_and_trackedit(
     request,
 ):
     """Fixture to create viewer and trackedit instance for testing"""
+    print("before viewer opens")
     viewer = make_napari_viewer()
+    print("after viewer opens")
     data_config = tracked_database_mock_data.data_config
     working_directory = Path(data_config.working_dir)
 

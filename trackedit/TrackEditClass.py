@@ -332,21 +332,14 @@ class TrackEditClass:
 
         # check if node_is is already in solution (selected==1), but only check if node_id exists in database
         if add_flag:
-            selected = get_node_values(
-                self.databasehandler.config_adjusted.data_config,
-                node_id,
-                NodeDB.selected,
-            )
             time_original = get_node_values(
                 self.databasehandler.config_adjusted.data_config, node_id, NodeDB.t
             )
-            if selected or (time_original == time):
+            if time_original == time:
                 add_flag = False
                 self.EditingMenu.duplicate_cell_id_input.setText("")
                 self.EditingMenu.duplicate_time_input.setText("")
                 self.EditingMenu.add_cell_input.setText("")
-                if selected:
-                    show_warning(f"Cell is already in solution at this time {time}")
                 if time_original == time:
                     show_warning(
                         "Cell is from this time point, use 'Add Cell' field above to add this cell,"
