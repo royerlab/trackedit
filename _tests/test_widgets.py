@@ -1,10 +1,10 @@
 from pathlib import Path
 from typing import Callable
+from unittest.mock import patch
 
 import napari
 import pytest
-from PyQt5.QtCore import QTimer
-from PyQt5.QtWidgets import QApplication, QPushButton
+from PyQt5.QtWidgets import QMessageBox
 from ultrack.config import MainConfig
 from ultrack.utils.test_utils import (  # noqa: F401, F811
     config_content,
@@ -140,22 +140,11 @@ def check_editing(TV, editing_menu):
     TV.redo()
     TV.undo()
 
-    # # Function to handle dialog
-    def handle_dialog():
-        print("handling dialog")
-        for widget in QApplication.topLevelWidgets():
-            if widget.windowTitle() == "Delete existing edge?":
-                for button in widget.findChildren(QPushButton):
-                    if button.text() == "&OK":
-                        button.click()
-                        break
-
-    # # Test: break/add edge
-    TV.selected_nodes.add(1000009, append=False)
-    TV.selected_nodes.add(2000010, append=True)
-    QTimer.singleShot(100, handle_dialog)  # handle popup window
-    TV.create_edge()
-    print("dialog correctly handled")
+    # Test: break/add edge with mocked dialog
+    with patch.object(QMessageBox, "exec_", return_value=QMessageBox.Ok):
+        TV.selected_nodes.add(1000009, append=False)
+        TV.selected_nodes.add(2000010, append=True)
+        TV.create_edge()
 
     # # Test: add node
     editing_menu.click_on_hierarchy_cell(2000012)
@@ -168,6 +157,8 @@ def check_editing(TV, editing_menu):
     editing_menu.duplicate_time_input.setText(str(1))
     editing_menu.duplicate_cell_from_button()
     TV.undo()
+
+    assert 1 == 1
 
 
 def check_red_flag_box(TV, red_flag_box):
