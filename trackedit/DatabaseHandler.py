@@ -61,7 +61,11 @@ class DatabaseHandler:
 
         # Filenames / directories
         self.extension_string = ""
-        self.db_filename_new, self.log_filename_new = self.copy_database(
+        (
+            self.db_filename_old,
+            self.db_filename_new,
+            self.log_filename_new,
+        ) = self.copy_database(
             self.working_directory,
             self.db_filename_old,
             allow_overwrite=self.allow_overwrite,
@@ -172,7 +176,9 @@ class DatabaseHandler:
         Ensures the new filename does not already exist before copying.
         """
         # Determine the new database filename
-        db_filename_new, log_filename_new = self.get_next_db_filename(db_filename_old)
+        db_filename_old, db_filename_new, log_filename_new = self.get_next_db_filename(
+            db_filename_old
+        )
 
         # Create full paths
         old_db_path = Path(working_directory) / db_filename_old
@@ -195,7 +201,7 @@ class DatabaseHandler:
             shutil.copy(old_db_path, new_db_path)
             print(f"Database copied to: {new_db_path}")
 
-        return db_filename_new, log_filename_new
+        return db_filename_old, db_filename_new, log_filename_new
 
     def add_missing_columns_to_db(self):
         engine = create_engine(self.config_adjusted.data_config.database_path)
@@ -245,19 +251,46 @@ class DatabaseHandler:
 
         - If the filename is 'data.db', it returns 'data_v1.db'.
         - If the filename is 'data_v3.db', it returns 'data_v4.db'.
+        - If the filename is 'latest', it returns 'data_vN.db', where N is the highest version number.
+
+        Returns
+        -------
+        tuple
+            (old_filename, new_db_filename, new_log_filename)
         """
-        # Separate the file name and extension
-        name, ext = os.path.splitext(old_filename)
+        if old_filename == "latest":
+            # Find all database files in the working directory that match the pattern data_v*.db
+            pattern = re.compile(r"data_v(\d+)\.db$")
+            version_files = []
 
-        # Check if the filename already has a version (e.g., 'data_v3')
-        match = re.match(r"^(.*)_v(\d+)$", name)
+            for file in self.working_directory.glob("data_v*.db"):
+                match = pattern.match(file.name)
+                if match:
+                    version_files.append((int(match.group(1)), file.name))
 
-        if match:
-            base_name = match.group(1)  # Extract name before "_v"
-            version_number = int(match.group(2)) + 1  # Increment version
+            # If no versioned files found, start with v1 and use data.db as old file
+            if not version_files:
+                version_number = 1
+                old_filename = "data.db"
+            else:
+                # Sort by version number and get the highest one
+                version_files.sort(key=lambda x: x[0])
+                version_number = version_files[-1][0] + 1
+                old_filename = version_files[-1][1]
+
+            base_name = "data"
+            ext = ".db"
         else:
-            base_name = name  # No versioning found, use the original name
-            version_number = 1  # Start with version 1
+            # Existing logic for other cases
+            name, ext = os.path.splitext(old_filename)
+            match = re.match(r"^(.*)_v(\d+)$", name)
+
+            if match:
+                base_name = match.group(1)  # Extract name before "_v"
+                version_number = int(match.group(2)) + 1  # Increment version
+            else:
+                base_name = name  # No versioning found, use the original name
+                version_number = 1  # Start with version 1
 
         # Create the new filename
         self.extension_string = (
@@ -265,7 +298,7 @@ class DatabaseHandler:
         )
         db_filename_new = f"{base_name}_{self.extension_string}{ext}"
         log_filename_new = f"data_v{version_number}_changelog.txt"
-        return db_filename_new, log_filename_new
+        return old_filename, db_filename_new, log_filename_new
 
     def change_values(self, indices, field, values):
         """Change values in the database for one or multiple indices.
