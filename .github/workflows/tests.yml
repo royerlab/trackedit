@@ -1,0 +1,42 @@
+name: Tests
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Install Pixi
+        run: |
+          curl -sSf https://pixi.sh/install.sh | bash -s -- -y
+          echo "$HOME/.pixi/bin" >> $GITHUB_PATH
+
+      - uses: tlambert03/setup-qt-libs@v1
+
+      - name: Set up Pixi environment
+        run: pixi install
+
+      - name: Run pre-commit
+        run: pixi run pre-commit run --all-files
+
+      - name: Run tests
+        uses: GabrielBB/xvfb-action@v1
+        with:
+          run: pixi run --environment test -- pytest -v -s --ignore=motile_tracker --cov=trackedit --cov-report=xml
+        env:
+          PLATFORM: ubuntu-latest
+          BACKEND: pyqt5
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}

@@ -93,7 +93,7 @@ class TrackEditClass:
         self.NavigationWidget.red_flag_box.update_chunk_from_frame_signal.connect(
             self.update_chunk_from_frame
         )
-        self.AnnotationWidget.todo_box.update_chunk_from_frame_signal.connect(
+        self.AnnotationWidget.toannotate_box.update_chunk_from_frame_signal.connect(
             self.update_chunk_from_frame
         )
         self.EditingMenu.add_cell_button_pressed.connect(self.add_cell_from_database)
@@ -311,7 +311,9 @@ class TrackEditClass:
             }
 
             self.tracksviewer.tracks_controller.add_nodes(attributes, pixels)
-            # ToDo: this is probably wrong, because graph.node attributes are set after _add_nodes is used, so graph nodes do not have (correct) time attribute (used to check if track_id already exists in TC._add_nodes)
+            # ToDo: this is probably wrong, because graph.node attributes are set after _add_nodes is used,
+            # so graph nodes do not have (correct) time attribute
+            # (used to check if track_id already exists in TC._add_nodes)
             self.EditingMenu.add_cell_input.setText("")
             self.EditingMenu.duplicate_cell_id_input.setText("")
             self.EditingMenu.duplicate_time_input.setText("")
@@ -330,24 +332,18 @@ class TrackEditClass:
 
         # check if node_is is already in solution (selected==1), but only check if node_id exists in database
         if add_flag:
-            selected = get_node_values(
-                self.databasehandler.config_adjusted.data_config,
-                node_id,
-                NodeDB.selected,
-            )
             time_original = get_node_values(
                 self.databasehandler.config_adjusted.data_config, node_id, NodeDB.t
             )
-            if selected or (time_original == time):
+            if time_original == time:
                 add_flag = False
                 self.EditingMenu.duplicate_cell_id_input.setText("")
                 self.EditingMenu.duplicate_time_input.setText("")
                 self.EditingMenu.add_cell_input.setText("")
-                if selected:
-                    show_warning(f"Cell is already in solution at this time {time}")
                 if time_original == time:
                     show_warning(
-                        "Cell is from this time point, use 'Add Cell' field above to add this cell, it is not a duplication"
+                        "Cell is from this time point, use 'Add Cell' field above to add this cell,"
+                        " it is not a duplication"
                     )
 
         if add_flag:

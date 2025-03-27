@@ -14,6 +14,7 @@ class TimeBox(NavigationBox):
         super().__init__("Time navigation", max_height=120)
         self.viewer = viewer
         self.databasehandler = databasehandler
+        self.setObjectName("TimeBox")
 
         # Define the buttons
         self.time_prev_btn = QPushButton("prev (<)")
@@ -64,8 +65,10 @@ class TimeBox(NavigationBox):
 
     def check_navigation_button_validity(self) -> None:
         chunk = self.databasehandler.time_chunk
-        self.time_prev_btn.setEnabled(chunk != 0)
-        self.time_next_btn.setEnabled(chunk != self.databasehandler.num_time_chunks - 1)
+        self.time_prev_btn.setEnabled(int(chunk) != 0)
+        self.time_next_btn.setEnabled(
+            int(chunk) != int(self.databasehandler.num_time_chunks - 1)
+        )
 
     def press_prev(self):
         self.change_chunk.emit("prev")

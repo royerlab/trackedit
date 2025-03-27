@@ -4,7 +4,7 @@ from qtpy.QtWidgets import QVBoxLayout, QWidget
 
 from motile_tracker.data_views import TracksViewer
 from trackedit.DatabaseHandler import DatabaseHandler
-from trackedit.widgets.annotation.todo_box import ToAnnotateBox
+from trackedit.widgets.annotation.toannotate_box import ToAnnotateBox
 
 
 class AnnotationWidget(QWidget):
@@ -18,17 +18,18 @@ class AnnotationWidget(QWidget):
         self.viewer = viewer
         self.databasehandler = databasehandler
         self.tracks_viewer = TracksViewer.get_instance(self.viewer)
-        self.current_todoannotation_index = 0
 
         # Create boxes
-        self.todo_box = ToAnnotateBox(self.tracks_viewer, self.databasehandler)
+        self.toannotate_box = ToAnnotateBox(self.tracks_viewer, self.databasehandler)
 
         # Forward signals
-        self.todo_box.refresh_annotation_layer.connect(self.refresh_annotation_layer)
+        self.toannotate_box.refresh_annotation_layer.connect(
+            self.refresh_annotation_layer
+        )
 
         # Layout
         main_layout = QVBoxLayout()
-        main_layout.addWidget(self.todo_box)
+        main_layout.addWidget(self.toannotate_box)
         main_layout.setSpacing(0)
         main_layout.setContentsMargins(10, 2, 10, 2)
         self.setLayout(main_layout)

@@ -16,7 +16,7 @@ class NavigationWidget(QWidget):
 
     def __init__(self, viewer: napari.Viewer, databasehandler: DatabaseHandler):
         super().__init__()
-
+        self.setObjectName("NavigationWidget")
         self.viewer = viewer
         self.databasehandler = databasehandler
         self.tracks_viewer = TracksViewer.get_instance(self.viewer)

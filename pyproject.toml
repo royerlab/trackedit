@@ -68,8 +68,6 @@ preview = ["pixi-build"]
 [tool.pixi.pypi-dependencies]
 trackedit = { path = ".", editable = true }
 motile_tracker = { path = "./motile_tracker", editable = true }
-# motile_tracker = { path = "/home/teun.huijben/Documents/code/github/motile_tracker", editable = true }
-# motile_tracker = { git = "https://github.com/funkelab/motile_tracker" }
 ultrack = { git = "https://github.com/royerlab/ultrack.git", rev = "b2de376e1253e81119a0d241293c4866cc716fac" }
 
 [tool.pixi.tasks]
@@ -88,6 +86,10 @@ dask = ">=2025.2.0,<2026"
 
 [tool.pixi.feature.test.dependencies]
 pytest = "*"
+pytest-qt = ">=4.4.0,<5"
+pytest-cov = ">=6.0.0,<7"
+
+[tool.pixi.feature.test.tasks]
 
 [tool.pixi.environments]
 test = { features = ["test"], solve-group = "default" }

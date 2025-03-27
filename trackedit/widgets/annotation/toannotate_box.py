@@ -12,6 +12,7 @@ class ToAnnotateBox(NavigationBox):
 
     def __init__(self, tracks_viewer, databasehandler):
         super().__init__("Annotations", max_height=200)
+        self.setObjectName("ToAnnotateBox")
         self.tracks_viewer = tracks_viewer
         self.databasehandler = databasehandler
         self.current_annotation_index = 0
@@ -135,7 +136,9 @@ class ToAnnotateBox(NavigationBox):
     def annotate_track(self, label_str: str):
         label_int = self.get_label_int(label_str)
 
-        track_id = self.databasehandler.df.loc[self.current_selected_cell]["track_id"]
+        track_id = self.databasehandler.df_full.loc[self.current_selected_cell][
+            "track_id"
+        ]
 
         self.databasehandler.annotate_track(
             track_id, label_int
@@ -171,17 +174,20 @@ class ToAnnotateBox(NavigationBox):
             if label_int == self.label_int_mapping["hair"]:
                 color = self.databasehandler.label_mapping_dict[label_int]["color"]
                 self.hair_btn.setStyleSheet(
-                    f"background-color: rgba({int(color[0]*255)}, {int(color[1]*255)}, {int(color[2]*255)}, {opacity_factor});"
+                    f"background-color: rgba({int(color[0]*255)}, {int(color[1]*255)}, {int(color[2]*255)}, "
+                    f"{opacity_factor});"
                 )
             elif label_int == self.label_int_mapping["support"]:
                 color = self.databasehandler.label_mapping_dict[label_int]["color"]
                 self.support_btn.setStyleSheet(
-                    f"background-color: rgba({int(color[0]*255)}, {int(color[1]*255)}, {int(color[2]*255)}, {opacity_factor});"
+                    f"background-color: rgba({int(color[0]*255)}, {int(color[1]*255)}, {int(color[2]*255)}, "
+                    f"{opacity_factor});"
                 )
             elif label_int == self.label_int_mapping["mantle"]:
                 color = self.databasehandler.label_mapping_dict[label_int]["color"]
                 self.mantle_btn.setStyleSheet(
-                    f"background-color: rgba({int(color[0]*255)}, {int(color[1]*255)}, {int(color[2]*255)}, {opacity_factor});"
+                    f"background-color: rgba({int(color[0]*255)}, {int(color[1]*255)}, {int(color[2]*255)}, "
+                    f"{opacity_factor});"
                 )
         else:
             # Reset all buttons to default style
@@ -203,14 +209,14 @@ class ToAnnotateBox(NavigationBox):
 
         selected_node = selected_nodes[0]
         self.current_selected_cell = selected_node
-        df = self.databasehandler.db_to_df(entire_database=True)
-        # ToDo, make full df a property of the databasehandler
 
-        label_int = self._update_label(df, selected_node)
+        label_int = self._update_label(selected_node)
 
         # update counter and buttons
         try:
-            track_id = df.loc[self.current_selected_cell]["track_id"]
+            track_id = self.databasehandler.df_full.loc[self.current_selected_cell][
+                "track_id"
+            ]
             index = self.databasehandler.toannotate.index[
                 self.databasehandler.toannotate["track_id"] == track_id
             ][0]
@@ -224,13 +230,15 @@ class ToAnnotateBox(NavigationBox):
             # Track not found in annotations - disable counter and buttons
             self.toggle_buttons(False, label_int)
 
-    def _update_label(self, df, selected_node) -> int:
+    def _update_label(self, selected_node) -> int:
         """
         This function is called when the user clicks on a cell in the tree widget.
         It: - updates the label with the selected cell information
         """
         # update label
-        cell_info = df[df["id"] == selected_node].iloc[0]
+        cell_info = self.databasehandler.df_full[
+            self.databasehandler.df_full["id"] == selected_node
+        ].iloc[0]
         generic_value = cell_info["generic"]  # type(generic_value) = int
         label = self.databasehandler.label_mapping(generic_value)  # type(label) = str
         self.selected_cell_label.setText(f"Selected cell: {selected_node} ({label})")
