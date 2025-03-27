@@ -32,10 +32,10 @@ def viewer_and_trackedit(
     track_edit = run_trackedit(
         working_directory=working_directory,
         db_filename="data.db",
-        tmax=3,
+        tmax=5,
         scale=(1, 1, 1),
         allow_overwrite=True,
-        time_chunk_length=2,
+        time_chunk_length=3,
         time_chunk_overlap=1,
         imaging_zarr_file="",
         imaging_channel="",
@@ -48,7 +48,7 @@ def viewer_and_trackedit(
 @pytest.mark.parametrize(
     "timelapse_mock_data",  # noqa: F811
     [
-        {"length": 3, "size": 64, "n_dim": 3},
+        {"length": 4, "size": 64, "n_dim": 3},
     ],
     indirect=True,
 )
@@ -83,7 +83,7 @@ def test_trackedit_widgets(
     check_selection(TV)
     check_time_box(time_box)
     check_editing(TV, editing_menu)
-    check_red_flag_box(TV, red_flag_box)
+    check_red_flag_box(TV, red_flag_box, time_box)
     check_division_box(division_box)
     check_annotation(toAnnotateBox)
     check_export(navigation_widget)
@@ -154,29 +154,37 @@ def check_editing(TV, editing_menu):
     # # Test: duplicate node
     editing_menu.click_on_hierarchy_cell(2000012)
     editing_menu.duplicate_cell_id_input.setText(str(2000012))
-    editing_menu.duplicate_time_input.setText(str(1))
+    editing_menu.duplicate_time_input.setText(str(2))  # original time was 1
     editing_menu.duplicate_cell_from_button()
     TV.undo()
 
-    assert 1 == 1
+    # # Test: duplicate node that already exists
+    editing_menu.click_on_hierarchy_cell(2000012)
+    editing_menu.duplicate_cell_id_input.setText(str(2000012))
+    editing_menu.duplicate_time_input.setText(str(1))  # original time was 1
+    editing_menu.duplicate_cell_from_button()
 
 
-def check_red_flag_box(TV, red_flag_box):
+def check_red_flag_box(TV, red_flag_box, time_box):
     """Check red flag box functionality"""
+
+    # move to time 1
+    time_box.time_input.setText(str(1))
+    time_box.on_time_input_entered()
 
     # remove an extra node > create two extra red flags
     TV.selected_nodes.add(2000011, append=False)
     TV.delete_node()
 
-    assert len(red_flag_box.databasehandler.red_flags) == 2
+    assert len(red_flag_box.databasehandler.red_flags) == 1
 
     TV.undo()
 
-    assert len(red_flag_box.databasehandler.red_flags) == 1
+    assert len(red_flag_box.databasehandler.red_flags) == 0
 
     TV.redo()
 
-    assert len(red_flag_box.databasehandler.red_flags) == 2
+    assert len(red_flag_box.databasehandler.red_flags) == 1
 
     red_flag_box.goto_red_flag()
     red_flag_box.go_to_next_red_flag()
@@ -207,6 +215,7 @@ def check_annotation(toAnnotateBox):
     toAnnotateBox.on_support_clicked()
     toAnnotateBox.on_mantle_clicked()
 
+    toAnnotateBox.goto_annotation()
     toAnnotateBox.go_to_next_annotation()
     toAnnotateBox.go_to_prev_annotation()
 
