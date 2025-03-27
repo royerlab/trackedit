@@ -61,6 +61,7 @@ class ToAnnotateBox(NavigationBox):
         annotation_type_layout.addWidget(self.mantle_btn)
 
         self.layout.addLayout(annotation_type_layout)
+        self._update_upon_click()
 
         # Connect buttons
         self.toannotate_prev_btn.clicked.connect(self.go_to_prev_annotation)
@@ -80,12 +81,19 @@ class ToAnnotateBox(NavigationBox):
     def update_annotation_counter(self):
         """Update the annotation counter to show the current annotation index and total count."""
         total = len(self.databasehandler.toannotate)
-        if total > 0:
+
+        # Update current_annotation_index based on total
+        if total == 0:
+            self.current_annotation_index = 0
+            self.toannotate_counter.setText("0/0")
+        else:
+            # Keep same index unless we're beyond the end
+            self.current_annotation_index = min(
+                self.current_annotation_index, total - 1
+            )
             self.toannotate_counter.setText(
                 f"{self.current_annotation_index + 1}/{total}"
             )
-        else:
-            self.toannotate_counter.setText("0/0")
 
     def go_to_next_annotation(self):
         """Navigate to the next annotation in the list and jump to that timepoint."""
@@ -205,6 +213,7 @@ class ToAnnotateBox(NavigationBox):
 
         if len(selected_nodes) != 1:
             self.selected_cell_label.setText("No cell selected")
+            self.toggle_buttons(False, None)
             return
 
         selected_node = selected_nodes[0]
