@@ -27,12 +27,11 @@ working_directory = Path(
 #     "46hpf_fish1_1/4_tracking/database/"
 # )
 
-db_filename_start = (
-    "data.db"  # name of the database file to start from, defaults to "data.db"
-)
+db_filename_start = "data.db"  # name of the database file to start from, or "latest"
+# to start from the latest version, defaults to "data.db"
 tmax = 600  # maximum number of frames display, defaults to None (use all frames)
 scale = (2.31, 1, 1)  # (Z),Y,X, defaults to (1, 1, 1)
-allow_overwrite = True  # overwrite existing database/changelog, defaults to False
+allow_overwrite = False  # overwrite existing database/changelog, defaults to False
 
 # OPTIONAL: imaging data
 # imaging_zarr_file = (
@@ -52,7 +51,7 @@ if __name__ == "__main__":
         db_filename=db_filename_start,
         tmax=tmax,
         scale=scale,
-        allow_overwrite=True,
+        allow_overwrite=allow_overwrite,
         imaging_zarr_file=imaging_zarr_file,
         imaging_channel=imaging_channel,
     )
