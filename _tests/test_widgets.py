@@ -32,10 +32,10 @@ def viewer_and_trackedit(
     track_edit = run_trackedit(
         working_directory=working_directory,
         db_filename="data.db",
-        tmax=4,
+        tmax=3,
         scale=(1, 1, 1),
         allow_overwrite=True,
-        time_chunk_length=3,
+        time_chunk_length=2,
         time_chunk_overlap=1,
         imaging_zarr_file="",
         imaging_channel="",
@@ -48,7 +48,7 @@ def viewer_and_trackedit(
 @pytest.mark.parametrize(
     "timelapse_mock_data",  # noqa: F811
     [
-        {"length": 2, "size": 64, "n_dim": 3},
+        {"length": 3, "size": 64, "n_dim": 3},
     ],
     indirect=True,
 )
@@ -58,38 +58,38 @@ def test_trackedit_widgets(
     """Test UI interactions with the viewer and widgets"""
     viewer, track_edit = viewer_and_trackedit
 
-    # # Get the NavigationWidget directly from TrackEdit instance
-    # navigation_widget = track_edit.NavigationWidget
-    # assert navigation_widget is not None, "NavigationWidget not found"
+    # Get the NavigationWidget directly from TrackEdit instance
+    navigation_widget = track_edit.NavigationWidget
+    assert navigation_widget is not None, "NavigationWidget not found"
 
-    # editing_menu = track_edit.EditingMenu
-    # assert editing_menu is not None, "EditingMenu not found"
+    editing_menu = track_edit.EditingMenu
+    assert editing_menu is not None, "EditingMenu not found"
 
-    # # Get boxes through the properly connected NavigationWidget
-    # time_box = navigation_widget.time_box
-    # assert time_box is not None, "TimeBox not found"
+    # Get boxes through the properly connected NavigationWidget
+    time_box = navigation_widget.time_box
+    assert time_box is not None, "TimeBox not found"
 
-    # red_flag_box = navigation_widget.red_flag_box
-    # assert red_flag_box is not None, "RedFlagBox not found"
+    red_flag_box = navigation_widget.red_flag_box
+    assert red_flag_box is not None, "RedFlagBox not found"
 
-    # division_box = navigation_widget.division_box
-    # assert division_box is not None, "DivisionBox not found"
+    division_box = navigation_widget.division_box
+    assert division_box is not None, "DivisionBox not found"
 
-    # toAnnotateBox = track_edit.AnnotationWidget.toannotate_box
-    # assert toAnnotateBox is not None, "ToAnnotateBox not found"
+    toAnnotateBox = track_edit.AnnotationWidget.toannotate_box
+    assert toAnnotateBox is not None, "ToAnnotateBox not found"
 
-    # TV = track_edit.tracksviewer
+    TV = track_edit.tracksviewer
 
-    # check_selection(TV)
-    # check_time_box(time_box)
-    # check_editing(TV, editing_menu)
-    # check_red_flag_box(TV, red_flag_box)
-    # check_division_box(division_box)
-    # check_annotation(toAnnotateBox)
-    # check_export(navigation_widget)
+    check_selection(TV)
+    check_time_box(time_box)
+    check_editing(TV, editing_menu)
+    check_red_flag_box(TV, red_flag_box)
+    check_division_box(division_box)
+    check_annotation(toAnnotateBox)
+    check_export(navigation_widget)
 
-    # if request.config.getoption("--show-napari-viewer"):
-    #     napari.run()
+    if request.config.getoption("--show-napari-viewer"):
+        napari.run()
 
 
 def check_selection(TV):
@@ -97,15 +97,15 @@ def check_selection(TV):
 
     # Test: Select single cell
     num_selected_before = len(TV.selected_nodes)
-    TV.selected_nodes.add(3000009, append=False)
+    TV.selected_nodes.add(2000009, append=False)
     num_selected_after = len(TV.selected_nodes)
     TV.selected_nodes.reset()
     assert num_selected_after == num_selected_before + 1, "Cell selection failed"
 
     # Test: Select multiple cells
     num_selected_before = len(TV.selected_nodes)
-    TV.selected_nodes.add(3000006, append=True)
-    TV.selected_nodes.add(3000009, append=True)
+    TV.selected_nodes.add(2000006, append=True)
+    TV.selected_nodes.add(2000009, append=True)
     num_selected_after = len(TV.selected_nodes)
     TV.selected_nodes.reset()
     assert (
@@ -132,7 +132,7 @@ def check_editing(TV, editing_menu):
     # Note: this is a node in the last frame of this timewindow, so the edge in the
     # next window will be removed, which is not recovered by undo. So we have 2 red
     # flags, one from the broken edge, one for the not-recovered on the next window
-    TV.selected_nodes.add(3000009, append=False)
+    TV.selected_nodes.add(2000009, append=False)
     TV.delete_node()
     TV.undo()
 
@@ -151,20 +151,20 @@ def check_editing(TV, editing_menu):
                         break
 
     # # Test: break/add edge
-    TV.selected_nodes.add(2000009, append=False)
-    TV.selected_nodes.add(3000010, append=True)
+    TV.selected_nodes.add(1000009, append=False)
+    TV.selected_nodes.add(2000010, append=True)
     QTimer.singleShot(100, handle_dialog)  # handle popup window
     TV.create_edge()
     print("dialog correctly handled")
 
     # # Test: add node
-    editing_menu.click_on_hierarchy_cell(3000012)
+    editing_menu.click_on_hierarchy_cell(2000012)
     editing_menu.add_cell_from_button()
     TV.undo()
 
     # # Test: duplicate node
-    editing_menu.click_on_hierarchy_cell(3000012)
-    editing_menu.duplicate_cell_id_input.setText(str(3000012))
+    editing_menu.click_on_hierarchy_cell(2000012)
+    editing_menu.duplicate_cell_id_input.setText(str(2000012))
     editing_menu.duplicate_time_input.setText(str(1))
     editing_menu.duplicate_cell_from_button()
     TV.undo()
@@ -177,15 +177,15 @@ def check_red_flag_box(TV, red_flag_box):
     TV.selected_nodes.add(2000011, append=False)
     TV.delete_node()
 
-    assert len(red_flag_box.databasehandler.red_flags) == 3
+    assert len(red_flag_box.databasehandler.red_flags) == 2
 
     TV.undo()
 
-    assert len(red_flag_box.databasehandler.red_flags) == 2
+    assert len(red_flag_box.databasehandler.red_flags) == 1
 
     TV.redo()
 
-    assert len(red_flag_box.databasehandler.red_flags) == 3
+    assert len(red_flag_box.databasehandler.red_flags) == 2
 
     red_flag_box.goto_red_flag()
     red_flag_box.go_to_next_red_flag()
