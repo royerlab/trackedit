@@ -87,6 +87,10 @@ def run_trackedit(
     wrap_default_widgets_in_tabs(viewer)
     viewer.dims.current_step = (2, *viewer.dims.current_step[1:])
 
+    # Set grid parameters without activating grid view
+    viewer.grid.shape = (1, -1)
+    viewer.grid.stride = 3
+
     if not viewer_provided:
         napari.run()
 
