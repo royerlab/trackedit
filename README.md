@@ -1,5 +1,6 @@
 [![PyPI - Version](https://img.shields.io/pypi/v/trackedit.svg)](https://pypi.org/project/trackedit)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/trackedit.svg)](https://pypi.org/project/trackedit)
+[![codecov](https://codecov.io/gh/royerlab/trackedit/branch/main/graph/badge.svg)](https://codecov.io/gh/royerlab/trackedit)
 
 # TrackEdit ⛓️
 
