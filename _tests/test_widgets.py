@@ -58,25 +58,25 @@ def test_trackedit_widgets(
     """Test UI interactions with the viewer and widgets"""
     viewer, track_edit = viewer_and_trackedit
 
-    # # Get the NavigationWidget directly from TrackEdit instance
-    # navigation_widget = track_edit.NavigationWidget
-    # assert navigation_widget is not None, "NavigationWidget not found"
+    # Get the NavigationWidget directly from TrackEdit instance
+    navigation_widget = track_edit.NavigationWidget
+    assert navigation_widget is not None, "NavigationWidget not found"
 
-    # editing_menu = track_edit.EditingMenu
-    # assert editing_menu is not None, "EditingMenu not found"
+    editing_menu = track_edit.EditingMenu
+    assert editing_menu is not None, "EditingMenu not found"
 
-    # # Get boxes through the properly connected NavigationWidget
-    # time_box = navigation_widget.time_box
-    # assert time_box is not None, "TimeBox not found"
+    # Get boxes through the properly connected NavigationWidget
+    time_box = navigation_widget.time_box
+    assert time_box is not None, "TimeBox not found"
 
-    # red_flag_box = navigation_widget.red_flag_box
-    # assert red_flag_box is not None, "RedFlagBox not found"
+    red_flag_box = navigation_widget.red_flag_box
+    assert red_flag_box is not None, "RedFlagBox not found"
 
-    # division_box = navigation_widget.division_box
-    # assert division_box is not None, "DivisionBox not found"
+    division_box = navigation_widget.division_box
+    assert division_box is not None, "DivisionBox not found"
 
-    # toAnnotateBox = track_edit.AnnotationWidget.toannotate_box
-    # assert toAnnotateBox is not None, "ToAnnotateBox not found"
+    toAnnotateBox = track_edit.AnnotationWidget.toannotate_box
+    assert toAnnotateBox is not None, "ToAnnotateBox not found"
 
     # TV = track_edit.tracksviewer
 
