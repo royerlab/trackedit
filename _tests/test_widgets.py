@@ -78,18 +78,18 @@ def test_trackedit_widgets(
     toAnnotateBox = track_edit.AnnotationWidget.toannotate_box
     assert toAnnotateBox is not None, "ToAnnotateBox not found"
 
-    # TV = track_edit.tracksviewer
+    TV = track_edit.tracksviewer
 
-    # check_selection(TV)
-    # check_time_box(time_box)
-    # check_editing(TV, editing_menu)
-    # check_red_flag_box(TV, red_flag_box)
-    # check_division_box(division_box)
-    # check_annotation(toAnnotateBox)
-    # check_export(navigation_widget)
+    check_selection(TV)
+    check_time_box(time_box)
+    check_editing(TV, editing_menu)
+    check_red_flag_box(TV, red_flag_box)
+    check_division_box(division_box)
+    check_annotation(toAnnotateBox)
+    check_export(navigation_widget)
 
-    # if request.config.getoption("--show-napari-viewer"):
-    #     napari.run()
+    if request.config.getoption("--show-napari-viewer"):
+        napari.run()
 
 
 def check_selection(TV):
