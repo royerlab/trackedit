@@ -13282,10 +13282,9 @@ packages:
 - pypi: .
   name: trackedit
   version: 0.0.1
-  sha256: b28ed5fb6d2605f97b5d2d3ac0b49baf8667287f3377b8c5c431b9103fae10ed
+  sha256: a270dfdd34cb70dbc54a1ec2140ae3c91da7c4385c822df45c9cf9afa0063634
   requires_dist:
   - mip>=1.16rc0
-  - pyqt5
   requires_python: '>=3.10'
   editable: true
 - conda: https://conda.anaconda.org/conda-forge/noarch/traitlets-5.14.3-pyhd8ed1ab_1.conda
