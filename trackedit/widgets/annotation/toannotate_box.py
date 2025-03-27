@@ -113,6 +113,9 @@ class ToAnnotateBox(NavigationBox):
 
     def goto_annotation(self):
         """Jump to the time of the current annotation."""
+        # Check if there are any annotations to navigate to
+        if len(self.databasehandler.toannotate) == 0:
+            return
 
         annotation_time = self.databasehandler.toannotate.iloc[
             self.current_annotation_index
