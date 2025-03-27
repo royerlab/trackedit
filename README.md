@@ -1,5 +1,6 @@
-[![PyPI - Version](https://img.shields.io/pypi/v/trackedit.svg)](https://pypi.org/project/trackedit)
-[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/trackedit.svg)](https://pypi.org/project/trackedit)
+<!-- [![PyPI - Version](https://img.shields.io/pypi/v/trackedit.svg)](https://pypi.org/project/trackedit) -->
+<!-- [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/trackedit.svg)](https://pypi.org/project/trackedit) -->
+[![Tests](https://github.com/royerlab/trackedit/actions/workflows/tests.yml/badge.svg)](https://github.com/royerlab/trackedit/actions/workflows/tests.yml)
 [![codecov](https://codecov.io/gh/royerlab/trackedit/branch/main/graph/badge.svg)](https://codecov.io/gh/royerlab/trackedit)
 
 # TrackEdit ⛓️
