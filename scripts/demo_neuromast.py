@@ -18,7 +18,7 @@ working_directory = Path(
     "/home/teun.huijben/Documents/data/Akila/20241003/neuromast4_t851/adjusted/"
 )
 
-db_filename_start = "data.db"  # name of the database file to start from, or "latest"
+db_filename_start = "latest"  # name of the database file to start from, or "latest"
 # to start from the latest version, defaults to "data.db"
 tmax = 600  # maximum number of frames display, defaults to None (use all frames)
 scale = (2.31, 1, 1)  # (Z),Y,X, defaults to (1, 1, 1)
