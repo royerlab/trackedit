@@ -9435,8 +9435,8 @@ packages:
   requires_python: '>=3.10'
 - pypi: ./motile_tracker
   name: motile-tracker
-  version: 3.0.1
-  sha256: e8d89178f11e606033ac1e6841c749b3f28d510baa7e0d17b438688f05208e5c
+  version: 3.1.3
+  sha256: 1781f72898394c65fbe958fe903bb17e0506dfe870c30b7792f82333b107971d
   requires_dist:
   - napari[all]
   - numpy
@@ -9447,6 +9447,8 @@ packages:
   - motile-toolbox==0.4.0
   - pydantic
   - tifffile[all]
+  - tqdm
+  - dask[array]>=2021.10.0
   - fonticon-fontawesome6
   - pyqtgraph
   - lxml-html-clean

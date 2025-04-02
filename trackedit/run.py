@@ -57,6 +57,7 @@ def run_trackedit(
     """
     viewer_provided = viewer is not None
     if not viewer_provided:
+        print("viewer not provided in run_trackedit!")
         viewer = napari.Viewer()
 
     DB_handler = DatabaseHandler(
@@ -83,7 +84,8 @@ def run_trackedit(
     )
 
     track_edit = TrackEditClass(viewer, databasehandler=DB_handler)
-    viewer.dims.ndisplay = 3  # 3D view
+    if DB_handler.ndim == 4:
+        viewer.dims.ndisplay = 3  # 3D view
     wrap_default_widgets_in_tabs(viewer)
     viewer.dims.current_step = (2, *viewer.dims.current_step[1:])
 

@@ -19,6 +19,8 @@ from trackedit.widgets.NavigationWidget import NavigationWidget
 class TrackEditClass:
     def __init__(self, viewer: napari.Viewer, databasehandler: DatabaseHandler):
         self.viewer = viewer
+        self.viewer.layers.clear()  # Remove all existing layers
+
         self.databasehandler = databasehandler
         self.tracksviewer = TracksViewer.get_instance(self.viewer)
 
@@ -114,26 +116,27 @@ class TrackEditClass:
     # ===============================================
 
     def add_tracks(self):
-        """Add a solution set of tracks to the tracks viewer results list
+        """Add a solution set of tracks to the tracks viewer results list"""
 
-        Args:
-            tracker (ultrack.Tracker): the ultrack tracker containing the solution
-            name (str): the display name of the solution tracks
-        """
+        # Set dimensions based on actual data shape
+        if self.databasehandler.ndim == 4:  # TZYX
+            pos_attr = ("z", "y", "x")
+        elif self.databasehandler.ndim == 3:  # TYX
+            pos_attr = ("y", "x")
+        else:
+            raise ValueError(
+                f"Expected dataset with 3 or 4 dimensions, T(Z)YX. Found {self.databasehandler.ndim}."
+            )
 
-        # create tracks object
         tracks = SolutionTracks(
             graph=self.databasehandler.nxgraph,
             segmentation=self.databasehandler.segments,
-            pos_attr=("z", "y", "x"),
+            pos_attr=pos_attr,
             time_attr="t",
-            scale=[
-                1,
-                *self.databasehandler.scale,
-            ],  # db.scale is zyx, SolutionTracks needs tzyx
+            scale=[1, *self.databasehandler.scale],
         )
 
-        # add tracks to viewer
+        # Add tracks and verify layer creation
         self.tracksviewer.tracks_list.add_tracks(tracks, name=self.databasehandler.name)
         self.viewer.layers.selection.active = self.viewer.layers[
             self.databasehandler.name + "_seg"
@@ -201,6 +204,12 @@ class TrackEditClass:
         self.NavigationWidget.time_box.set_time_slider(desired_chunk_time)
         self.NavigationWidget.time_box.update_chunk_label()
 
+        # Force colormap update
+        current_colormap = self.viewer.layers["ultrack_seg"].colormap
+        self.viewer.layers["ultrack_seg"].colormap = DirectLabelColormap(
+            color_dict=current_colormap.color_dict
+        )
+
     def update_chunk_from_frame(self, frame: int):
         """Handle navigation by a user-entered time frame.
 
@@ -241,6 +250,12 @@ class TrackEditClass:
         self.NavigationWidget.time_box.set_time_slider(chunk_frame)
         self.NavigationWidget.time_box.update_chunk_label()
         self.NavigationWidget.time_box.update_time_label()
+
+        # Force colormap update
+        current_colormap = self.viewer.layers["ultrack_seg"].colormap
+        self.viewer.layers["ultrack_seg"].colormap = DirectLabelColormap(
+            color_dict=current_colormap.color_dict
+        )
 
     # ===============================================
     # Linking/layer stuff

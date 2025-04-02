@@ -147,7 +147,7 @@ class DatabaseArray:
             )
 
             if len(query) == 0:
-                print("query is empty!")
+                print(f"query is empty for time {time}")
 
             for idx, q in enumerate(query):
                 q[1].paint_buffer(self.array, value=q[0], include_time=False)
