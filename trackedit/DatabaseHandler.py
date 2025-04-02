@@ -49,7 +49,6 @@ class DatabaseHandler:
         self.working_directory = working_directory
         self.Tmax = Tmax
         self.scale = scale
-        self.z_scale = self.scale[0]
         self.name = name
         self.allow_overwrite = allow_overwrite
         self.time_chunk = time_chunk
@@ -88,12 +87,28 @@ class DatabaseHandler:
             self.Tmax = self.data_shape_full[0]
         else:
             self.data_shape_full[0] = self.Tmax
-            print("full datashape:", self.data_shape_full)
+
+        # check ndim and scale
+        self.ndim = len(
+            self.data_shape_full
+        )  # number of dimensions of the data, 4 for 3D+time, 3 for 2D+time
+        if self.ndim == len(self.scale) + 1:
+            self.z_scale = self.scale[0]
+        else:
+            self.z_scale = None
+            raise ValueError(
+                f"Expected scale with {self.ndim-1} values, (Z)YX, but scale has {len(self.scale)} values."
+            )
+
+        # change initial chunk depending on data shape
+        if self.data_shape_full[0] < self.time_chunk_length:
+            self.time_chunk_length = self.data_shape_full[0]
+            self.time_chunk_overlap = 0
 
         # calculate time chunk
         self.time_window, self.time_chunk_starts = self.calc_time_window()
         self.data_shape_chunk = self.data_shape_full.copy()
-        self.data_shape_chunk[0] = time_chunk_length
+        self.data_shape_chunk[0] = self.time_chunk_length
         self.num_time_chunks = len(
             np.arange(0, self.Tmax, self.time_chunk_length - self.time_chunk_overlap)
         )
@@ -415,7 +430,6 @@ class DatabaseHandler:
         pd.DataFrame
             Dataframe with columns: track_id, t, z, y, x
         """
-        ndim = len(self.data_shape_full)
 
         df = solution_dataframe_from_sql(
             self.db_path_new,
@@ -442,13 +456,13 @@ class DatabaseHandler:
 
         df = self.remove_past_parents_from_df(df)
 
-        if ndim == 4:
+        if self.ndim == 4:
             columns = ["track_id", "t", "z", "y", "x"]
-        elif ndim == 3:
+        elif self.ndim == 3:
             columns = ["track_id", "t", "y", "x"]
         else:
             raise ValueError(
-                f"Expected dataset with 3 or 4 dimensions, T(Z)YX. Found {ndim}."
+                f"Expected dataset with 3 or 4 dimensions, T(Z)YX. Found {self.ndim}."
             )
         if include_node_ids:
             df.loc[:, "id"] = df.index
@@ -474,7 +488,8 @@ class DatabaseHandler:
         """
         # apply scale, only do this here to avoid scaling the original dataframe
         df_scaled = self.db_to_df()
-        df_scaled.loc[:, "z"] = df_scaled.z * self.z_scale  # apply scale
+        if self.ndim == 4:
+            df_scaled.loc[:, "z"] = df_scaled.z * self.z_scale  # apply scale
 
         nxgraph = tracks_layer_to_networkx(df_scaled)
 

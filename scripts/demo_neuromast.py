@@ -17,15 +17,6 @@ warnings.filterwarnings("ignore", category=FutureWarning, message=".*qt_viewer.*
 working_directory = Path(
     "/home/teun.huijben/Documents/data/Akila/20241003/neuromast4_t851/adjusted/"
 )
-# working_directory = Path(
-#     "/Users/teun.huijben/Documents/data/Akila/"
-#     "20241003_neuromast4/adjusted/"
-# )
-# working_directory = Path(
-#     "/hpc/projects/jacobo_group/iSim_processed_files/steady_state_timelapses/"
-#     "20241003_2dpf_myo6b_bactin_GFP_she_h2b_gfp_cldnb_lyn_mScarlet/"
-#     "46hpf_fish1_1/4_tracking/database/"
-# )
 
 db_filename_start = "data.db"  # name of the database file to start from, or "latest"
 # to start from the latest version, defaults to "data.db"
