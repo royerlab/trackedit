@@ -45,55 +45,51 @@ def test_trackedit_widgets(
     data_config = tracked_database_mock_data.data_config
     working_directory = Path(data_config.working_dir)
 
-    try:
-        track_edit = run_trackedit(
-            working_directory=working_directory,
-            db_filename="data.db",
-            tmax=tmax,
-            scale=scale,
-            allow_overwrite=True,
-            time_chunk_length=3,
-            time_chunk_overlap=1,
-            imaging_zarr_file="",
-            imaging_channel="",
-            viewer=viewer,
-        )
+    track_edit = run_trackedit(
+        working_directory=working_directory,
+        db_filename="data.db",
+        tmax=tmax,
+        scale=scale,
+        allow_overwrite=True,
+        time_chunk_length=3,
+        time_chunk_overlap=1,
+        imaging_zarr_file="",
+        imaging_channel="",
+        viewer=viewer,
+    )
 
-        # Get the NavigationWidget directly from TrackEdit instance
-        navigation_widget = track_edit.NavigationWidget
-        assert navigation_widget is not None, "NavigationWidget not found"
+    # Get the NavigationWidget directly from TrackEdit instance
+    navigation_widget = track_edit.NavigationWidget
+    assert navigation_widget is not None, "NavigationWidget not found"
 
-        editing_menu = track_edit.EditingMenu
-        assert editing_menu is not None, "EditingMenu not found"
+    editing_menu = track_edit.EditingMenu
+    assert editing_menu is not None, "EditingMenu not found"
 
-        # Get boxes through the properly connected NavigationWidget
-        time_box = navigation_widget.time_box
-        assert time_box is not None, "TimeBox not found"
+    # Get boxes through the properly connected NavigationWidget
+    time_box = navigation_widget.time_box
+    assert time_box is not None, "TimeBox not found"
 
-        red_flag_box = navigation_widget.red_flag_box
-        assert red_flag_box is not None, "RedFlagBox not found"
+    red_flag_box = navigation_widget.red_flag_box
+    assert red_flag_box is not None, "RedFlagBox not found"
 
-        division_box = navigation_widget.division_box
-        assert division_box is not None, "DivisionBox not found"
+    division_box = navigation_widget.division_box
+    assert division_box is not None, "DivisionBox not found"
 
-        toAnnotateBox = track_edit.AnnotationWidget.toannotate_box
-        assert toAnnotateBox is not None, "ToAnnotateBox not found"
+    toAnnotateBox = track_edit.AnnotationWidget.toannotate_box
+    assert toAnnotateBox is not None, "ToAnnotateBox not found"
 
-        TV = track_edit.tracksviewer
+    TV = track_edit.tracksviewer
 
-        check_selection(TV)
-        check_time_box(time_box)
-        check_editing(TV, editing_menu)
-        check_red_flag_box(TV, red_flag_box, time_box)
-        check_division_box(division_box)
-        check_annotation(toAnnotateBox)
-        check_export(navigation_widget)
+    check_selection(TV)
+    check_time_box(time_box)
+    check_editing(TV, editing_menu)
+    check_red_flag_box(TV, red_flag_box, time_box)
+    check_division_box(division_box)
+    check_annotation(toAnnotateBox)
+    check_export(navigation_widget)
 
-        if request.config.getoption("--show-napari-viewer"):
-            napari.run()
-
-    finally:
-        viewer.close()
+    if request.config.getoption("--show-napari-viewer"):
+        napari.run()
 
 
 def check_selection(TV):
@@ -166,7 +162,7 @@ def check_editing(TV, editing_menu):
         statement = session.query(*columns).statement
         df = pd.read_sql(statement, session.bind, index_col="id")
 
-    filtered_df = df[(df.selected is False) & (df.t == 1)]
+    filtered_df = df[(~df.selected) & (df.t == 1)]
 
     assert not filtered_df.empty, "No cells found with selected=False and t=1"
 
