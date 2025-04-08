@@ -737,6 +737,8 @@ class DatabaseHandler:
 
         # tracks.csv
         csv_filename = self.working_directory / f"{self.extension_string}_tracks.csv"
+        df_full_export = self.df_full.copy()
+        df_full_export["annotation"] = df_full_export["generic"].map(self.label_mapping)
         try:
             self.df_full.to_csv(csv_filename, index=False)
         except Exception as e:
@@ -749,7 +751,7 @@ class DatabaseHandler:
             self.working_directory / f"{self.extension_string}_annotations.csv"
         )
         # Group by track_id and take the first label for each track
-        annotations_df = self.df_full[["track_id", "generic"]].copy()
+        annotations_df = self.df_full[["track_id", "t", "generic"]].copy()
         annotations_df["label"] = annotations_df["generic"].map(self.label_mapping)
         df_grouped = annotations_df.groupby("track_id").first().reset_index()
         df_grouped.to_csv(csv_filename, index=False)
