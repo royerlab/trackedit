@@ -740,7 +740,7 @@ class DatabaseHandler:
         df_full_export = self.df_full.copy()
         df_full_export["annotation"] = df_full_export["generic"].map(self.label_mapping)
         try:
-            self.df_full.to_csv(csv_filename, index=False)
+            df_full_export.to_csv(csv_filename, index=False)
         except Exception as e:
             from napari.utils.notifications import show_error
 
