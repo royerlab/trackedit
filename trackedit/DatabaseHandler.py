@@ -1,6 +1,7 @@
 import os
 import re
 import shutil
+from datetime import datetime
 from pathlib import Path
 
 import networkx as nx
@@ -40,6 +41,7 @@ class DatabaseHandler:
         time_chunk_length: int = 105,
         time_chunk_overlap: int = 5,
         allow_overwrite: bool = False,
+        work_in_existing_db: bool = False,
         imaging_zarr_file: str = None,
         imaging_channel: str = None,
     ):
@@ -51,6 +53,7 @@ class DatabaseHandler:
         self.scale = scale
         self.name = name
         self.allow_overwrite = allow_overwrite
+        self.work_in_existing_db = work_in_existing_db
         self.time_chunk = time_chunk
         self.time_chunk_length = time_chunk_length
         self.time_chunk_overlap = time_chunk_overlap
@@ -68,9 +71,12 @@ class DatabaseHandler:
             self.working_directory,
             self.db_filename_old,
             allow_overwrite=self.allow_overwrite,
+            work_in_existing_db=self.work_in_existing_db,
         )
         self.db_path_new = f"sqlite:///{self.working_directory/self.db_filename_new}"
-        self.log_file = self.initialize_logfile(self.log_filename_new)
+        self.log_file = self.initialize_logfile(
+            self.log_filename_new, self.work_in_existing_db
+        )
 
         # get data shape from metadata.toml
         self.config_adjusted = self.initialize_config()
@@ -142,7 +148,7 @@ class DatabaseHandler:
         self.toannotate = self.find_all_toannotate()
         self.divisions = self.find_all_divisions()
         self.red_flags_ignore_list = []
-        self.log("Log file created")
+        self.log(f"Start annotation session ({datetime.now()})")
 
         self.label_mapping_dict = {
             NodeDB.generic.default.arg: {  # -1
@@ -154,12 +160,12 @@ class DatabaseHandler:
             3: {"name": "mantle", "color": [0.0, 0.0, 0.9, 1.0]},  # blue
         }
 
-    def initialize_logfile(self, log_filename_new):
+    def initialize_logfile(self, log_filename_new, work_in_existing_db):
         """Initialize the logger with a file path. Raises an error if the file already exists."""
 
         log_file_path = self.working_directory / log_filename_new
 
-        if os.path.exists(log_file_path):
+        if (os.path.exists(log_file_path)) & (not work_in_existing_db):
             if not self.allow_overwrite:
                 raise FileExistsError(
                     f"Log file '{log_file_path}' already exists. Choose a different file or delete the existing one."
@@ -185,15 +191,25 @@ class DatabaseHandler:
         config_adjusted.data_config.database_file_name = self.db_filename_new
         return config_adjusted
 
-    def copy_database(self, working_directory, db_filename_old, allow_overwrite=False):
+    def copy_database(
+        self, working_directory, db_filename_old, allow_overwrite, work_in_existing_db
+    ):
         """
         Copy the database to a new versioned filename.
         Ensures the new filename does not already exist before copying.
         """
-        # Determine the new database filename
-        db_filename_old, db_filename_new, log_filename_new = self.get_next_db_filename(
-            db_filename_old
-        )
+        if work_in_existing_db:
+            (
+                db_filename_old,
+                db_filename_new,
+                log_filename_new,
+            ) = self.get_same_db_filename(db_filename_old)
+        else:
+            (
+                db_filename_old,
+                db_filename_new,
+                log_filename_new,
+            ) = self.get_next_db_filename(db_filename_old)
 
         # Create full paths
         old_db_path = Path(working_directory) / db_filename_old
@@ -206,15 +222,24 @@ class DatabaseHandler:
             )
 
         # Check if the new database file already exists
-        if new_db_path.exists() & (not allow_overwrite):
-            raise FileExistsError(
-                f"Error: {db_filename_new} already exists. "
-                "Set 'allow_overwrite' to 'True', or "
-                "choose a different database filename."
-            )
-        else:
-            shutil.copy(old_db_path, new_db_path)
-            print(f"Database copied to: {new_db_path}")
+        if not work_in_existing_db:
+            if new_db_path.exists() & (not allow_overwrite):
+                raise FileExistsError(
+                    f"Error: {db_filename_new} already exists. "
+                    "Set 'allow_overwrite' to 'True', or "
+                    "choose a different database filename."
+                    "('latest' assures that the latest database is used)"
+                )
+            else:
+                shutil.copy(old_db_path, new_db_path)
+                print(f"Database copied to: {new_db_path}")
+        else:  # work in existing db
+            if not new_db_path.exists():
+                raise FileExistsError(
+                    f"Error: {db_filename_new} does not exist. "
+                    "Set filename to a database that exists, "
+                    "or set work_in_existing_db to False."
+                )
 
         return db_filename_old, db_filename_new, log_filename_new
 
@@ -313,6 +338,16 @@ class DatabaseHandler:
         )
         db_filename_new = f"{base_name}_{self.extension_string}{ext}"
         log_filename_new = f"data_v{version_number}_changelog.txt"
+        return old_filename, db_filename_new, log_filename_new
+
+    def get_same_db_filename(self, old_filename):
+        """
+        Generate the next version of a database filename.
+        """
+        name, ext = os.path.splitext(old_filename)
+        old_filename = name + ext
+        db_filename_new = old_filename
+        log_filename_new = f"{name}_changelog.txt"
         return old_filename, db_filename_new, log_filename_new
 
     def change_values(self, indices, field, values):
