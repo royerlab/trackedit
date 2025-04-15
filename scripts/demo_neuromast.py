@@ -22,10 +22,8 @@ db_filename_start = "latest"
 tmax = 600
 # (Z),Y,X, defaults to (1, 1, 1)
 scale = (2.31, 1, 1)
-# overwrite existing database/changelog, defaults to False
-allow_overwrite = True
-# work in existing database without duplicating database, defaults to False
-work_in_existing_db = True
+# overwrite existing database/changelog, defaults to False (not used when db_filename_start is "latest")
+allow_overwrite = False
 
 # OPTIONAL: imaging data
 # imaging_zarr_file = (
@@ -46,7 +44,6 @@ if __name__ == "__main__":
         tmax=tmax,
         scale=scale,
         allow_overwrite=allow_overwrite,
-        work_in_existing_db=work_in_existing_db,
         imaging_zarr_file=imaging_zarr_file,
         imaging_channel=imaging_channel,
     )
