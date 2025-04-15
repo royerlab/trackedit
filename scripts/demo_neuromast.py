@@ -21,12 +21,14 @@ warnings.filterwarnings("ignore", category=FutureWarning, message=".*qt_viewer.*
 working_directory = Path(
     "/mnt/md0/Teun/data/Chromatrace/2024_08_14/"
 )
-
-db_filename_start = "latest"  # name of the database file to start from, or "latest"
-# to start from the latest version, defaults to "data.db"
-tmax = 600  # maximum number of frames display, defaults to None (use all frames)
-scale = (2.31, 1, 1)  # (Z),Y,X, defaults to (1, 1, 1)
-allow_overwrite = False  # overwrite existing database/changelog, defaults to False
+# name of the database file to start from, or "latest" to start from the latest version, defaults to "data.db"
+db_filename_start = "latest"
+# maximum number of frames display, defaults to None (use all frames)
+tmax = 600
+# (Z),Y,X, defaults to (1, 1, 1)
+scale = (2.31, 1, 1)
+# overwrite existing database/changelog, defaults to False (not used when db_filename_start is "latest")
+allow_overwrite = False
 
 # OPTIONAL: imaging data
 # imaging_zarr_file = (
