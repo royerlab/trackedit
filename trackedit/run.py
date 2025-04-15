@@ -35,6 +35,7 @@ def run_trackedit(
     imaging_zarr_file: Optional[str] = None,
     imaging_channel: Optional[str] = None,
     viewer: Optional[napari.Viewer] = None,
+    flag_show_hierarchy: bool = True,
 ) -> Tuple[napari.Viewer, TrackEditClass]:
     """Run TrackEdit on a database file.
 
@@ -82,7 +83,9 @@ def run_trackedit(
         layer_name=layer_name
     )
 
-    track_edit = TrackEditClass(viewer, databasehandler=DB_handler)
+    track_edit = TrackEditClass(
+        viewer, databasehandler=DB_handler, flag_show_hierarchy=flag_show_hierarchy
+    )
     if DB_handler.ndim == 4:
         viewer.dims.ndisplay = 3  # 3D view
     wrap_default_widgets_in_tabs(viewer)

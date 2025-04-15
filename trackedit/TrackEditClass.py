@@ -17,11 +17,17 @@ from trackedit.widgets.NavigationWidget import NavigationWidget
 
 
 class TrackEditClass:
-    def __init__(self, viewer: napari.Viewer, databasehandler: DatabaseHandler):
+    def __init__(
+        self,
+        viewer: napari.Viewer,
+        databasehandler: DatabaseHandler,
+        flag_show_hierarchy: bool = True,
+    ):
         self.viewer = viewer
         self.viewer.layers.clear()  # Remove all existing layers
-
         self.databasehandler = databasehandler
+        self.flag_show_hierarchy = flag_show_hierarchy
+
         self.tracksviewer = TracksViewer.get_instance(self.viewer)
 
         self.TreeWidget = TreeWidget(self.viewer)
@@ -38,14 +44,23 @@ class TrackEditClass:
             tabwidget_right, area="right", name="TrackEdit Widgets"
         )
 
-        self.hier_widget = HierarchyVizWidget(
-            viewer=viewer,
-            scale=self.databasehandler.scale,
-            config=self.databasehandler.config_adjusted,
-        )
-        hier_shape = self.hier_widget.ultrack_array.shape
-        tmax = self.databasehandler.data_shape_chunk[0]
-        self.hier_widget.ultrack_array.shape = (tmax, *hier_shape[1:])
+        if self.flag_show_hierarchy:
+            self.hier_widget = HierarchyVizWidget(
+                viewer=viewer,
+                scale=self.databasehandler.scale,
+                config=self.databasehandler.config_adjusted,
+            )
+            hier_shape = self.hier_widget.ultrack_array.shape
+            tmax = self.databasehandler.data_shape_chunk[0]
+            self.hier_widget.ultrack_array.shape = (tmax, *hier_shape[1:])
+
+            # Store reference to the existing hierarchy layer
+            self.hierarchy_layer = self.hier_widget.labels_layer
+            self.hierarchy_layer.visible = False
+
+            self.hier_widget.labels_layer.signals.click_on_hierarchy_cell.connect(
+                self.EditingMenu.click_on_hierarchy_cell
+            )
 
         # Add annotation layer to viewer
         self.viewer.add_labels(
@@ -77,13 +92,10 @@ class TrackEditClass:
             )
             layer_mem.reset_contrast_limits()
 
-        # Store reference to the existing hierarchy layer
-        self.hierarchy_layer = self.hier_widget.labels_layer
-        self.hierarchy_layer.visible = False
-
         tabwidget_bottom = QTabWidget()
         tabwidget_bottom.addTab(self.TreeWidget, "TreeWidget")
-        tabwidget_bottom.addTab(self.hier_widget.native, "Hierarchy")
+        if self.flag_show_hierarchy:
+            tabwidget_bottom.addTab(self.hier_widget.native, "Hierarchy")
         self.viewer.window.add_dock_widget(tabwidget_bottom, area="bottom")
 
         # Connect to signals
@@ -101,9 +113,6 @@ class TrackEditClass:
         self.EditingMenu.add_cell_button_pressed.connect(self.add_cell_from_database)
         self.EditingMenu.duplicate_cell_button_pressed.connect(
             self.duplicate_cell_from_database
-        )
-        self.hier_widget.labels_layer.signals.click_on_hierarchy_cell.connect(
-            self.EditingMenu.click_on_hierarchy_cell
         )
 
         self.add_tracks()
@@ -149,7 +158,6 @@ class TrackEditClass:
         ].iso_gradient_mode = "smooth"
         if "hierarchy" in self.viewer.layers:
             self.viewer.layers["hierarchy"].visible = False
-        # ToDo: check if all tracks are added or overwritten
 
     # ===============================================
     # Navigation
@@ -273,11 +281,16 @@ class TrackEditClass:
 
     def update_hierarchy_layer(self):
         """Update the hierarchy layer with the new chunk."""
-        self.hier_widget.ultrack_array.set_time_window(self.databasehandler.time_window)
-        self.hier_widget.labels_layer.refresh()  # This should trigger proper update while maintaining callbacks
-        self.viewer.layers.selection.active = self.viewer.layers[
-            self.databasehandler.name + "_seg"
-        ]
+        if self.flag_show_hierarchy:
+            self.hier_widget.ultrack_array.set_time_window(
+                self.databasehandler.time_window
+            )
+            self.hier_widget.labels_layer.refresh()  # This should trigger proper update while maintaining callbacks
+            self.viewer.layers.selection.active = self.viewer.layers[
+                self.databasehandler.name + "_seg"
+            ]
+        else:
+            pass
 
     # ===============================================
     # Add cells
