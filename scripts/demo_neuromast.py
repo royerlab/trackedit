@@ -14,8 +14,12 @@ warnings.filterwarnings("ignore", category=FutureWarning, message=".*qt_viewer.*
 # **********INPUTS*********
 # path to the working directory that contains the database file AND metadata.toml:
 
+# working_directory = Path(
+#     "/home/teun.huijben/Documents/data/Akila/20241003/neuromast4_t851/adjusted/"
+# )
+
 working_directory = Path(
-    "/home/teun.huijben/Documents/data/Akila/20241003/neuromast4_t851/adjusted/"
+    "/mnt/md0/Teun/data/Chromatrace/2024_08_14/"
 )
 
 db_filename_start = "latest"  # name of the database file to start from, or "latest"
@@ -45,4 +49,5 @@ if __name__ == "__main__":
         allow_overwrite=allow_overwrite,
         imaging_zarr_file=imaging_zarr_file,
         imaging_channel=imaging_channel,
+        flag_show_hierarchy=False,
     )
