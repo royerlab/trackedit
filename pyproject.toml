@@ -68,7 +68,7 @@ preview = ["pixi-build"]
 [tool.pixi.pypi-dependencies]
 trackedit = { path = ".", editable = true }
 motile_tracker = { path = "./motile_tracker", editable = true }
-ultrack = { git = "https://github.com/royerlab/ultrack.git", rev = "b2de376e1253e81119a0d241293c4866cc716fac" }
+ultrack = { git = "https://github.com/royerlab/ultrack.git", rev = "3802adaf16f433c401dc6d4b85bf884c845b6f96" }
 
 [tool.pixi.tasks]
 

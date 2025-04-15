@@ -457,7 +457,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/b2/fe/81695a1aa331a842b582453b605175f419fe8540355886031328089d840a/sympy-1.13.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/78/a9/97cbbc97002fff0de394a2da2cdfa859481fdca36996d7bd845d50aa9d8d/torch-2.6.0-cp311-cp311-manylinux1_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/a7/2e/757d2280d4fefe7d33af7615124e7e298ae7b8e3bc4446cdb8e88b0f9bab/triton-3.2.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
-      - pypi: git+https://github.com/royerlab/ultrack?rev=b2de376e1253e81119a0d241293c4866cc716fac#b2de376e1253e81119a0d241293c4866cc716fac
+      - pypi: git+https://github.com/royerlab/ultrack?rev=3802adaf16f433c401dc6d4b85bf884c845b6f96#3802adaf16f433c401dc6d4b85bf884c845b6f96
       - pypi: https://files.pythonhosted.org/packages/61/14/33a3a1352cfa71812a3a21e8c9bfb83f60b0011f5e36f2b1399d51928209/uvicorn-0.34.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/f2/6d/a60d620ea575c885510c574909d2e3ed62129b121fa2df00ca1c81024c87/websocket-0.2.1.tar.gz
       - pypi: https://files.pythonhosted.org/packages/6b/a9/37531cb5b994f12a57dec3da2200ef7aadffef82d888a4c29a0d781568e4/websockets-14.2-cp311-cp311-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl
@@ -848,7 +848,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/3d/f9/214d5a27bbac7fe17fd2119cdaa7aec36a4e7e16019c6d526bf59aa70222/structsvm-0.1.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b2/fe/81695a1aa331a842b582453b605175f419fe8540355886031328089d840a/sympy-1.13.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/0b/fa/f33a4148c6fb46ca2a3f8de39c24d473822d5774d652b66ed9b1214da5f7/torch-2.6.0-cp311-none-macosx_11_0_arm64.whl
-      - pypi: git+https://github.com/royerlab/ultrack?rev=b2de376e1253e81119a0d241293c4866cc716fac#b2de376e1253e81119a0d241293c4866cc716fac
+      - pypi: git+https://github.com/royerlab/ultrack?rev=3802adaf16f433c401dc6d4b85bf884c845b6f96#3802adaf16f433c401dc6d4b85bf884c845b6f96
       - pypi: https://files.pythonhosted.org/packages/61/14/33a3a1352cfa71812a3a21e8c9bfb83f60b0011f5e36f2b1399d51928209/uvicorn-0.34.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/f2/6d/a60d620ea575c885510c574909d2e3ed62129b121fa2df00ca1c81024c87/websocket-0.2.1.tar.gz
       - pypi: https://files.pythonhosted.org/packages/a1/c6/1435ad6f6dcbff80bb95e8986704c3174da8866ddb751184046f5c139ef6/websockets-14.2-cp311-cp311-macosx_11_0_arm64.whl
@@ -1214,7 +1214,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/3d/f9/214d5a27bbac7fe17fd2119cdaa7aec36a4e7e16019c6d526bf59aa70222/structsvm-0.1.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b2/fe/81695a1aa331a842b582453b605175f419fe8540355886031328089d840a/sympy-1.13.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/18/cf/ae99bd066571656185be0d88ee70abc58467b76f2f7c8bfeb48735a71fe6/torch-2.6.0-cp312-cp312-win_amd64.whl
-      - pypi: git+https://github.com/royerlab/ultrack?rev=b2de376e1253e81119a0d241293c4866cc716fac#b2de376e1253e81119a0d241293c4866cc716fac
+      - pypi: git+https://github.com/royerlab/ultrack?rev=3802adaf16f433c401dc6d4b85bf884c845b6f96#3802adaf16f433c401dc6d4b85bf884c845b6f96
       - pypi: https://files.pythonhosted.org/packages/61/14/33a3a1352cfa71812a3a21e8c9bfb83f60b0011f5e36f2b1399d51928209/uvicorn-0.34.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/f2/6d/a60d620ea575c885510c574909d2e3ed62129b121fa2df00ca1c81024c87/websocket-0.2.1.tar.gz
       - pypi: https://files.pythonhosted.org/packages/b3/7d/32cdb77990b3bdc34a306e0a0f73a1275221e9a66d869f6ff833c95b56ef/websockets-14.2-cp312-cp312-win_amd64.whl
@@ -1685,7 +1685,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/b2/fe/81695a1aa331a842b582453b605175f419fe8540355886031328089d840a/sympy-1.13.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/78/a9/97cbbc97002fff0de394a2da2cdfa859481fdca36996d7bd845d50aa9d8d/torch-2.6.0-cp311-cp311-manylinux1_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/a7/2e/757d2280d4fefe7d33af7615124e7e298ae7b8e3bc4446cdb8e88b0f9bab/triton-3.2.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
-      - pypi: git+https://github.com/royerlab/ultrack?rev=b2de376e1253e81119a0d241293c4866cc716fac#b2de376e1253e81119a0d241293c4866cc716fac
+      - pypi: git+https://github.com/royerlab/ultrack?rev=3802adaf16f433c401dc6d4b85bf884c845b6f96#3802adaf16f433c401dc6d4b85bf884c845b6f96
       - pypi: https://files.pythonhosted.org/packages/61/14/33a3a1352cfa71812a3a21e8c9bfb83f60b0011f5e36f2b1399d51928209/uvicorn-0.34.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/f2/6d/a60d620ea575c885510c574909d2e3ed62129b121fa2df00ca1c81024c87/websocket-0.2.1.tar.gz
       - pypi: https://files.pythonhosted.org/packages/6b/a9/37531cb5b994f12a57dec3da2200ef7aadffef82d888a4c29a0d781568e4/websockets-14.2-cp311-cp311-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl
@@ -2082,7 +2082,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/3d/f9/214d5a27bbac7fe17fd2119cdaa7aec36a4e7e16019c6d526bf59aa70222/structsvm-0.1.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b2/fe/81695a1aa331a842b582453b605175f419fe8540355886031328089d840a/sympy-1.13.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/0b/fa/f33a4148c6fb46ca2a3f8de39c24d473822d5774d652b66ed9b1214da5f7/torch-2.6.0-cp311-none-macosx_11_0_arm64.whl
-      - pypi: git+https://github.com/royerlab/ultrack?rev=b2de376e1253e81119a0d241293c4866cc716fac#b2de376e1253e81119a0d241293c4866cc716fac
+      - pypi: git+https://github.com/royerlab/ultrack?rev=3802adaf16f433c401dc6d4b85bf884c845b6f96#3802adaf16f433c401dc6d4b85bf884c845b6f96
       - pypi: https://files.pythonhosted.org/packages/61/14/33a3a1352cfa71812a3a21e8c9bfb83f60b0011f5e36f2b1399d51928209/uvicorn-0.34.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/f2/6d/a60d620ea575c885510c574909d2e3ed62129b121fa2df00ca1c81024c87/websocket-0.2.1.tar.gz
       - pypi: https://files.pythonhosted.org/packages/a1/c6/1435ad6f6dcbff80bb95e8986704c3174da8866ddb751184046f5c139ef6/websockets-14.2-cp311-cp311-macosx_11_0_arm64.whl
@@ -2454,7 +2454,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/3d/f9/214d5a27bbac7fe17fd2119cdaa7aec36a4e7e16019c6d526bf59aa70222/structsvm-0.1.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b2/fe/81695a1aa331a842b582453b605175f419fe8540355886031328089d840a/sympy-1.13.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/18/cf/ae99bd066571656185be0d88ee70abc58467b76f2f7c8bfeb48735a71fe6/torch-2.6.0-cp312-cp312-win_amd64.whl
-      - pypi: git+https://github.com/royerlab/ultrack?rev=b2de376e1253e81119a0d241293c4866cc716fac#b2de376e1253e81119a0d241293c4866cc716fac
+      - pypi: git+https://github.com/royerlab/ultrack?rev=3802adaf16f433c401dc6d4b85bf884c845b6f96#3802adaf16f433c401dc6d4b85bf884c845b6f96
       - pypi: https://files.pythonhosted.org/packages/61/14/33a3a1352cfa71812a3a21e8c9bfb83f60b0011f5e36f2b1399d51928209/uvicorn-0.34.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/f2/6d/a60d620ea575c885510c574909d2e3ed62129b121fa2df00ca1c81024c87/websocket-0.2.1.tar.gz
       - pypi: https://files.pythonhosted.org/packages/b3/7d/32cdb77990b3bdc34a306e0a0f73a1275221e9a66d869f6ff833c95b56ef/websockets-14.2-cp312-cp312-win_amd64.whl
@@ -13284,7 +13284,7 @@ packages:
 - pypi: .
   name: trackedit
   version: 0.0.1
-  sha256: a270dfdd34cb70dbc54a1ec2140ae3c91da7c4385c822df45c9cf9afa0063634
+  sha256: e833dddddaa4f3566f2671abe7258a3c670746b7a5fd70d32c21b50fdc0fe68d
   requires_dist:
   - mip>=1.16rc0
   requires_python: '>=3.10'
@@ -13444,7 +13444,7 @@ packages:
   - pkg:pypi/ukkonen?source=hash-mapping
   size: 17213
   timestamp: 1725784449622
-- pypi: git+https://github.com/royerlab/ultrack?rev=b2de376e1253e81119a0d241293c4866cc716fac#b2de376e1253e81119a0d241293c4866cc716fac
+- pypi: git+https://github.com/royerlab/ultrack?rev=3802adaf16f433c401dc6d4b85bf884c845b6f96#3802adaf16f433c401dc6d4b85bf884c845b6f96
   name: ultrack
   version: 0.7.0.dev0
   requires_dist:
@@ -13462,6 +13462,7 @@ packages:
   - mip>=1.16rc0
   - napari>=0.4.18
   - numba>=0.57.0
+  - numcodecs<0.16.0
   - ome-zarr>=0.9.0
   - pandas>=2.0.1
   - pillow>=10.0.0
@@ -13493,6 +13494,8 @@ packages:
   - sphinx-gallery==0.15.0 ; extra == 'docs'
   - sphinx==6.2.1 ; extra == 'docs'
   - sphinxcontrib-applehelp==1.0.8 ; extra == 'docs'
+  - catboost>=1.2.7,<1.3 ; extra == 'ml'
+  - scikit-learn>=1.6.0,<1.7 ; extra == 'ml'
   - asv>=0.5.1 ; extra == 'test'
   - napari[testing]>0.4.18 ; extra == 'test'
   - pre-commit>=3.2.2 ; extra == 'test'

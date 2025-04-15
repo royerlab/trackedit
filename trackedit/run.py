@@ -57,7 +57,6 @@ def run_trackedit(
     """
     viewer_provided = viewer is not None
     if not viewer_provided:
-        print("viewer not provided in run_trackedit!")
         viewer = napari.Viewer()
 
     DB_handler = DatabaseHandler(
