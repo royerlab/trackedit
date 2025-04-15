@@ -6,6 +6,7 @@ from ultrack.config import MainConfig
 from trackedit.arrays.UltrackArray import UltrackArray
 from trackedit.widgets.HierarchyWidget import HierarchyLabels, HierarchyVizWidget
 import napari
+
 def check_database(db_path: Path):
     """Check if database exists and print its structure"""
     if not db_path.exists():
