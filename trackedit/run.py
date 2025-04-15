@@ -32,6 +32,7 @@ def run_trackedit(
     time_chunk_length: int = 105,
     time_chunk_overlap: int = 5,
     allow_overwrite: bool = False,
+    work_in_existing_db: bool = False,
     imaging_zarr_file: Optional[str] = None,
     imaging_channel: Optional[str] = None,
     viewer: Optional[napari.Viewer] = None,
@@ -70,6 +71,7 @@ def run_trackedit(
         time_chunk_length=time_chunk_length,
         time_chunk_overlap=time_chunk_overlap,
         allow_overwrite=allow_overwrite,
+        work_in_existing_db=work_in_existing_db,
         imaging_zarr_file=imaging_zarr_file,
         imaging_channel=imaging_channel,
     )
