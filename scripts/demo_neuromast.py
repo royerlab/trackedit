@@ -13,17 +13,30 @@ warnings.filterwarnings("ignore", category=FutureWarning, message=".*qt_viewer.*
 
 # **********INPUTS*********
 # path to the working directory that contains the database file AND metadata.toml:
+
 working_directory = Path(
     "/home/teun.huijben/Documents/data/Akila/20241003/neuromast4_t851/adjusted/"
 )
+
+# working_directory = Path(
+#     "/mnt/md0/Teun/data/Chromatrace/2024_08_14/adjusted/"
+# )
+
 # name of the database file to start from, or "latest" to start from the latest version, defaults to "data.db"
-db_filename_start = "latest"
+db_filename_start = "data_updated.db"
 # maximum number of frames display, defaults to None (use all frames)
 tmax = 600
 # (Z),Y,X, defaults to (1, 1, 1)
-scale = (2.31, 1, 1)
+scale = (4, 1, 1)
 # overwrite existing database/changelog, defaults to False (not used when db_filename_start is "latest")
 allow_overwrite = False
+# NEW:
+work_in_existing_db = True
+flag_show_hierarchy = True
+# focus_id = 7000031
+focus_id = 3000020
+# focus_id = None
+margin = 150
 
 # OPTIONAL: imaging data
 # imaging_zarr_file = (
@@ -44,6 +57,10 @@ if __name__ == "__main__":
         tmax=tmax,
         scale=scale,
         allow_overwrite=allow_overwrite,
+        work_in_existing_db=work_in_existing_db,
         imaging_zarr_file=imaging_zarr_file,
         imaging_channel=imaging_channel,
+        flag_show_hierarchy=flag_show_hierarchy,
+        focus_id=focus_id,
+        margin=margin,
     )

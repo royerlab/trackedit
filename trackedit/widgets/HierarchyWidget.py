@@ -3,12 +3,13 @@ from typing import Sequence
 
 import napari
 import numpy as np
+import sqlalchemy as sqla
 from magicgui.widgets import Container, FloatSlider, Label
 from qtpy.QtCore import QObject, Signal
 from scipy import interpolate
 from ultrack.config import MainConfig
 
-from trackedit.arrays.UltrackArray import UltrackArray
+from trackedit.arrays.HierarchyArray import HierarchyArray
 
 logging.basicConfig()
 logging.getLogger("sqlachemy.engine").setLevel(logging.INFO)
@@ -57,6 +58,7 @@ class HierarchyVizWidget(Container):
         viewer: napari.Viewer,
         scale: Sequence[float] = (1, 1, 1),
         config=None,
+        extra_filters: list[sqla.Column] = [],
     ) -> None:
         """
         Initialize the HierarchyVizWidget.
@@ -78,7 +80,7 @@ class HierarchyVizWidget(Container):
         else:
             self.config = config
 
-        self.ultrack_array = UltrackArray(self.config)
+        self.ultrack_array = HierarchyArray(self.config, extra_filters=extra_filters)
 
         self.mapping = self._create_mapping()
 

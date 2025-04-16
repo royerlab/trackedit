@@ -49,6 +49,7 @@ class TrackEditClass:
                 viewer=viewer,
                 scale=self.databasehandler.scale,
                 config=self.databasehandler.config_adjusted,
+                extra_filters=self.databasehandler.db_filters,
             )
             hier_shape = self.hier_widget.ultrack_array.shape
             tmax = self.databasehandler.data_shape_chunk[0]
