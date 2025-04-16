@@ -6,13 +6,14 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from ultrack.config import MainConfig
 from ultrack.core.database import NodeDB
+from trackedit.utils.utils import apply_filters
 
-
-class UltrackArray:
+class HierarchyArray:
     def __init__(
         self,
         config: MainConfig,
         dtype: np.dtype = np.int32,
+        extra_filters: list[sqla.Column] = [],
     ):
         """Create an array that directly visualizes the segments in the ultrack database.
 
@@ -22,6 +23,8 @@ class UltrackArray:
             Configuration file of Ultrack.
         dtype : np.dtype
             Data type of the array.
+        extra_filters : list[sqla.Column]
+            Additional filters to apply to the query, e.g. [NodeDB.x < 300]
         """
 
         self.config = config
@@ -31,6 +34,7 @@ class UltrackArray:
         self.ndim = len(self.shape)
         self.array = np.zeros(self.shape[1:], dtype=self.dtype)
         self.time_window = [0, self.shape[0]]
+        self.extra_filters = extra_filters
 
         self.database_path = config.data_config.database_path
         self.minmax = self.find_min_max_volume_entire_dataset()
@@ -90,39 +94,33 @@ class UltrackArray:
             time point to paint the segments
         """
 
+        volume = float(self.volume) if hasattr(self.volume, 'item') else self.volume
+        filters = [NodeDB.t == time, NodeDB.area < volume] + self.extra_filters
+
         engine = sqla.create_engine(self.database_path)
         self.array.fill(0)
 
         with Session(engine) as session:
-            query = list(
-                session.query(NodeDB.id, NodeDB.pickle, NodeDB.hier_parent_id).where(
-                    NodeDB.t == time
-                )
-            )
-
-            idx_to_plot = []
-
-            for idx, q in enumerate(query):
-                if q[1].area <= self.volume:
-                    idx_to_plot.append(idx)
-
-            id_to_plot = [q[0] for idx, q in enumerate(query) if idx in idx_to_plot]
-
-            to_remove = []
-            for idx in idx_to_plot:
-                if query[idx][2] in id_to_plot:  # if parent is also printed
-                    to_remove.append(idx)
-
-            for idx in to_remove:
-                idx_to_plot.remove(idx)
+            query = session.query(NodeDB.pickle, NodeDB.id, NodeDB.hier_parent_id, NodeDB.area)
+            query = apply_filters(query, filters)            
+            query = list(query)
 
             if len(query) == 0:
-                print("query is empty!")
+                return
 
-            for idx in idx_to_plot:
-                query[idx][1].paint_buffer(
-                    self.array, value=query[idx][0], include_time=False
-                )
+            nodes, node_ids, parent_ids, areas = zip(*query)
+
+            node_ids_set = set(node_ids)  # faster lookup
+
+            count = 0
+            for i in range(len(nodes)):
+                # only paint top-most level of hierarchy
+                if parent_ids[i] not in node_ids_set:
+                    nodes[i].paint_buffer(
+                        self.array, value=node_ids[i], include_time=False
+                    )
+                    count += 1
+
 
     def get_tp_num_pixels(
         self,

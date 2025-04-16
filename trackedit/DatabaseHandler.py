@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import toml
 from motile_toolbox.candidate_graph import NodeAttr
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import and_, create_engine, inspect, text
 from ultrack.config import MainConfig
 from ultrack.core.database import (
     Column,
@@ -19,12 +19,16 @@ from ultrack.core.database import (
     set_node_values,
 )
 from ultrack.core.export import tracks_layer_to_networkx, tracks_to_zarr
-from ultrack.core.export.utils import solution_dataframe_from_sql
+
+# from ultrack.core.export.utils import solution_dataframe_from_sql
 from ultrack.tracks.graph import add_track_ids_to_tracks_df
 
 from trackedit.arrays.DatabaseArray import DatabaseArray
 from trackedit.arrays.ImagingArray import SimpleImageArray
-from trackedit.utils.utils import annotations_to_zarr
+from trackedit.utils.utils import (
+    annotations_to_zarr,
+    solution_dataframe_from_sql_windowed,
+)
 
 NodeDB.generic = Column(Integer, default=-1)
 
@@ -44,6 +48,8 @@ class DatabaseHandler:
         work_in_existing_db: bool = False,
         imaging_zarr_file: str = None,
         imaging_channel: str = None,
+        focus_id: int = None,
+        margin: int = 150,
     ):
 
         # inputs
@@ -60,6 +66,8 @@ class DatabaseHandler:
         self.imaging_zarr_file = imaging_zarr_file
         self.imaging_channel = imaging_channel
         self.imaging_flag = True if self.imaging_zarr_file is not None else False
+        self.focus_id = focus_id
+        self.margin = margin
 
         # Filenames / directories
         self.extension_string = ""
@@ -121,18 +129,32 @@ class DatabaseHandler:
 
         self.add_missing_columns_to_db()
 
-        # DatabaseArray()
+        # Filter cell in the database (Option)
+        self.db_filters = []
+        self.df_full = self.db_to_df(
+            entire_database=True
+        )  # find_filters needs df_full to fetch tracks
+        if self.focus_id is not None:
+            self.db_filters = self.find_db_filters(
+                focus_id=self.focus_id, margin=self.margin
+            )
+        else:
+            self.db_filters = []
+
+        # DatabaseArrays
         self.segments = DatabaseArray(
             database_path=self.db_path_new,
             shape=self.data_shape_chunk,
             time_window=self.time_window,
             color_by_field=NodeDB.id,
+            extra_filters=self.db_filters,
         )
         self.annotArray = DatabaseArray(
             database_path=self.db_path_new,
             shape=self.data_shape_chunk,
             time_window=self.time_window,
             color_by_field=NodeDB.generic,
+            extra_filters=self.db_filters,
         )
         self.check_zarr_existance()
         if self.imaging_flag:
@@ -141,8 +163,8 @@ class DatabaseHandler:
                 channel=self.imaging_channel,
                 time_window=self.time_window,
             )
+
         self.df_full = self.db_to_df(entire_database=True)
-        # ToDo: df_full might be very large for large datasets, but annotation/redflags/division need it
         self.nxgraph = self.df_to_nxgraph()
         self.red_flags = self.find_all_red_flags()
         self.toannotate = self.find_all_toannotate()
@@ -218,7 +240,7 @@ class DatabaseHandler:
         # Check if the old database file exists
         if not old_db_path.exists():
             raise FileNotFoundError(
-                f"Error: {db_filename_old} not found in the working directory."
+                f"Error: {db_filename_old} not found in the working directory. Search for: {old_db_path}"
             )
 
         # Check if the new database file already exists
@@ -344,6 +366,12 @@ class DatabaseHandler:
         """
         Generate the next version of a database filename.
         """
+
+        if old_filename == "latest":
+            raise ValueError(
+                "Cannot use 'latest' as db_filename, when 'working_in_existing_db' is True."
+            )
+
         name, ext = os.path.splitext(old_filename)
         old_filename = name + ext
         db_filename_new = old_filename
@@ -443,6 +471,57 @@ class DatabaseHandler:
         chunk = np.where(frame >= self.time_chunk_starts)[0][-1]
         return chunk
 
+    # def find_db_filters(self, focus_id: int, margin: int = 150):
+    #     # ToDo: follow the cell if it moves (annoate "track" not individual cell)
+    #     filters = [
+    #         NodeDB.t < 5,
+    #     ]
+    #     return filters
+
+    def find_db_filters(self, focus_id: int, margin: int = 150):
+        """Create filters to follow a cell track and load nearby cells.
+
+        Instead of using a single spatial filter based on one timepoint, we:
+        1. First get the track_id for our focus cell
+        2. Get all positions of this track over time
+        3. Create a filter that combines time-specific spatial bounds
+        """
+        # First get the track_id for our focus cell
+        track_id = self.df_full[self.df_full["id"] == focus_id]["track_id"].iloc[0]
+
+        # Get all positions of this track over time
+        track_positions = self.df_full[self.df_full["track_id"] == track_id]
+
+        # Create filters for each timepoint
+        filters = []
+        for _, pos in track_positions.iterrows():
+            t = pos["t"]
+            x = pos["x"]
+            y = pos["y"]
+
+            # For each timepoint, create a compound filter
+            time_filter = [
+                NodeDB.t == t,  # specific timepoint
+                NodeDB.x.between(x - margin, x + margin),
+                NodeDB.y.between(y - margin, y + margin),
+            ]
+
+            if self.ndim == 4:
+                z = pos["z"]
+                time_filter.append(NodeDB.z.between(z - margin, z + margin))
+
+            # Combine the conditions for this timepoint with OR
+            filters.append(and_(*time_filter))
+
+        # Combine all timepoint filters with OR
+        from sqlalchemy import or_
+
+        final_filter = or_(*filters)
+
+        print(f"Following track {track_id} (started from cell {focus_id})")
+
+        return [final_filter]  # Return as list to maintain compatibility
+
     def db_to_df(
         self,
         entire_database: bool = False,
@@ -466,7 +545,7 @@ class DatabaseHandler:
             Dataframe with columns: track_id, t, z, y, x
         """
 
-        df = solution_dataframe_from_sql(
+        df = solution_dataframe_from_sql_windowed(
             self.db_path_new,
             columns=(
                 NodeDB.id,
@@ -477,10 +556,30 @@ class DatabaseHandler:
                 NodeDB.x,
                 NodeDB.generic,
             ),
+            extra_filters=self.db_filters,
         )
+
+        def clean_parent_ids(df):
+            """
+            Set parent_ids to -1 when parent cell does not exist
+            """
+            # Get all valid IDs from the index
+            valid_ids = set(df.index)
+
+            # Create a mask where parent_id is not in valid_ids
+            invalid_parents_mask = ~df["parent_id"].isin(valid_ids)
+
+            # Set parent_id to -1 where mask is True
+            df.loc[invalid_parents_mask, "parent_id"] = -1
+
+            return df
+
+        # TODO: is remove_past_parents_from_df still needed?
+        df = clean_parent_ids(df)
         df = add_track_ids_to_tracks_df(df)
         df.sort_values(by=["track_id", "t"], inplace=True)
 
+        # filter timepoints
         if not entire_database:
             if self.time_window is not None:
                 min_time = self.time_window[0]
@@ -488,8 +587,9 @@ class DatabaseHandler:
                 df = df[(df.t >= min_time) & (df.t < max_time)].copy()
         else:
             df = df[df.t < self.Tmax].copy()
+        df.loc[:, "t"] = df["t"] - self.time_window[0]
 
-        df = self.remove_past_parents_from_df(df)
+        # df = self.remove_past_parents_from_df(df)
 
         if self.ndim == 4:
             columns = ["track_id", "t", "z", "y", "x"]
@@ -511,6 +611,10 @@ class DatabaseHandler:
 
         columns.append("generic")
         df = df[columns]
+
+        if df.empty:
+            df = pd.DataFrame(columns=columns)
+
         return df
 
     def df_to_nxgraph(self) -> nx.DiGraph:
@@ -523,6 +627,26 @@ class DatabaseHandler:
         """
         # apply scale, only do this here to avoid scaling the original dataframe
         df_scaled = self.db_to_df()
+
+        def clean_parent_ids(df):
+            """
+            Set parent_ids to -1 when parent cell does not exist
+            """
+            # Get all valid IDs from the index
+            valid_ids = set(df.index)
+
+            # Create a mask where parent_id is not in valid_ids
+            invalid_parents_mask = ~df["parent_id"].isin(valid_ids)
+
+            # Set parent_id to -1 where mask is True
+            df.loc[invalid_parents_mask, "parent_id"] = -1
+
+            return df
+
+        df_scaled = clean_parent_ids(df_scaled)
+
+        if df_scaled.empty:
+            return nx.DiGraph()
         if self.ndim == 4:
             df_scaled.loc[:, "z"] = df_scaled.z * self.z_scale  # apply scale
 
@@ -536,23 +660,6 @@ class DatabaseHandler:
 
         return nxgraph
 
-    def remove_past_parents_from_df(self, df2):
-
-        df2.loc[:, "t"] = df2["t"] - df2["t"].min()
-
-        # Set all parent_id values to -1 for the first time point
-        df2.loc[df2["t"] == 0, "parent_id"] = -1
-
-        # find the tracks with parents at the first time point
-        tracks_with_parents = df2.loc[
-            (df2["t"] == 0) & (df2["parent_track_id"] != -1), "track_id"
-        ]
-        track_ids_to_update = set(tracks_with_parents)
-
-        # update the parent_track_id to -1 for the tracks with parents at the first time point
-        df2.loc[df2["track_id"].isin(track_ids_to_update), "parent_track_id"] = -1
-        return df2
-
     def find_all_red_flags(self) -> pd.DataFrame:
         """
         Identify tracking red flags ('added' or 'removed') from one timepoint to the next.
@@ -562,6 +669,10 @@ class DatabaseHandler:
         pd.DataFrame
             DataFrame with columns: 't', 'track_id', 'id', 'event'
         """
+        # Return empty DataFrame if df_full is empty
+        if self.df_full.empty:
+            return pd.DataFrame(columns=["t", "track_id", "id", "event"])
+
         df = self.df_full.copy()
 
         # Define a continuous range of timepoints.
@@ -663,6 +774,10 @@ class DatabaseHandler:
         pd.DataFrame
             DataFrame with columns: 't', 'track_id', 'id'
         """
+        # Return empty DataFrame if df_full is empty
+        if self.df_full.empty:
+            return pd.DataFrame(columns=["t", "track_id", "id", "daughters"])
+
         # Get all cells that have parents (parent_id != -1)
         cells_with_parents = self.df_full[self.df_full["parent_id"] != -1]
 
@@ -708,6 +823,10 @@ class DatabaseHandler:
         pd.DataFrame
             DataFrame with columns: track_id, first_t, first_id, sorted by mean appearance time
         """
+        # Return empty DataFrame if df_full is empty
+        if self.df_full.empty:
+            return pd.DataFrame(columns=["track_id", "first_t", "first_id"])
+
         # Get rows with no annotations
         unannotated = self.df_full[
             self.df_full["generic"] == NodeDB.generic.default.arg
@@ -734,7 +853,7 @@ class DatabaseHandler:
         return to_annotate
 
     def recompute_red_flags(self):
-        """called by update_red_flags in TrackEditClass upon tracks_updated signal in TracksViewer"""
+        """called by update_red_flags in red_flag_box.py upon tracks_updated signal in TracksViewer"""
         self.red_flags = self.find_all_red_flags()
 
         # Only filter if we have any red flags
@@ -744,11 +863,11 @@ class DatabaseHandler:
             ]
 
     def recompute_divisions(self):
-        """called by update_divisions in TrackEditClass upon tracks_updated signal in TracksViewer"""
+        """called by update_divisions in division_box.py upon tracks_updated signal in TracksViewer"""
         self.divisions = self.find_all_divisions()
 
     def recompute_toannotate(self):
-        """called by update_toannotate in TrackEditClass upon tracks_updated signal in TracksViewer"""
+        """called by update_toannotate in toannotate_box.py upon tracks_updated signal in TracksViewer"""
         self.toannotate = self.find_all_toannotate()
 
     def ignore_red_flag(self, id):
@@ -768,6 +887,11 @@ class DatabaseHandler:
 
     def export_tracks(self):
         """Export tracks to a CSV file"""
+        # Skip export if no data
+        if self.df_full.empty:
+            print("Warning: No tracks to export (empty dataset)")
+            return
+
         print("exporting...")
 
         # tracks.csv

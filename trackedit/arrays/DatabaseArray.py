@@ -7,7 +7,7 @@ from sqlalchemy import Column
 from sqlalchemy.orm import Session
 from ultrack.core.database import NodeDB
 
-# import traceback
+from trackedit.utils.utils import apply_filters
 
 
 class DatabaseArray:
@@ -19,15 +19,26 @@ class DatabaseArray:
         color_by_field: Column = NodeDB.id,
         dtype: np.dtype = np.int32,
         current_time: int = np.nan,
+        extra_filters: list[sqla.Column] = [],
     ):
         """Create an array that directly visualizes the segments in the ultrack database.
 
         Parameters
         ----------
-        config : MainConfig
-            Configuration file of Ultrack.
+        database_path : Path
+            Path to the ultrack database.
+        shape : Tuple[int, ...]
+            Shape of the array, e.g. (t, z, y, x)
+        time_window : Tuple[int, int]
+            Time window of the array, e.g. (0, 100)
+        color_by_field : Column
+            Column to color the array by, e.g. NodeDB.id
         dtype : np.dtype
-            Data type of the array.
+            Data type of the array, e.g. np.int32
+        current_time : int
+            Current time point of the array, e.g. 0
+        extra_filters : list[sqla.Column]
+            Additional filters to apply to the query, e.g. [NodeDB.x < 300]
         """
         self.database_path = database_path
         self.shape = shape
@@ -35,6 +46,7 @@ class DatabaseArray:
         self.current_time = current_time
         self.time_window = time_window
         self.color_by_field = color_by_field
+        self.extra_filters = extra_filters
 
         self.ndim = len(self.shape)
         self.array = np.zeros(self.shape[1:], dtype=self.dtype)
@@ -131,23 +143,26 @@ class DatabaseArray:
         ----------
         time : int
             Time point to fill the array
+        extra_filters : list[sqla.Column]
+            Additional filters to apply to the query, e.g. [NodeDB.x < 300]
 
         Returns
         -------
         None
         """
+
+        filters = [NodeDB.t == time, NodeDB.selected] + self.extra_filters
+
         engine = sqla.create_engine(self.database_path)
         self.array.fill(0)
 
         with Session(engine) as session:
-            query = list(
-                session.query(self.color_by_field, NodeDB.pickle).where(
-                    NodeDB.t == time, NodeDB.selected
-                )
-            )
+            query = session.query(self.color_by_field, NodeDB.pickle)
+            query = apply_filters(query, filters)
+            query = list(query)
 
             if len(query) == 0:
-                print(f"query is empty for time {time}")
+                return
 
             for idx, q in enumerate(query):
                 q[1].paint_buffer(self.array, value=q[0], include_time=False)

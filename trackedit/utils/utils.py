@@ -62,6 +62,68 @@ def wrap_default_widgets_in_tabs(viewer):
     viewer.window._dock_widgets["Layer List"] = new_dock
 
 
+def solution_dataframe_from_sql_windowed(
+    database_path: str,
+    columns: Sequence[sqla.Column] = (
+        NodeDB.id,
+        NodeDB.parent_id,
+        NodeDB.t,
+        NodeDB.z,
+        NodeDB.y,
+        NodeDB.x,
+    ),
+    extra_filters: list[sqla.Column] = [],
+) -> pd.DataFrame:
+    """Query `columns` of nodes in current solution (NodeDB.selected == True).
+
+    Parameters
+    ----------
+    database_path : str
+        SQL database path (e.g. sqlite:///your.database.db)
+
+    columns : Sequence[sqla.Column], optional
+        Queried columns, MUST include NodeDB.id.
+        By default (NodeDB.id, NodeDB.parent_id, NodeDB.t, NodeDB.z, NodeDB.y, NodeDB.x)
+    extra_filters: list[sqla.Column], optional
+        Additional filters to apply to the query, next to NodeDB.selected==True
+        e.g. [NodeDB.x < 300]
+
+    Returns
+    -------
+    pd.DataFrame
+        Solution dataframe indexed by NodeDB.id
+    """
+
+    filters = [NodeDB.selected] + extra_filters
+
+    # query and convert tracking data to dataframe
+    engine = sqla.create_engine(database_path)
+    with Session(engine) as session:
+        query = session.query(*columns)
+        query = apply_filters(query, filters)
+        df = pd.read_sql(query.statement, session.bind, index_col="id")
+    return df
+
+
+def apply_filters(query, filters):
+    """
+    Apply multiple filters to an sqla query
+
+    Parameters
+    ----------
+    query: SQLAlchemy query object
+    filters: list of SQLAlchemy filter conditions
+        e.g. [NodeDB.x < 300, NodeDB.y > 300]
+
+    Returns
+    -------
+    SQLAlchemy query object
+    """
+    for filter in filters:
+        query = query.where(filter)
+    return query
+
+
 @curry
 def _query_and_export_data_to_frame(
     time: int,

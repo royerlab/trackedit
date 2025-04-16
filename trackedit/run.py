@@ -37,6 +37,8 @@ def run_trackedit(
     imaging_channel: Optional[str] = None,
     viewer: Optional[napari.Viewer] = None,
     flag_show_hierarchy: bool = True,
+    focus_id: Optional[int] = None,
+    margin: int = 150,
 ) -> Tuple[napari.Viewer, TrackEditClass]:
     """Run TrackEdit on a database file.
 
@@ -74,6 +76,8 @@ def run_trackedit(
         work_in_existing_db=work_in_existing_db,
         imaging_zarr_file=imaging_zarr_file,
         imaging_channel=imaging_channel,
+        focus_id=focus_id,
+        margin=margin,
     )
 
     # overwrite some motile functions
