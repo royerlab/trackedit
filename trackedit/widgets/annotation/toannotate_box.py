@@ -1,5 +1,5 @@
 from qtpy.QtCore import Qt, Signal
-from qtpy.QtWidgets import QHBoxLayout, QPushButton
+from qtpy.QtWidgets import QGridLayout, QHBoxLayout, QPushButton
 from ultrack.core.database import NodeDB
 
 from trackedit.widgets.base_box import NavigationBox
@@ -51,10 +51,12 @@ class ToAnnotateBox(NavigationBox):
         self.layout.addLayout(toannotate_layout)
         self.layout.setAlignment(toannotate_layout, Qt.AlignLeft)
 
-        # Change to horizontal layout for H,S,M buttons
-        annotation_type_layout = QHBoxLayout()
+        # Change to grid layout for annotation buttons
+        annotation_type_layout = QGridLayout()
 
         self.label_buttons = {}  # Dictionary to store buttons by label name
+        row = 0
+        col = 0
         for (
             label_id,
             label_info,
@@ -64,7 +66,11 @@ class ToAnnotateBox(NavigationBox):
                     label_info["name"][0].upper()
                 )  # First letter as button text
                 self.label_buttons[label_info["name"]] = btn
-                annotation_type_layout.addWidget(btn)
+                annotation_type_layout.addWidget(btn, row, col)
+                col += 1
+                if col >= 4:  # Start a new row after 4 buttons
+                    col = 0
+                    row += 1
 
         self.layout.addLayout(annotation_type_layout)
         self._update_upon_click()
@@ -167,12 +173,21 @@ class ToAnnotateBox(NavigationBox):
         except KeyError:
             raise ValueError(f"Invalid label: {label_str}")
 
-    def toggle_buttons(self, label_int=None):
-        """Toggle button colors based on track annotation"""
+    def toggle_buttons(self, toggle: bool, label_int=None):
+        """Toggle button colors based on track annotation and update counter style"""
         # Reset all buttons to default style
         for btn in self.label_buttons.values():
             btn.setStyleSheet("")
 
+        if toggle:
+            self.toannotate_counter.setStyleSheet("")
+        else:
+            self.toannotate_counter.setStyleSheet("color: gray;")
+
+        self.toannotate_prev_btn.setEnabled(toggle)
+        self.toannotate_next_btn.setEnabled(toggle)
+
+        # Handle button highlighting based on label
         if label_int is not None:
             opacity_factor = 0.75
             # Find the button corresponding to this label and highlight it
@@ -199,7 +214,7 @@ class ToAnnotateBox(NavigationBox):
 
         if len(selected_nodes) != 1:
             self.selected_cell_label.setText("No cell selected")
-            self.toggle_buttons()
+            self.toggle_buttons(False)
             return
 
         selected_node = selected_nodes[0]
@@ -220,10 +235,10 @@ class ToAnnotateBox(NavigationBox):
             self.toannotate_counter.setText(
                 f"{index + 1}/{len(self.databasehandler.toannotate)}"
             )
-            self.toggle_buttons(label_int)
+            self.toggle_buttons(True, label_int)
         except IndexError:
             # Track not found in annotations - disable counter and buttons
-            self.toggle_buttons(label_int)
+            self.toggle_buttons(False, label_int)
 
     def _update_label(self, selected_node) -> int:
         """

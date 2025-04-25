@@ -862,9 +862,26 @@ class DatabaseHandler:
     @property
     def color_mapping(self):
         """Get the color mapping from the annotation_mapping_dict."""
+        # Default gray color for unmapped values
+        default_color = [0.5, 0.5, 0.5, 1.0]
+        # Transparent color for 0 (background)
+        transparent_color = [0.0, 0.0, 0.0, 0.0]
+
+        # Create a dictionary that will store all possible integer values up to a reasonable maximum
+        # Start with the explicit mappings from annotation_mapping_dict
         color_dict = {k: v["color"] for k, v in self.annotation_mapping_dict.items()}
-        color_dict[0] = [0.0, 0.0, 0.0, 0.0]  # transparent
-        color_dict[None] = [0.0, 0.0, 0.0, 0.0]  # default: transparent
+
+        # Add special case for 0 to be transparent
+        color_dict[0] = transparent_color
+        color_dict[None] = transparent_color
+
+        # Add mappings for all other possible values
+        # Using a reasonable range that covers potential annotation values
+        all_values = range(-1, 20)  # Adjust range as needed
+        for val in all_values:
+            if val not in color_dict:
+                color_dict[val] = default_color
+
         return color_dict
 
     def annotate_track(self, track_id: int, label: int):
@@ -959,6 +976,7 @@ class DatabaseHandler:
         - Color field is a list of 4 numerical values
         - Names are unique across all entries
         - Values (labels) are unique
+        - Values cannot be 0 (reserved values for background)
 
         Raises
         ------
@@ -973,6 +991,12 @@ class DatabaseHandler:
         used_values = set()
 
         for label, mapping in self.annotation_mapping_dict.items():
+            # Check for reserved values (-1 and 0)
+            if label == 0:
+                raise ValueError(
+                    f"Label value {label} is reserved and cannot be used in annotation mapping"
+                )
+
             # Check required fields
             if not isinstance(mapping, dict):
                 raise ValueError(f"Mapping for label {label} must be a dictionary")
