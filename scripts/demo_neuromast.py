@@ -16,9 +16,6 @@ warnings.filterwarnings("ignore", category=FutureWarning, message=".*qt_viewer.*
 working_directory = Path(
     "/home/teun.huijben/Documents/data/Akila/20241003/neuromast4_t851/adjusted/"
 )
-working_directory = Path(
-    "/Users/teun.huijben/Documents/data/Akila/20241003_neuromast4/adjusted"
-)
 # name of the database file to start from, or "latest" to start from the latest version, defaults to "data.db"
 db_filename_start = "latest"
 # maximum number of frames display, defaults to None (use all frames)
