@@ -232,9 +232,9 @@ def check_annotation(toAnnotateBox):
     """Check annotation functionality"""
 
     toAnnotateBox.goto_annotation()
-    toAnnotateBox.on_hair_clicked()
-    toAnnotateBox.on_support_clicked()
-    toAnnotateBox.on_mantle_clicked()
+    toAnnotateBox.on_label_clicked("hair")
+    toAnnotateBox.on_label_clicked("support")
+    toAnnotateBox.on_label_clicked("mantle")
 
     toAnnotateBox.goto_annotation()
     toAnnotateBox.go_to_next_annotation()
