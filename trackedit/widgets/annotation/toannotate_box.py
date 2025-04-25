@@ -1,5 +1,6 @@
 from qtpy.QtCore import Qt, Signal
 from qtpy.QtWidgets import QHBoxLayout, QPushButton
+from ultrack.core.database import NodeDB
 
 from trackedit.widgets.base_box import NavigationBox
 from trackedit.widgets.ClickableLabel import ClickableLabel
@@ -19,8 +20,9 @@ class ToAnnotateBox(NavigationBox):
         self.current_selected_cell = None
 
         # Create reverse mapping using the "name" field
-        self.label_int_mapping = {
-            v["name"]: k for k, v in self.databasehandler.label_mapping_dict.items()
+        self.annotation_int_mapping = {
+            v["name"]: k
+            for k, v in self.databasehandler.annotation_mapping_dict.items()
         }
 
         # Create selected cell info label
@@ -52,13 +54,17 @@ class ToAnnotateBox(NavigationBox):
         # Change to horizontal layout for H,S,M buttons
         annotation_type_layout = QHBoxLayout()
 
-        self.hair_btn = QPushButton("H")
-        self.support_btn = QPushButton("S")
-        self.mantle_btn = QPushButton("M")
-
-        annotation_type_layout.addWidget(self.hair_btn)
-        annotation_type_layout.addWidget(self.support_btn)
-        annotation_type_layout.addWidget(self.mantle_btn)
+        self.label_buttons = {}  # Dictionary to store buttons by label name
+        for (
+            label_id,
+            label_info,
+        ) in self.databasehandler.annotation_mapping_dict.items():
+            if label_id != NodeDB.generic.default.arg:  # Skip the "none" label
+                btn = QPushButton(
+                    label_info["name"][0].upper()
+                )  # First letter as button text
+                self.label_buttons[label_info["name"]] = btn
+                annotation_type_layout.addWidget(btn)
 
         self.layout.addLayout(annotation_type_layout)
         self._update_upon_click()
@@ -67,9 +73,10 @@ class ToAnnotateBox(NavigationBox):
         self.toannotate_prev_btn.clicked.connect(self.go_to_prev_annotation)
         self.toannotate_next_btn.clicked.connect(self.go_to_next_annotation)
         self.toannotate_counter.clicked.connect(self.goto_annotation)
-        self.hair_btn.clicked.connect(self.on_hair_clicked)
-        self.support_btn.clicked.connect(self.on_support_clicked)
-        self.mantle_btn.clicked.connect(self.on_mantle_clicked)
+        for label_name, btn in self.label_buttons.items():
+            btn.clicked.connect(
+                lambda checked, ln=label_name: self.on_label_clicked(ln)
+            )
         self.tracks_viewer.tracks_updated.connect(self.update_toannotate)
         self.tracks_viewer.selected_nodes.list_updated.connect(self._update_upon_click)
 
@@ -135,14 +142,9 @@ class ToAnnotateBox(NavigationBox):
 
         self.update_annotation_counter()
 
-    def on_hair_clicked(self):
-        self.annotate_track("hair")
-
-    def on_support_clicked(self):
-        self.annotate_track("support")
-
-    def on_mantle_clicked(self):
-        self.annotate_track("mantle")
+    def on_label_clicked(self, label_name: str):
+        """Generic handler for any label button click"""
+        self.annotate_track(label_name)
 
     def annotate_track(self, label_str: str):
         label_int = self.get_label_int(label_str)
@@ -159,52 +161,33 @@ class ToAnnotateBox(NavigationBox):
         self.refresh_annotation_layer.emit()  # refresh the annotation layer
 
     def get_label_int(self, label_str: str):
-        # Use inverse of databasehandler's label_mapping
+        # Use inverse of databasehandler's annotation_mapping
         try:
-            return self.label_int_mapping[label_str]
+            return self.annotation_int_mapping[label_str]
         except KeyError:
             raise ValueError(f"Invalid label: {label_str}")
 
-    def toggle_buttons(self, toggle: bool, label_int: int | None):
-        if toggle:
-            self.toannotate_counter.setStyleSheet("")
-        else:
-            self.toannotate_counter.setStyleSheet("color: gray;")
+    def toggle_buttons(self, label_int=None):
+        """Toggle button colors based on track annotation"""
+        # Reset all buttons to default style
+        for btn in self.label_buttons.values():
+            btn.setStyleSheet("")
 
-        self.toannotate_prev_btn.setEnabled(toggle)
-        self.toannotate_next_btn.setEnabled(toggle)
-
-        # if label_int is not None, make the corresponding button yellow:
-        if label_int != -1:
-            # Reset all buttons to default style first
-            self.hair_btn.setStyleSheet("")
-            self.support_btn.setStyleSheet("")
-            self.mantle_btn.setStyleSheet("")
+        if label_int is not None:
             opacity_factor = 0.75
-            # Then set only the matching button to yellow
-            if label_int == self.label_int_mapping["hair"]:
-                color = self.databasehandler.label_mapping_dict[label_int]["color"]
-                self.hair_btn.setStyleSheet(
-                    f"background-color: rgba({int(color[0]*255)}, {int(color[1]*255)}, {int(color[2]*255)}, "
-                    f"{opacity_factor});"
-                )
-            elif label_int == self.label_int_mapping["support"]:
-                color = self.databasehandler.label_mapping_dict[label_int]["color"]
-                self.support_btn.setStyleSheet(
-                    f"background-color: rgba({int(color[0]*255)}, {int(color[1]*255)}, {int(color[2]*255)}, "
-                    f"{opacity_factor});"
-                )
-            elif label_int == self.label_int_mapping["mantle"]:
-                color = self.databasehandler.label_mapping_dict[label_int]["color"]
-                self.mantle_btn.setStyleSheet(
-                    f"background-color: rgba({int(color[0]*255)}, {int(color[1]*255)}, {int(color[2]*255)}, "
-                    f"{opacity_factor});"
-                )
-        else:
-            # Reset all buttons to default style
-            self.hair_btn.setStyleSheet("")
-            self.support_btn.setStyleSheet("")
-            self.mantle_btn.setStyleSheet("")
+            # Find the button corresponding to this label and highlight it
+            for (
+                label_id,
+                label_info,
+            ) in self.databasehandler.annotation_mapping_dict.items():
+                if label_id == label_int:
+                    label_name = label_info["name"]
+                    if label_name in self.label_buttons:
+                        color = label_info["color"]
+                        self.label_buttons[label_name].setStyleSheet(
+                            f"background-color: rgba({int(color[0]*255)}, {int(color[1]*255)}, "
+                            f"{int(color[2]*255)}, {opacity_factor});"
+                        )
 
     def _update_upon_click(self):
         """
@@ -216,7 +199,7 @@ class ToAnnotateBox(NavigationBox):
 
         if len(selected_nodes) != 1:
             self.selected_cell_label.setText("No cell selected")
-            self.toggle_buttons(False, None)
+            self.toggle_buttons()
             return
 
         selected_node = selected_nodes[0]
@@ -237,10 +220,10 @@ class ToAnnotateBox(NavigationBox):
             self.toannotate_counter.setText(
                 f"{index + 1}/{len(self.databasehandler.toannotate)}"
             )
-            self.toggle_buttons(True, label_int)
+            self.toggle_buttons(label_int)
         except IndexError:
             # Track not found in annotations - disable counter and buttons
-            self.toggle_buttons(False, label_int)
+            self.toggle_buttons(label_int)
 
     def _update_label(self, selected_node) -> int:
         """
@@ -252,7 +235,9 @@ class ToAnnotateBox(NavigationBox):
             self.databasehandler.df_full["id"] == selected_node
         ].iloc[0]
         generic_value = cell_info["generic"]  # type(generic_value) = int
-        label = self.databasehandler.label_mapping(generic_value)  # type(label) = str
+        label = self.databasehandler.annotation_mapping(
+            generic_value
+        )  # type(label) = str
         self.selected_cell_label.setText(f"Selected cell: {selected_node} ({label})")
 
         return generic_value

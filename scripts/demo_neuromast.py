@@ -13,9 +13,13 @@ warnings.filterwarnings("ignore", category=FutureWarning, message=".*qt_viewer.*
 
 # **********INPUTS*********
 # path to the working directory that contains the database file AND metadata.toml:
+# working_directory = Path(
+#     "/home/teun.huijben/Documents/data/Akila/20241003/neuromast4_t851/adjusted/"
+# )
 working_directory = Path(
-    "/home/teun.huijben/Documents/data/Akila/20241003/neuromast4_t851/adjusted/"
+    "/Users/teun.huijben/Documents/data/Akila/20241003_neuromast4/adjusted"
 )
+
 # name of the database file to start from, or "latest" to start from the latest version, defaults to "data.db"
 db_filename_start = "latest"
 # maximum number of frames display, defaults to None (use all frames)
@@ -35,6 +39,13 @@ allow_overwrite = False
 # imaging_channel = "0/4/0/0"
 imaging_zarr_file = None
 imaging_channel = None
+
+# OPTIONAL: annotation mapping (default is neuromast cell types)
+annotation_mapping = {
+    1: {"name": "hair", "color": [0.0, 1.0, 0.0, 1.0]},  # green
+    2: {"name": "support", "color": [1.0, 0.1, 0.6, 1.0]},  # pink
+    3: {"name": "mantle", "color": [0.0, 0.0, 0.9, 1.0]},  # blue
+}
 # *************************
 
 if __name__ == "__main__":
@@ -46,4 +57,5 @@ if __name__ == "__main__":
         allow_overwrite=allow_overwrite,
         imaging_zarr_file=imaging_zarr_file,
         imaging_channel=imaging_channel,
+        annotation_mapping=annotation_mapping,
     )

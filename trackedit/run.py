@@ -37,6 +37,7 @@ def run_trackedit(
     imaging_channel: Optional[str] = None,
     viewer: Optional[napari.Viewer] = None,
     flag_show_hierarchy: bool = True,
+    annotation_mapping: Optional[dict] = None,
 ) -> Tuple[napari.Viewer, TrackEditClass]:
     """Run TrackEdit on a database file.
 
@@ -67,6 +68,7 @@ def run_trackedit(
         Tmax=tmax,
         scale=scale,
         name="ultrack",
+        annotation_mapping=annotation_mapping,
         time_chunk=time_chunk,
         time_chunk_length=time_chunk_length,
         time_chunk_overlap=time_chunk_overlap,
