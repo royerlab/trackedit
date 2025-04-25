@@ -37,6 +37,7 @@ class DatabaseHandler:
         Tmax: int,
         scale: tuple,
         name: str,
+        annotation_mapping: dict = None,
         time_chunk: int = 0,
         time_chunk_length: int = 105,
         time_chunk_overlap: int = 5,
@@ -150,15 +151,25 @@ class DatabaseHandler:
         self.red_flags_ignore_list = []
         self.log(f"Start annotation session ({datetime.now()})")
 
-        self.label_mapping_dict = {
+        # Default label for unlabeled cells
+        default_annotation = {
             NodeDB.generic.default.arg: {  # -1
                 "name": "none",
                 "color": [0.5, 0.5, 0.5, 1.0],  # gray
-            },
-            1: {"name": "hair", "color": [0.0, 1.0, 0.0, 1.0]},  # green
-            2: {"name": "support", "color": [1.0, 0.1, 0.6, 1.0]},  # pink
-            3: {"name": "mantle", "color": [0.0, 0.0, 0.9, 1.0]},  # blue
+            }
         }
+
+        # If no custom mapping provided, use the original default mapping
+        if annotation_mapping is None:
+            annotation_mapping = {
+                1: {"name": "hair", "color": [0.0, 1.0, 0.0, 1.0]},  # green
+                2: {"name": "support", "color": [1.0, 0.1, 0.6, 1.0]},  # pink
+                3: {"name": "mantle", "color": [0.0, 0.0, 0.9, 1.0]},  # blue
+            }
+
+        # Combine default label with custom mapping
+        self.annotation_mapping_dict = default_annotation | annotation_mapping
+        self.check_annotation_mapping()
 
     def initialize_logfile(self, log_filename_new, work_in_existing_db):
         """Initialize the logger with a file path. Raises an error if the file already exists."""
@@ -773,7 +784,9 @@ class DatabaseHandler:
         # tracks.csv
         csv_filename = self.working_directory / f"{self.extension_string}_tracks.csv"
         df_full_export = self.df_full.copy()
-        df_full_export["annotation"] = df_full_export["generic"].map(self.label_mapping)
+        df_full_export["annotation"] = df_full_export["generic"].map(
+            self.annotation_mapping
+        )
         try:
             df_full_export.to_csv(csv_filename, index=False)
         except Exception as e:
@@ -787,7 +800,7 @@ class DatabaseHandler:
         )
         # Group by track_id and take the first label for each track
         annotations_df = self.df_full[["track_id", "t", "generic"]].copy()
-        annotations_df["label"] = annotations_df["generic"].map(self.label_mapping)
+        annotations_df["label"] = annotations_df["generic"].map(self.annotation_mapping)
         df_grouped = annotations_df.groupby("track_id").first().reset_index()
         df_grouped.to_csv(csv_filename, index=False)
         # ToDo: check if only one label per track_id
@@ -798,7 +811,7 @@ class DatabaseHandler:
         track_labels = (
             self.df_full.groupby("track_id")["generic"]
             .first()
-            .apply(self.label_mapping)
+            .apply(self.annotation_mapping)
         )
 
         with open(txt_filename, "w") as f:
@@ -842,16 +855,33 @@ class DatabaseHandler:
         )
         print("exporting finished!")
 
-    def label_mapping(self, label):
+    def annotation_mapping(self, label):
         """Map the label to the generic column."""
-        return self.label_mapping_dict.get(label, {"name": "other"})["name"]
+        return self.annotation_mapping_dict.get(label, {"name": "other"})["name"]
 
     @property
     def color_mapping(self):
-        """Get the color mapping from the label_mapping_dict."""
-        color_dict = {k: v["color"] for k, v in self.label_mapping_dict.items()}
-        color_dict[0] = [0.0, 0.0, 0.0, 0.0]  # transparent
-        color_dict[None] = [0.0, 0.0, 0.0, 0.0]  # default: transparent
+        """Get the color mapping from the annotation_mapping_dict."""
+        # Default gray color for unmapped values
+        default_color = [0.5, 0.5, 0.5, 1.0]
+        # Transparent color for 0 (background)
+        transparent_color = [0.0, 0.0, 0.0, 0.0]
+
+        # Create a dictionary that will store all possible integer values up to a reasonable maximum
+        # Start with the explicit mappings from annotation_mapping_dict
+        color_dict = {k: v["color"] for k, v in self.annotation_mapping_dict.items()}
+
+        # Add special case for 0 to be transparent
+        color_dict[0] = transparent_color
+        color_dict[None] = transparent_color
+
+        # Add mappings for all other possible values
+        # Using a reasonable range that covers potential annotation values
+        all_values = range(-1, 20)  # Adjust range as needed
+        for val in all_values:
+            if val not in color_dict:
+                color_dict[val] = default_color
+
         return color_dict
 
     def annotate_track(self, track_id: int, label: int):
@@ -937,3 +967,83 @@ class DatabaseHandler:
                     f"Warning: Not a valid zarr array at channel path {self.imaging_channel} (missing .zarray). "
                     "Imaging data not shown."
                 )
+
+    def check_annotation_mapping(self):
+        """
+        Check if the annotation mapping is valid by verifying:
+        - All entries have required fields (name, color)
+        - Name field is a string
+        - Color field is a list of 4 numerical values
+        - Names are unique across all entries
+        - Values (labels) are unique
+        - Values cannot be 0 (reserved values for background)
+
+        Raises
+        ------
+        ValueError
+            If any validation check fails
+        """
+        if not self.annotation_mapping_dict:
+            raise ValueError("Annotation mapping dictionary is empty")
+
+        # Keep track of names and values to check for duplicates
+        used_names = set()
+        used_values = set()
+
+        for label, mapping in self.annotation_mapping_dict.items():
+            # Check for reserved values (-1 and 0)
+            if label == 0:
+                raise ValueError(
+                    f"Label value {label} is reserved and cannot be used in annotation mapping"
+                )
+
+            # Check required fields
+            if not isinstance(mapping, dict):
+                raise ValueError(f"Mapping for label {label} must be a dictionary")
+
+            if not all(field in mapping for field in ["name", "color"]):
+                raise ValueError(
+                    f"Mapping for label {label} missing required fields 'name' and/or 'color'"
+                )
+
+            # Check name is string
+            if not isinstance(mapping["name"], str):
+                raise ValueError(
+                    f"Name for label {label} must be a string, got {type(mapping['name'])}"
+                )
+
+            # Check for duplicate names
+            if mapping["name"] in used_names:
+                raise ValueError(
+                    f"Duplicate name '{mapping['name']}' found in annotation mapping"
+                )
+            used_names.add(mapping["name"])
+
+            # Check for duplicate values (labels)
+            if label in used_values:
+                raise ValueError(
+                    f"Duplicate value '{label}' found in annotation mapping"
+                )
+            used_values.add(label)
+
+            # Check color is list of 4 numbers
+            if not isinstance(mapping["color"], (list, tuple)):
+                raise ValueError(f"Color for label {label} must be a list or tuple")
+
+            if len(mapping["color"]) != 4:
+                raise ValueError(f"Color for label {label} must have exactly 4 values")
+
+            if not all(isinstance(v, (int, float)) for v in mapping["color"]):
+                raise ValueError(f"Color values for label {label} must all be numbers")
+
+            if not all(0 <= v <= 1 for v in mapping["color"]):
+                raise ValueError(
+                    f"Color values for label {label} must be between 0 and 1"
+                )
+
+        # Keep the original functionality
+        if self.annotation_mapping is None:
+            self.annotation_mapping = {
+                k: {"name": v["name"], "color": v["color"]}
+                for k, v in self.annotation_mapping_dict.items()
+            }

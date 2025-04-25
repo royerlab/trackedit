@@ -35,6 +35,14 @@ allow_overwrite = False
 # imaging_channel = "0/4/0/0"
 imaging_zarr_file = None
 imaging_channel = None
+
+# OPTIONAL: annotation mapping (default is neuromast cell types)
+# annotation_mapping = {
+#     1: {"name": "hair", "color": [0.0, 1.0, 0.0, 1.0]},  # green
+#     2: {"name": "support", "color": [1.0, 0.1, 0.6, 1.0]},  # pink
+#     3: {"name": "mantle", "color": [0.0, 0.0, 0.9, 1.0]},  # blue
+# }
+annotation_mapping = None
 # *************************
 
 if __name__ == "__main__":
@@ -46,4 +54,5 @@ if __name__ == "__main__":
         allow_overwrite=allow_overwrite,
         imaging_zarr_file=imaging_zarr_file,
         imaging_channel=imaging_channel,
+        annotation_mapping=annotation_mapping,
     )
