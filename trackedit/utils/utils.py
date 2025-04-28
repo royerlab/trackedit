@@ -237,3 +237,46 @@ def annotations_to_zarr(
 
     export_annotation_generic(config.data_config, tracks_df, array.__setitem__)
     return array
+
+
+def solution_dataframe_from_sql_with_tmax(
+    database_path: str,
+    tmax: int,
+    columns: Sequence[sqla.Column] = (
+        NodeDB.id,
+        NodeDB.parent_id,
+        NodeDB.t,
+        NodeDB.z,
+        NodeDB.y,
+        NodeDB.x,
+    ),
+) -> pd.DataFrame:
+    """Query `columns` of nodes in current solution (NodeDB.selected == True).
+
+    Parameters
+    ----------
+    database_path : str
+        SQL database path (e.g. sqlite:///your.database.db)
+
+    columns : Sequence[sqla.Column], optional
+        Queried columns, MUST include NodeDB.id.
+        By default (NodeDB.id, NodeDB.parent_id, NodeDB.t, NodeDB.z, NodeDB.y, NodeDB.x)
+
+    Returns
+    -------
+    pd.DataFrame
+        Solution dataframe indexed by NodeDB.id
+    """
+
+    # query and convert tracking data to dataframe
+    engine = sqla.create_engine(database_path)
+    with Session(engine) as session:
+        statement = (
+            session.query(*columns)
+            .where(NodeDB.selected)
+            .where(NodeDB.t < tmax)
+            .statement
+        )
+        df = pd.read_sql(statement, session.bind, index_col="id")
+
+    return df

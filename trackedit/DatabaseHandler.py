@@ -19,12 +19,14 @@ from ultrack.core.database import (
     set_node_values,
 )
 from ultrack.core.export import tracks_layer_to_networkx, tracks_to_zarr
-from ultrack.core.export.utils import solution_dataframe_from_sql
 from ultrack.tracks.graph import add_track_ids_to_tracks_df
 
 from trackedit.arrays.DatabaseArray import DatabaseArray
 from trackedit.arrays.ImagingArray import SimpleImageArray
-from trackedit.utils.utils import annotations_to_zarr
+from trackedit.utils.utils import (
+    annotations_to_zarr,
+    solution_dataframe_from_sql_with_tmax,
+)
 
 NodeDB.generic = Column(Integer, default=-1)
 
@@ -477,8 +479,9 @@ class DatabaseHandler:
             Dataframe with columns: track_id, t, z, y, x
         """
 
-        df = solution_dataframe_from_sql(
+        df = solution_dataframe_from_sql_with_tmax(
             self.db_path_new,
+            tmax=self.Tmax,
             columns=(
                 NodeDB.id,
                 NodeDB.parent_id,
