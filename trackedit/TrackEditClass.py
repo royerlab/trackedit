@@ -101,6 +101,7 @@ class TrackEditClass:
         # Connect to signals
         self.NavigationWidget.change_chunk.connect(self.update_chunk_from_button)
         self.NavigationWidget.goto_frame.connect(self.update_chunk_from_frame)
+        self.NavigationWidget.tmax_did_change.connect(self.update_chunk_from_frame)
         self.NavigationWidget.division_box.update_chunk_from_frame_signal.connect(
             self.update_chunk_from_frame
         )
@@ -248,7 +249,9 @@ class TrackEditClass:
                 "im_membrane"
             ].data = self.databasehandler.imagingArray.membrane
 
-        if cur_chunk != new_chunk:
+        # Update tracks if chunks are different OR if this was triggered by a Tmax change
+        # TODO: not sure this is the best way to do this
+        if cur_chunk != new_chunk or frame == self.databasehandler.Tmax - 1:
             self.add_tracks()
 
         chunk_frame = (

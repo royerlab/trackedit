@@ -27,10 +27,7 @@ allow_overwrite = False
 
 # OPTIONAL: imaging data
 # imaging_zarr_file = (
-#     "/hpc/projects/jacobo_group/iSim_processed_files/steady_state_timelapses/"
-#     "20241003_2dpf_myo6b_bactin_GFP_she_h2b_gfp_cldnb_lyn_mScarlet/"
-#     "46hpf_fish1_1/2_deconvolution_and_registration/"
-#     "deconvolved_and_registered_corrected_cropped850.zarr"
+#     "/hpc/....../deconvolved.zarr"
 # )
 # imaging_channel = "0/4/0/0"
 imaging_zarr_file = None
