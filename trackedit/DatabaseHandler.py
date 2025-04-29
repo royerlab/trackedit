@@ -115,12 +115,13 @@ class DatabaseHandler:
             self.time_chunk_overlap = 0
 
         # calculate time chunk
-        self.time_window, self.time_chunk_starts = self.calc_time_window()
+        (
+            self.time_window,
+            self.time_chunk_starts,
+            self.num_time_chunks,
+        ) = self.calc_time_window()
         self.data_shape_chunk = self.data_shape_full.copy()
         self.data_shape_chunk[0] = self.time_chunk_length
-        self.num_time_chunks = len(
-            np.arange(0, self.Tmax, self.time_chunk_length - self.time_chunk_overlap)
-        )
 
         self.add_missing_columns_to_db()
 
@@ -431,11 +432,20 @@ class DatabaseHandler:
                 for s in time_chunk_starts
             ]
         ).astype(int)
+
+        if self.time_chunk >= len(time_chunk_starts):
+            self.time_chunk = len(time_chunk_starts) - 1
+
         time_window = (
             int(time_chunk_starts[self.time_chunk]),
             int(time_chunk_stops[self.time_chunk]),
         )
-        return time_window, time_chunk_starts
+
+        num_time_chunks = len(
+            np.arange(0, self.Tmax, self.time_chunk_length - self.time_chunk_overlap)
+        )
+
+        return time_window, time_chunk_starts, num_time_chunks
 
     def set_time_chunk(self, time_chunk):
         if time_chunk >= self.num_time_chunks:
@@ -444,12 +454,40 @@ class DatabaseHandler:
             )
         else:
             self.time_chunk = time_chunk
-            self.time_window, _ = self.calc_time_window()
+            (
+                self.time_window,
+                self.time_chunk_starts,
+                self.num_time_chunks,
+            ) = self.calc_time_window()
             self.segments.set_time_window(self.time_window)
             self.annotArray.set_time_window(self.time_window)
             if self.imaging_flag:
                 self.imagingArray.set_time_window(self.time_window)
             self.nxgraph = self.df_to_nxgraph()
+
+    def check_if_tmax_changed(self):
+        """
+        Checks if the max time in the database has changed.
+        Called from NavigationWidget.check_if_tmax_changed()
+        """
+        if len(self.df_full) == 0:  # If dataframe is empty
+            return False, self.Tmax
+
+        current_max_time = self.df_full["t"].max()
+
+        # If max time is less than current Tmax, update it
+        if (
+            current_max_time < self.Tmax - 1
+        ):  # Tmax of 600 means 599 is the last timepoint
+            self.Tmax = current_max_time
+            (
+                self.time_window,
+                self.time_chunk_starts,
+                self.num_time_chunks,
+            ) = self.calc_time_window()
+            return True, self.Tmax
+        else:
+            return False, self.Tmax
 
     def find_chunk_from_frame(self, frame):
         """Find the chunk index for a given frame. Since the chunks have an overlap, this function is not trivial"""

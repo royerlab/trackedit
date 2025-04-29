@@ -13,6 +13,7 @@ class NavigationWidget(QWidget):
 
     change_chunk = Signal(str)
     goto_frame = Signal(int)
+    tmax_did_change = Signal(int)
 
     def __init__(self, viewer: napari.Viewer, databasehandler: DatabaseHandler):
         super().__init__()
@@ -46,6 +47,13 @@ class NavigationWidget(QWidget):
         main_layout.setSpacing(0)
         main_layout.setContentsMargins(10, 2, 10, 2)
         self.setLayout(main_layout)
+
+        self.tracks_viewer.tracks_updated.connect(self.check_if_tmax_changed)
+
+    def check_if_tmax_changed(self):
+        tmax_did_change, new_tmax = self.databasehandler.check_if_tmax_changed()
+        if tmax_did_change:
+            self.tmax_did_change.emit(new_tmax - 1)  # connected in TrackEditClass
 
     def export_tracks(self):
         """Handle export button click by calling DatabaseHandler's export method"""

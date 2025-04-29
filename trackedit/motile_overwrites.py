@@ -189,6 +189,15 @@ def create_tracks_viewer_and_segments_refresh(layer_name):
 
 # remove new edge that is created by delete_nodes to cover the gap
 def my_delete_nodes(self, nodes: Iterable[None]):
+    nodes = list(nodes)  # Convert to list so we can analyze it
+
+    # If we are about the delete all nodes in this window, preserve nodes in the first frame
+    if len(nodes) == len(list(self.tracks.graph.nodes)):
+        min_time = min(self.tracks.get_time(node) for node in nodes)
+        nodes = [node for node in nodes if self.tracks.get_time(node) != min_time]
+        print("Preventing deletion of all nodes in last time window")
+
+    # Proceed with deletion for remaining nodes
     action_group1 = self._delete_nodes(nodes)
 
     # delete the edge that motile added over the gap after node deletion

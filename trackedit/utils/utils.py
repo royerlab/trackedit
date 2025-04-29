@@ -268,7 +268,8 @@ def solution_dataframe_from_sql_with_tmax(
         Solution dataframe indexed by NodeDB.id
     """
 
-    # query and convert tracking data to dataframe
+    tmax = int(tmax)
+
     engine = sqla.create_engine(database_path)
     with Session(engine) as session:
         statement = (
