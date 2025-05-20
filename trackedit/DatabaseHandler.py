@@ -196,7 +196,8 @@ class DatabaseHandler:
     def log(self, message):
         """Append a message to the log file."""
         with open(self.log_file, "a") as log:
-            log.write(message + "\n")
+            time_stap = f"[{datetime.now()}]"
+            log.write(time_stap + " " + message + "\n")
 
     def initialize_config(self):
         # import db filename properly into an Ultrack config, neccesary for chaning values in database
