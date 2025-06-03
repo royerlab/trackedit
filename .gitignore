@@ -189,3 +189,6 @@ data.db
 
 #MacOS:
 .DS_Store
+
+# Ignore Makefile, because it is hpc specific
+Makefile
