@@ -23,6 +23,9 @@ module load pixi
 pixi install
 pixi shell
 ```
+
+Alternatively, you can activate the environment using conda `conda activate .pixi/envs/default` (after `pixi install`)
+
 2. `cd` to relevant data folder (that contains `data.db` and `metadata.toml`), copy `scripts/demo.py` script, change relevant input parameters, and run inTRACKtive:
 ```
 python demo_neuromast.py #_after changing relevant parameters
