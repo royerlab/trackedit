@@ -1,0 +1,90 @@
+name: Auto Version Bump
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'trackedit/__about__.py'  # Prevent infinite loops
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get current version
+        id: current_version
+        run: |
+          CURRENT_VERSION=$(grep "__version__" trackedit/__about__.py | cut -d'"' -f2)
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "Current version: $CURRENT_VERSION"
+
+      - name: Check commit message for version bump type
+        id: bump_type
+        run: |
+          # Get the commit message that triggered this workflow
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          echo "Commit message: $COMMIT_MSG"
+          
+          # Check for version bump indicators in commit message
+          if echo "$COMMIT_MSG" | grep -qi "\[bump-minor\]\|\[minor\]"; then
+            echo "bump_type=minor" >> $GITHUB_OUTPUT
+            echo "Bump type: minor"
+          elif echo "$COMMIT_MSG" | grep -qi "\[bump-major\]\|\[major\]"; then
+            echo "bump_type=major" >> $GITHUB_OUTPUT
+            echo "Bump type: major"
+          else
+            echo "bump_type=patch" >> $GITHUB_OUTPUT
+            echo "Bump type: patch (default)"
+          fi
+
+      - name: Calculate new version
+        id: new_version
+        run: |
+          CURRENT_VERSION="${{ steps.current_version.outputs.current_version }}"
+          BUMP_TYPE="${{ steps.bump_type.outputs.bump_type }}"
+          
+          # Split version into components
+          IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
+          MAJOR="${VERSION_PARTS[0]}"
+          MINOR="${VERSION_PARTS[1]}"
+          PATCH="${VERSION_PARTS[2]}"
+          
+          case $BUMP_TYPE in
+            "major")
+              NEW_MAJOR=$((MAJOR + 1))
+              NEW_VERSION="$NEW_MAJOR.0.0"
+              echo "Bumping major version: $CURRENT_VERSION → $NEW_VERSION"
+              ;;
+            "minor")
+              NEW_MINOR=$((MINOR + 1))
+              NEW_VERSION="$MAJOR.$NEW_MINOR.0"
+              echo "Bumping minor version: $CURRENT_VERSION → $NEW_VERSION"
+              ;;
+            *)
+              NEW_PATCH=$((PATCH + 1))
+              NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
+              echo "Bumping patch version: $CURRENT_VERSION → $NEW_VERSION"
+              ;;
+          esac
+          
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "New version: $NEW_VERSION"
+
+      - name: Update version in __about__.py
+        run: |
+          sed -i "s/__version__ = \"${{ steps.current_version.outputs.current_version }}\"/__version__ = \"${{ steps.new_version.outputs.new_version }}\"/" trackedit/__about__.py
+
+      - name: Commit and push version bump
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add trackedit/__about__.py
+          git commit -m "Bump version to ${{ steps.new_version.outputs.new_version }} [skip ci]"
+          git push 
