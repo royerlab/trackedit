@@ -21,6 +21,7 @@ from ultrack.core.database import (
 from ultrack.core.export import tracks_layer_to_networkx, tracks_to_zarr
 from ultrack.tracks.graph import add_track_ids_to_tracks_df
 
+from trackedit.__about__ import __version__
 from trackedit.arrays.DatabaseArray import DatabaseArray
 from trackedit.arrays.ImagingArray import SimpleImageArray
 from trackedit.utils.utils import (
@@ -153,7 +154,9 @@ class DatabaseHandler:
         self.toannotate = self.find_all_toannotate()
         self.divisions = self.find_all_divisions()
         self.red_flags_ignore_list = []
-        self.log(f"Start annotation session ({datetime.now()})")
+        self.log(
+            f"Start annotation session - TrackEdit v{__version__} ({datetime.now()})"
+        )
         self.log(
             f"Parameters: Tmax: {self.Tmax}, working_directory: {self.working_directory}, "
             f"db_filename: {self.db_filename_new}"

@@ -31,7 +31,7 @@ jobs:
           # Get the commit message that triggered this workflow
           COMMIT_MSG="${{ github.event.head_commit.message }}"
           echo "Commit message: $COMMIT_MSG"
-          
+
           # Check for version bump indicators in commit message
           if echo "$COMMIT_MSG" | grep -qi "\[bump-minor\]\|\[minor\]"; then
             echo "bump_type=minor" >> $GITHUB_OUTPUT
@@ -49,13 +49,13 @@ jobs:
         run: |
           CURRENT_VERSION="${{ steps.current_version.outputs.current_version }}"
           BUMP_TYPE="${{ steps.bump_type.outputs.bump_type }}"
-          
+
           # Split version into components
           IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
           MAJOR="${VERSION_PARTS[0]}"
           MINOR="${VERSION_PARTS[1]}"
           PATCH="${VERSION_PARTS[2]}"
-          
+
           case $BUMP_TYPE in
             "major")
               NEW_MAJOR=$((MAJOR + 1))
@@ -73,7 +73,7 @@ jobs:
               echo "Bumping patch version: $CURRENT_VERSION → $NEW_VERSION"
               ;;
           esac
-          
+
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "New version: $NEW_VERSION"
 
@@ -87,4 +87,4 @@ jobs:
           git config --local user.name "GitHub Action"
           git add trackedit/__about__.py
           git commit -m "Bump version to ${{ steps.new_version.outputs.new_version }} [skip ci]"
-          git push 
+          git push
