@@ -25,6 +25,7 @@ from trackedit.arrays.DatabaseArray import DatabaseArray
 from trackedit.arrays.ImagingArray import SimpleImageArray
 from trackedit.utils.utils import (
     annotations_to_zarr,
+    remove_nonexisting_parents,
     solution_dataframe_from_sql_with_tmax,
 )
 
@@ -153,6 +154,10 @@ class DatabaseHandler:
         self.divisions = self.find_all_divisions()
         self.red_flags_ignore_list = []
         self.log(f"Start annotation session ({datetime.now()})")
+        self.log(
+            f"Parameters: Tmax: {self.Tmax}, working_directory: {self.working_directory}, "
+            f"db_filename: {self.db_filename_new}"
+        )
 
         # Default label for unlabeled cells
         default_annotation = {
@@ -531,6 +536,7 @@ class DatabaseHandler:
                 NodeDB.generic,
             ),
         )
+        df = remove_nonexisting_parents(df)
         df = add_track_ids_to_tracks_df(df)
         df.sort_values(by=["track_id", "t"], inplace=True)
 
