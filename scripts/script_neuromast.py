@@ -13,14 +13,13 @@ warnings.filterwarnings("ignore", category=FutureWarning, message=".*qt_viewer.*
 
 # **********INPUTS*********
 # path to the working directory that contains the database file AND metadata.toml:
-# working_directory = Path(
-#     "/hpc/projects/group.royer/people/teun.huijben/data/Akila/trackedit_example_data/"
-# )
-working_directory = Path("/hpc/projects/tlg2/trackedit/corrupted_database/teun/")
+working_directory = Path(
+    "/hpc/projects/group.royer/people/teun.huijben/data/Akila/trackedit_example_data/"
+)
 # name of the database file to start from, or "latest" to start from the latest version, defaults to "data.db"
-db_filename_start = "data_v36_corrupted.db"
+db_filename_start = "latest"
 # maximum number of frames display, defaults to None (use all frames)
-tmax = 650
+tmax = 600
 # (Z),Y,X, defaults to (1, 1, 1)
 scale = (2.31, 1, 1)
 # overwrite existing database/changelog, defaults to False (not used when db_filename_start is "latest")

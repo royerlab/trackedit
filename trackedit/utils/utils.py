@@ -288,7 +288,7 @@ def remove_nonexisting_parents(df: pd.DataFrame) -> pd.DataFrame:
     """
     Remove parents that do not exist in the dataframe.
     Why:
-    Let's say we have a database with 200 frames, with tracks spanning all 200 farmes.
+    Let's say we have a database with 200 frames, with tracks spanning all 200 frames.
     But if the database is opened with tMax=100, and a cell i is deleted at t=100,
     the parent_id of its parent cell (at t=101) in the database is still i.
     If later, the database is opened with tMax=200, the parent_id of the cell at t=101 is still i,
