@@ -1,15 +1,9 @@
 from pathlib import Path
 from typing import Callable
-from unittest.mock import patch
 
 import napari
-import pandas as pd
 import pytest
-import sqlalchemy as sqla
-from PyQt5.QtWidgets import QMessageBox
-from sqlalchemy.orm import Session
 from ultrack.config import MainConfig
-from ultrack.core.database import NodeDB
 from ultrack.utils.test_utils import (  # noqa: F401, F811
     config_content,
     config_instance,
@@ -78,8 +72,6 @@ def test_trackedit_widgets(
 
     toAnnotateBox = track_edit.AnnotationWidget.toannotate_box
     assert toAnnotateBox is not None, "ToAnnotateBox not found"
-
-    TV = track_edit.tracksviewer
 
     if request.config.getoption("--show-napari-viewer"):
         napari.run()

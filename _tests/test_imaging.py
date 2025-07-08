@@ -1,18 +1,11 @@
 from pathlib import Path
 from typing import Callable
-from unittest.mock import patch
-import tempfile
-import zarr
-import numpy as np
 
 import napari
-import pandas as pd
+import numpy as np
 import pytest
-import sqlalchemy as sqla
-from PyQt5.QtWidgets import QMessageBox
-from sqlalchemy.orm import Session
+import zarr
 from ultrack.config import MainConfig
-from ultrack.core.database import NodeDB
 from ultrack.utils.test_utils import (  # noqa: F401, F811
     config_content,
     config_instance,
@@ -26,31 +19,33 @@ from ultrack.utils.test_utils import (  # noqa: F401, F811
 from trackedit.run import run_trackedit
 
 
-def create_mock_imaging_zarr(working_directory: Path, tmax: int = 4, size: int = 64, n_dim: int = 3) -> str:
+def create_mock_imaging_zarr(
+    working_directory: Path, tmax: int = 4, size: int = 64, n_dim: int = 3
+) -> str:
     """
     Create a mock zarr file with the correct dimensions for testing imaging data.
-    
+
     Args:
         working_directory: Directory to create the zarr file in
         tmax: Number of time points
         size: Size of each dimension (assumes cubic data)
         n_dim: Number of spatial dimensions (2 or 3)
-    
+
     Returns:
         Path to the created zarr file
     """
     # Create zarr file path
     zarr_path = working_directory / "mock_imaging.zarr"
-    
+
     # Create the zarr group
-    root = zarr.open_group(str(zarr_path), mode='w')
-    
+    root = zarr.open_group(str(zarr_path), mode="w")
+
     # Create the nested structure: 0/4/0/0
     # This matches the default channel path used in the code
-    group_0 = root.create_group('0')
-    group_4 = group_0.create_group('4')
-    group_0_inner = group_4.create_group('0')
-    
+    group_0 = root.create_group("0")
+    group_4 = group_0.create_group("4")
+    group_0_inner = group_4.create_group("0")
+
     # Determine shape based on dimensions
     if n_dim == 3:
         # 3D data: (T, Z, Y, X, C) where C=2 for nuclear and membrane channels
@@ -58,13 +53,15 @@ def create_mock_imaging_zarr(working_directory: Path, tmax: int = 4, size: int =
     else:
         # 2D data: (T, Y, X, C) where C=2 for nuclear and membrane channels
         shape = (tmax, size, size, 2)
-    
+
     # Create empty array with zeros
     data = np.zeros(shape, dtype=np.uint16)
-    
+
     # Store in the zarr array
-    group_0_inner.create_dataset('0', data=data, chunks=(1, size//4, size//4, size//4, 2))
-    
+    group_0_inner.create_dataset(
+        "0", data=data, chunks=(1, size // 4, size // 4, size // 4, 2)
+    )
+
     return str(zarr_path)
 
 
@@ -92,10 +89,7 @@ def test_trackedit_widgets(
 
     # Create mock imaging zarr file
     imaging_zarr_file = create_mock_imaging_zarr(
-        working_directory=working_directory,
-        tmax=4,
-        size=64,
-        n_dim=3
+        working_directory=working_directory, tmax=4, size=64, n_dim=3
     )
     imaging_channel = "0/4/0/0"
 
@@ -132,25 +126,29 @@ def test_trackedit_widgets(
     toAnnotateBox = track_edit.AnnotationWidget.toannotate_box
     assert toAnnotateBox is not None, "ToAnnotateBox not found"
 
-    TV = track_edit.tracksviewer
-
     # Get the navigation widget
     navigation_widget = track_edit.NavigationWidget
     assert navigation_widget is not None, "NavigationWidget not found"
 
     # Navigate to next chunk
     navigation_widget.change_chunk.emit("next")
-    
+
     # The data should be different after navigation (different time window)
     # Note: Since we're using zeros, the data will be identical, but the time window should change
-    assert track_edit.databasehandler.imagingArray.time_window != (0, 3), "Time window should change after navigation"
-    
+    assert track_edit.databasehandler.imagingArray.time_window != (
+        0,
+        3,
+    ), "Time window should change after navigation"
+
     # Navigate back to previous chunk
     navigation_widget.change_chunk.emit("prev")
-    
+
     # Check that we're back to the original time window
-    assert track_edit.databasehandler.imagingArray.time_window == (0, 3), "Should return to original time window"
-    
+    assert track_edit.databasehandler.imagingArray.time_window == (
+        0,
+        3,
+    ), "Should return to original time window"
+
     # Test navigation to a specific frame
     navigation_widget.goto_frame.emit(2)  # Go to frame 2
 
