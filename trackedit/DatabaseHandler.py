@@ -362,8 +362,26 @@ class DatabaseHandler:
 
     def get_same_db_filename(self, old_filename):
         """
-        Generate the next version of a database filename.
+        Generate the same database filename, handling the 'latest' special case.
         """
+        if old_filename == "latest":
+            # Find all database files in the working directory that match the pattern data_v*.db
+            pattern = re.compile(r"data_v(\d+)\.db$")
+            version_files = []
+
+            for file in self.working_directory.glob("data_v*.db"):
+                match = pattern.match(file.name)
+                if match:
+                    version_files.append((int(match.group(1)), file.name))
+
+            # If no versioned files found, use data.db as the file
+            if not version_files:
+                old_filename = "data.db"
+            else:
+                # Sort by version number and get the highest one
+                version_files.sort(key=lambda x: x[0])
+                old_filename = version_files[-1][1]
+
         name, ext = os.path.splitext(old_filename)
         old_filename = name + ext
         db_filename_new = old_filename
