@@ -50,10 +50,13 @@ def run_trackedit(
         time_chunk: Starting time chunk
         time_chunk_length: Length of time chunks
         time_chunk_overlap: Overlap between time chunks
+        work_in_existing_db: Work in existing database (only used if db_filename is specifically specified)
         allow_overwrite: Allow overwriting existing files
         imaging_zarr_file: Path to imaging zarr file
         imaging_channel: Channel to use from imaging file
         viewer: Optional existing napari viewer
+        flag_show_hierarchy: Show hierarchy in the viewer
+        annotation_mapping: Mapping of annotation ids to names and colors
 
     Returns:
         Tuple[napari.Viewer, TrackEditClass]: The viewer instance and TrackEdit instance
