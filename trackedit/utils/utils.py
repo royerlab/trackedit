@@ -15,6 +15,7 @@ from ultrack.config.config import MainConfig
 from ultrack.config.dataconfig import DataConfig
 from ultrack.core.database import NodeDB
 from ultrack.utils.array import create_zarr, large_chunk_size
+from ultrack.utils.constants import NO_PARENT
 from zarr.storage import Store
 
 
@@ -280,4 +281,38 @@ def solution_dataframe_from_sql_with_tmax(
         )
         df = pd.read_sql(statement, session.bind, index_col="id")
 
+    return df
+
+
+def remove_nonexisting_parents(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Remove parents that do not exist in the dataframe.
+    Why:
+    Let's say we have a database with 200 frames, with tracks spanning all 200 farmes.
+    But if the database is opened with tMax=100, and a cell i is deleted at t=100,
+    the parent_id of its parent cell (at t=101) in the database is still i.
+    If later, the database is opened with tMax=200, the parent_id of the cell at t=101 is still i,
+    but cell i no longer exist, giving an error when assigning track_ids.
+
+    This function set the parent_ids to -1, for the rows in the database whose
+    parent_id is not in the dataframe (selected=False)
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Dataframe with columns: id, parent_id
+
+    Returns
+    -------
+    pd.DataFrame
+        Dataframe with the parent_ids set to -1 for the rows in the database whose
+        parent_id is not in the dataframe (selected=False)
+    """
+    all_parent_ids = df["parent_id"].to_numpy()
+    all_ids = df.index.to_numpy()
+    non_existing_parent_ids = np.setdiff1d(all_parent_ids, all_ids)
+    non_existing_parent_ids = non_existing_parent_ids[
+        non_existing_parent_ids != NO_PARENT
+    ]
+    df.loc[df.parent_id.isin(non_existing_parent_ids), "parent_id"] = NO_PARENT
     return df
