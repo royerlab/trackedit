@@ -5,7 +5,7 @@
 
 # TrackEdit ⛓️
 
-Set of napari widget to interactively proofread, edit, and annotate, cell tracking data tracked with [Ultrack](https://github.com/royerlab/ultrack).
+Set of napari widgets to interactively proofread, edit, and annotate, cell tracking data tracked with [Ultrack](https://github.com/royerlab/ultrack).
 
 -----
 
