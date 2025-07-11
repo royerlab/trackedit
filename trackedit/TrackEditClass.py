@@ -390,7 +390,7 @@ class TrackEditClass:
                 time=time,
                 mask=pickle.mask,
                 bbox=pickle.bbox,
-                include_overlaps=False,
+                include_overlaps=True,
             )
             print("added node to db:", new_id, "at time", time)
 
