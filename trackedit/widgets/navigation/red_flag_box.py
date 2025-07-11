@@ -76,6 +76,16 @@ class RedFlagBox(NavigationBox):
         self.red_flag_prev_btn.setEnabled(has_flags)
         self.red_flag_next_btn.setEnabled(has_flags)
 
+        # Update ignore button state based on current red flag event type
+        if has_flags and not self.databasehandler.red_flags.empty:
+            current_event = self.databasehandler.red_flags.iloc[
+                self.current_red_flag_index
+            ]["event"]
+            # Only enable ignore button for "added" and "removed" events, not "overlap"
+            self.red_flag_ignore_btn.setEnabled(current_event != "overlap")
+        else:
+            self.red_flag_ignore_btn.setEnabled(False)
+
     def update_red_flag_counter_and_info(self):
         """Update the red flag label to show the current red flag index and total count."""
         total = len(self.databasehandler.red_flags)
@@ -83,6 +93,30 @@ class RedFlagBox(NavigationBox):
             self.red_flag_counter.setText(f"{self.current_red_flag_index + 1}/{total}")
             df_rf = self.databasehandler.red_flags.iloc[[self.current_red_flag_index]]
             text = f"{df_rf.iloc[0].id} {df_rf.iloc[0].event} at t={df_rf.iloc[0].t}"
+            if df_rf.iloc[0].event == "overlap":
+                try:
+                    # Find the row in overlapping_cells_df where df_rf.id appears in either node_id or ancestor_id
+                    current_id = df_rf.iloc[0].id
+                    overlap_row = self.databasehandler.overlapping_cells_df[
+                        (
+                            self.databasehandler.overlapping_cells_df["node_id"]
+                            == current_id
+                        )
+                        | (
+                            self.databasehandler.overlapping_cells_df["ancestor_id"]
+                            == current_id
+                        )
+                    ].iloc[0]
+
+                    # Get the other cell ID (the one that's not current_id)
+                    if overlap_row["node_id"] == current_id:
+                        overlaps_with = overlap_row["ancestor_id"]
+                    else:
+                        overlaps_with = overlap_row["node_id"]
+
+                    text = text + f" (with {overlaps_with})"
+                except IndexError:
+                    text = text + " (errored)"
             self.red_flag_info.setText(text)
         else:
             self.red_flag_counter.setText("0/0")
@@ -126,14 +160,16 @@ class RedFlagBox(NavigationBox):
 
     def ignore_red_flag(self):
         """Ignore the current red flag and remove it from the list."""
-        # Get the ID before we remove the red flag
-        current_id = self.databasehandler.red_flags.iloc[self.current_red_flag_index][
-            "id"
+        # Get the current red flag data before we remove it
+        current_red_flag = self.databasehandler.red_flags.iloc[
+            self.current_red_flag_index
         ]
+        current_id = current_red_flag["id"]
+        current_event = current_red_flag["event"]
         total_flags = len(self.databasehandler.red_flags)
 
-        # Remove the red flag
-        self.databasehandler.ignore_red_flag(current_id)
+        # Remove the red flag (pass both id and event to ensure correct identification)
+        self.databasehandler.ignore_red_flag(current_id, current_event)
 
         # Update index for remaining flags (if any)
         total_flags -= 1  # one was just removed
@@ -166,17 +202,17 @@ class RedFlagBox(NavigationBox):
         red_flag_ids = self.databasehandler.red_flags["id"].values
 
         try:
+            # Find the first occurrence of the selected node in red flags
             index = np.where(red_flag_ids == selected_node)[0][0]
-            # Found the node in red flags - update counter and remove grey
+            # Found the node in red flags - update current index and counter
             self.current_red_flag_index = index
             self.red_flag_counter.setText(
                 f"{index + 1}/{len(self.databasehandler.red_flags)}"
             )
             self.red_flag_counter.setStyleSheet("")
-            self.red_flag_ignore_btn.setEnabled(True)
         except IndexError:
             # Node not found in red flags - grey out counter
             self.red_flag_counter.setStyleSheet("color: gray;")
             self.red_flag_ignore_btn.setEnabled(False)
 
-        self._update_button_states()
+        self.update_red_flag_counter_and_info()

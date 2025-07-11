@@ -68,6 +68,13 @@ Note: make sure to first `pixi shell` in the $MYDATA directory, before running t
 | Z | Undo last edit |
 | R | Redo last edit |
 
+## Testing
+
+To run the `TrackEdit` tests (ignore the motile_tracker tests) as individual napari instances to prevent the widgest from interfering with each other:
+```
+pytest _tests/ --forked
+```
+
 ## Credits 🙌
 The `TrackEdit` widget structure is inspired by, and built upon, [Motile_tracker](https://github.com/funkelab/motile_tracker) (Funke lab, HHMI Janelia Research Campus)
 

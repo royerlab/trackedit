@@ -24,6 +24,11 @@ from ultrack.tracks.graph import add_track_ids_to_tracks_df
 from trackedit.__about__ import __version__
 from trackedit.arrays.DatabaseArray import DatabaseArray
 from trackedit.arrays.ImagingArray import SimpleImageArray
+from trackedit.utils.red_flag_funcs import (
+    combine_red_flags,
+    find_all_starts_and_ends,
+    find_overlapping_cells,
+)
 from trackedit.utils.utils import (
     annotations_to_zarr,
     remove_nonexisting_parents,
@@ -150,10 +155,10 @@ class DatabaseHandler:
         self.df_full = self.db_to_df(entire_database=True)
         # ToDo: df_full might be very large for large datasets, but annotation/redflags/division need it
         self.nxgraph = self.df_to_nxgraph()
-        self.red_flags = self.find_all_red_flags()
+        self.red_flags_ignore_list = self._load_red_flags_ignore_list()
+        self.recompute_red_flags()
         self.toannotate = self.find_all_toannotate()
         self.divisions = self.find_all_divisions()
-        self.red_flags_ignore_list = []
         self.log(
             f"Start annotation session - TrackEdit v{__version__} ({datetime.now()})"
         )
@@ -161,6 +166,12 @@ class DatabaseHandler:
             f"Parameters: Tmax: {self.Tmax}, working_directory: {self.working_directory}, "
             f"db_filename: {self.db_filename_new}"
         )
+
+        # print red flag summary
+        print("\nRed flag summary:")
+        print(f"  Total red flags: {len(self.red_flags)}")
+        for event, count in self.red_flags.event.value_counts().items():
+            print(f"    {event}: {count}")
 
         # Default label for unlabeled cells
         default_annotation = {
@@ -635,7 +646,7 @@ class DatabaseHandler:
 
     def find_all_red_flags(self) -> pd.DataFrame:
         """
-        Identify tracking red flags ('added' or 'removed') from one timepoint to the next.
+        Identify tracking red flags using multiple heuristics.
 
         Returns
         -------
@@ -644,88 +655,14 @@ class DatabaseHandler:
         """
         df = self.df_full.copy()
 
-        # Define a continuous range of timepoints.
-        time_range = range(df["t"].min(), df["t"].max() + 1)
-
-        # Precompute the set of track_ids for each timepoint.
-        track_sets = (
-            df.groupby("t")["track_id"].agg(set).reindex(time_range, fill_value=set())
+        # Apply different red flag detection heuristics
+        rfs_starts_and_ends = find_all_starts_and_ends(df)
+        self.overlapping_cells_df, rfs_overlap = find_overlapping_cells(
+            df, self.db_path_new
         )
-        # Precompute the set of cell ids for each timepoint.
-        id_sets = df.groupby("t")["id"].agg(set).reindex(time_range, fill_value=set())
 
-        # Precompute mappings from (t, track_id) to the cell's own id and parent_id.
-        id_mapping = df.set_index(["t", "track_id"])["id"].to_dict()
-        parent_mapping = df.set_index(["t", "track_id"])["parent_id"].to_dict()
-
-        # For each timepoint, count how many times a given id appears as a parent_id (i.e. number of daughters).
-        daughter_counts = {t: {} for t in time_range}
-        for t, group in df.groupby("t"):
-            daughter_counts[t] = group["parent_id"].value_counts().to_dict()
-
-        events = []
-        timepoints = list(time_range)
-
-        # Before the main loop, let's identify single-point tracks
-        track_lengths = df.groupby("track_id").size()
-        single_point_tracks = set(track_lengths[track_lengths == 1].index)
-
-        for i, t in enumerate(timepoints):
-            current_tracks = track_sets[t]
-            # For t=0, use the current set as the "previous" set.
-            prev_tracks = track_sets[timepoints[i - 1]] if i > 0 else current_tracks
-            # For the last timepoint, use the current set as the "next" set.
-            next_tracks = (
-                track_sets[timepoints[i + 1]]
-                if i < len(timepoints) - 1
-                else current_tracks
-            )
-
-            # Detect "added" events: cells present now but not in the previous timepoint.
-            added_tracks = current_tracks - prev_tracks
-            for track in added_tracks:
-                # Check if this row has a valid parent.
-                par = parent_mapping.get((t, track), -1)
-                # If the cell has a parent (par != -1) and that parent exists in the previous timepoint,
-                # then it is likely due to a division. In that case, skip flagging it.
-                if par != -1 and (i > 0 and par in id_sets[timepoints[i - 1]]):
-                    continue
-                events.append(
-                    {
-                        "t": t,
-                        "track_id": track,
-                        "id": id_mapping.get((t, track)),
-                        "event": "added",
-                    }
-                )
-
-            # Detect "removed" events: cells present now but not in the next timepoint.
-            removed_tracks = current_tracks - next_tracks
-            for track in removed_tracks:
-                cell_id = id_mapping.get((t, track))
-                # Skip if this is a single-point track (it will be reported as 'added' only)
-                if track in single_point_tracks:
-                    continue
-                # Check for division: in the next timepoint, if there are 2 or more cells
-                # with parent_id equal to this cell's id, skip flagging.
-                if i < len(timepoints) - 1:
-                    daughters = daughter_counts.get(timepoints[i + 1], {})
-                    if daughters.get(cell_id, 0) >= 2:
-                        continue
-                events.append(
-                    {
-                        "t": t,
-                        "track_id": track,
-                        "id": cell_id,
-                        "event": "removed",
-                    }
-                )
-
-        result_df = pd.DataFrame(events)
-
-        # If no events were found, return empty DataFrame with correct columns
-        if result_df.empty:
-            return pd.DataFrame(columns=["t", "track_id", "id", "event"])
+        # Combine all red flag detection results
+        result_df = combine_red_flags(rfs_starts_and_ends, rfs_overlap)
 
         # ToDo: make option to filter redflags in the first two timepoints
         # (useful for neuromast with suboptimal beginning)
@@ -820,7 +757,9 @@ class DatabaseHandler:
         # Only filter if we have any red flags
         if not self.red_flags.empty:
             self.red_flags = self.red_flags[
-                ~self.red_flags["id"].isin(self.red_flags_ignore_list)
+                ~self.red_flags[["id", "event"]]
+                .apply(tuple, axis=1)
+                .isin(self.red_flags_ignore_list[["id", "event"]].apply(tuple, axis=1))
             ]
 
     def recompute_divisions(self):
@@ -831,19 +770,95 @@ class DatabaseHandler:
         """called by update_toannotate in TrackEditClass upon tracks_updated signal in TracksViewer"""
         self.toannotate = self.find_all_toannotate()
 
-    def ignore_red_flag(self, id):
-        self.red_flags_ignore_list.append(id)
+    def _load_red_flags_ignore_list(self) -> pd.DataFrame:
+        """Load the red flags ignore list from text file if it exists."""
+        ignore_file_path = self.working_directory / "red_flags_ignore_list.txt"
 
-        # Get the values first for clarity
-        event = self.red_flags.loc[self.red_flags["id"] == id, "event"].values[0]
-        time = self.red_flags.loc[self.red_flags["id"] == id, "t"].values[0]
+        if ignore_file_path.exists():
+            try:
+                ignore_data = []
+                with open(ignore_file_path) as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith(
+                            "#"
+                        ):  # Skip empty lines and comments
+                            try:
+                                t, id_val, event = line.split(",")
+                                ignore_data.append(
+                                    {
+                                        "t": int(t.strip()),
+                                        "id": int(id_val.strip()),
+                                        "event": event.strip(),
+                                    }
+                                )
+                            except ValueError:
+                                self.log(
+                                    f"Warning: Skipping malformed line in ignore list: {line}"
+                                )
+                                continue
+
+                ignore_list = pd.DataFrame(ignore_data)
+                if not ignore_list.empty:
+                    ignore_list = ignore_list.sort_values(["t", "id"]).reset_index(
+                        drop=True
+                    )
+                self.log(
+                    f"Loaded {len(ignore_list)} ignored red flags from {ignore_file_path}"
+                )
+                return ignore_list
+            except Exception as e:
+                self.log(f"Error loading ignore list: {e}. Starting with empty list.")
+                return pd.DataFrame(columns=["t", "id", "event"])
+        else:
+            self.log("No ignore list file found. Starting with empty list.")
+            return pd.DataFrame(columns=["t", "id", "event"])
+
+    def _save_red_flags_ignore_list(self):
+        """Save the red flags ignore list to text file."""
+        ignore_file_path = self.working_directory / "red_flags_ignore_list.txt"
+        try:
+            with open(ignore_file_path, "w") as f:
+                f.write("# Red flags ignore list - one entry per line: t, id, event\n")
+
+                for _, row in self.red_flags_ignore_list.iterrows():
+                    f.write(f"{row['t']}, {row['id']}, {row['event']}\n")
+
+            self.log(
+                f"Saved {len(self.red_flags_ignore_list)} ignored red flags to {ignore_file_path}"
+            )
+        except Exception as e:
+            self.log(f"Error saving ignore list: {e}")
+
+    def ignore_red_flag(self, id, event):
+        # Get the time for the specific red flag
+        time = self.red_flags.loc[
+            (self.red_flags["id"] == id) & (self.red_flags["event"] == event), "t"
+        ].values[0]
+
+        # Add to ignore list DataFrame
+        new_ignore_row = pd.DataFrame({"t": [time], "id": [id], "event": [event]})
+        self.red_flags_ignore_list = pd.concat(
+            [self.red_flags_ignore_list, new_ignore_row], ignore_index=True
+        )
+
+        # Sort by time then id to maintain consistent order
+        self.red_flags_ignore_list = self.red_flags_ignore_list.sort_values(
+            ["t", "id"]
+        ).reset_index(drop=True)
+
+        # Save to text file immediately
+        self._save_red_flags_ignore_list()
 
         message = f"ignore red flag: cell {id} {event} " f"at time {time}"
         self.log(message)
 
-        # remove the ignores red flag from the red flags
+        # remove the ignored red flag from the red flags
+        # Use both id and event to ensure we only remove the specific red flag type
         self.red_flags = self.red_flags[
-            ~self.red_flags["id"].isin(self.red_flags_ignore_list)
+            ~self.red_flags[["id", "event"]]
+            .apply(tuple, axis=1)
+            .isin(self.red_flags_ignore_list[["id", "event"]].apply(tuple, axis=1))
         ]
 
     def export_tracks(self):
