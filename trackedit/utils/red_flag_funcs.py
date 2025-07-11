@@ -1,6 +1,7 @@
 import pandas as pd
 import sqlalchemy as sqla
-from ultrack.core.database import Session, OverlapDB
+from ultrack.core.database import OverlapDB, Session
+
 
 def find_all_starts_and_ends(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -48,9 +49,7 @@ def find_all_starts_and_ends(df: pd.DataFrame) -> pd.DataFrame:
         prev_tracks = track_sets[timepoints[i - 1]] if i > 0 else current_tracks
         # For the last timepoint, use the current set as the "next" set.
         next_tracks = (
-            track_sets[timepoints[i + 1]]
-            if i < len(timepoints) - 1
-            else current_tracks
+            track_sets[timepoints[i + 1]] if i < len(timepoints) - 1 else current_tracks
         )
 
         # Detect "added" events: cells present now but not in the previous timepoint.
@@ -103,7 +102,7 @@ def find_all_starts_and_ends(df: pd.DataFrame) -> pd.DataFrame:
 def find_overlapping_cells(df_full: pd.DataFrame, database_path: str) -> pd.DataFrame:
     """
     Find red flags based on overlapping cells heuristic.
-    
+
     Parameters
     ----------
     df_full : pd.DataFrame
@@ -127,52 +126,58 @@ def find_overlapping_cells(df_full: pd.DataFrame, database_path: str) -> pd.Data
             overlap_query.statement,
             session.bind,
         )
-    
-    # Filter overlap_df to only include rows where both node_id and ancestor_id 
+
+    # Filter overlap_df to only include rows where both node_id and ancestor_id
     # exist in the index of df_full
     if overlap_df.empty:
-        return pd.DataFrame(columns=["node_id", "ancestor_id"]), pd.DataFrame(columns=["t", "id", "event"])
-    
+        return pd.DataFrame(columns=["node_id", "ancestor_id"]), pd.DataFrame(
+            columns=["t", "id", "event"]
+        )
+
     # Get the set of valid cell ids from df_full index
     valid_ids = set(df_full.index)
-    
+
     # Filter overlap_df to only include rows where both ids exist
     filtered_overlap_df = overlap_df[
-        (overlap_df["node_id"].isin(valid_ids)) & 
-        (overlap_df["ancestor_id"].isin(valid_ids))
+        (overlap_df["node_id"].isin(valid_ids))
+        & (overlap_df["ancestor_id"].isin(valid_ids))
     ]
-    
+
     # Create red flag format DataFrame
     red_flag_events = []
     for _, row in filtered_overlap_df.iterrows():
         # Get time information for both cells from df_full
-        node_time = df_full.loc[row["node_id"], "t"] if row["node_id"] in df_full.index else None
-        ancestor_time = df_full.loc[row["ancestor_id"], "t"] if row["ancestor_id"] in df_full.index else None
-        
+        node_time = (
+            df_full.loc[row["node_id"], "t"]
+            if row["node_id"] in df_full.index
+            else None
+        )
+        ancestor_time = (
+            df_full.loc[row["ancestor_id"], "t"]
+            if row["ancestor_id"] in df_full.index
+            else None
+        )
+
         # Add both cells as overlap events
         if node_time is not None:
-            red_flag_events.append({
-                "t": node_time,
-                "id": row["node_id"],
-                "event": "overlap"
-            })
-        
+            red_flag_events.append(
+                {"t": node_time, "id": row["node_id"], "event": "overlap"}
+            )
+
         if ancestor_time is not None:
-            red_flag_events.append({
-                "t": ancestor_time,
-                "id": row["ancestor_id"],
-                "event": "overlap"
-            })
-    
+            red_flag_events.append(
+                {"t": ancestor_time, "id": row["ancestor_id"], "event": "overlap"}
+            )
+
     red_flag_df = pd.DataFrame(red_flag_events)
-    
+
     return filtered_overlap_df, red_flag_df
 
 
 def combine_red_flags(*red_flag_dfs: pd.DataFrame) -> pd.DataFrame:
     """w
     Combine multiple red flag DataFrames into a single DataFrame.
-    
+
     Parameters
     ----------
     *red_flag_dfs : pd.DataFrame
@@ -185,15 +190,15 @@ def combine_red_flags(*red_flag_dfs: pd.DataFrame) -> pd.DataFrame:
     """
     if not red_flag_dfs:
         return pd.DataFrame(columns=["t", "track_id", "id", "event"])
-    
+
     # Combine all DataFrames
     combined_df = pd.concat(red_flag_dfs, ignore_index=True)
-    
+
     # Remove duplicates based on (t, id, event) combination
     combined_df = combined_df.drop_duplicates(subset=["t", "id", "event"])
-    
+
     # Sort by time then id for consistent ordering
     if not combined_df.empty:
         combined_df = combined_df.sort_values(["t", "id"]).reset_index(drop=True)
-    
-    return combined_df 
+
+    return combined_df
