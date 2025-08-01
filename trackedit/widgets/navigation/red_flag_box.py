@@ -78,11 +78,7 @@ class RedFlagBox(NavigationBox):
 
         # Update ignore button state based on current red flag event type
         if has_flags and not self.databasehandler.red_flags.empty:
-            current_event = self.databasehandler.red_flags.iloc[
-                self.current_red_flag_index
-            ]["event"]
-            # Only enable ignore button for "added" and "removed" events, not "overlap"
-            self.red_flag_ignore_btn.setEnabled(current_event != "overlap")
+            self.red_flag_ignore_btn.setEnabled(True)
         else:
             self.red_flag_ignore_btn.setEnabled(False)
 
