@@ -67,6 +67,7 @@ preview = ["pixi-build"]
 
 [tool.pixi.pypi-dependencies]
 ultrack = { git = "https://github.com/royerlab/ultrack.git", rev = "18162481724917475d2ed503b432b5ed21307237" }
+geff = {git = "https://github.com/live-image-tracking-tools/geff.git"}
 
 [tool.pixi.feature.editable.pypi-dependencies]
 trackedit = { path = ".", editable = true }
@@ -89,6 +90,7 @@ pyqt = ">=5.15.9,<6"
 numpy = "<2.2"
 pre-commit = ">=4.1.0,<5"
 dask = ">=2025.2.0,<2026"
+pyscipopt = "*"  #for ilpy (on mac)
 
 [tool.pixi.feature.test.dependencies]
 pytest = "*"
