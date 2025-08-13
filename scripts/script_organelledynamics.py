@@ -51,7 +51,7 @@ annotation_mapping = {
     2: {"name": "infected", "color": [1.0, 0.0, 0.0, 1.0]},  # red
     3: {"name": "other", "color": [0.5, 0.5, 0.5, 1.0]},  # grey
 }
-default_start_annotation = 1 #not-infected
+default_start_annotation = 1  # not-infected
 # annotation_mapping = None
 # default_start_annotation = None
 
