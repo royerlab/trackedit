@@ -41,8 +41,19 @@ def create_db_add_nodes(DB_handler):
                 int(n),
                 [NodeDB.z, NodeDB.y, NodeDB.x],
             )
-            pos = pos.tolist()
-            pos[0] *= DB_handler.z_scale
+            pos = pos.tolist()  # pos is always 3D
+            if DB_handler.ndim == 4:
+                pos[0] *= DB_handler.z_scale
+                pos[1] *= DB_handler.y_scale
+                pos[2] *= DB_handler.x_scale
+            elif DB_handler.ndim == 3:
+                pos = pos[1:]
+                pos[0] *= DB_handler.y_scale
+                pos[1] *= DB_handler.x_scale
+            else:
+                raise ValueError(
+                    f"Database should be 2D or 3D, not {DB_handler.ndim-1}D"
+                )
             new_pos.append(pos)
         self.positions = np.array(new_pos)
 

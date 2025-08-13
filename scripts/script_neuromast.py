@@ -20,7 +20,7 @@ working_directory = Path(
 # name of the database file to start from, or "latest" to start from the latest version, defaults to "data.db"
 db_filename_start = "latest"
 # maximum number of frames display, defaults to None (use all frames)
-tmax = 100
+tmax = 600
 # (Z),Y,X, defaults to (1, 1, 1)
 scale = (2.31, 1, 1)
 # overwrite existing database/changelog, defaults to False (not used when db_filename_start is "latest")
