@@ -51,7 +51,9 @@ annotation_mapping = {
     2: {"name": "infected", "color": [1.0, 0.0, 0.0, 1.0]},  # red
     3: {"name": "other", "color": [0.5, 0.5, 0.5, 1.0]},  # grey
 }
+default_start_annotation = 1 #not-infected
 # annotation_mapping = None
+# default_start_annotation = None
 
 
 # filter the database segments on pixel coordinates
@@ -77,4 +79,5 @@ if __name__ == "__main__":
         image_translate=image_translate,
         annotation_mapping=annotation_mapping,
         coordinate_filters=coordinate_filters,
+        default_start_annotation=default_start_annotation,
     )

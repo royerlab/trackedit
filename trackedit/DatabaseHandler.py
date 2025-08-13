@@ -57,6 +57,7 @@ class DatabaseHandler:
         image_z_slice: int = None,
         image_translate: tuple = None,
         coordinate_filters: list = None,
+        default_start_annotation: int = None,  # Make it optional
     ):
 
         # inputs
@@ -143,6 +144,13 @@ class DatabaseHandler:
         self.data_shape_chunk = self.data_shape_full.copy()
         self.data_shape_chunk[0] = self.time_chunk_length
 
+        # Store the default annotation value, fall back to NodeDB.generic default if not provided
+        self.default_start_annotation = (
+            default_start_annotation
+            if default_start_annotation is not None
+            else NodeDB.generic.default.arg
+        )
+
         self.add_missing_columns_to_db()
 
         # DatabaseArray()
@@ -192,7 +200,7 @@ class DatabaseHandler:
 
         # Default label for unlabeled cells
         default_annotation = {
-            NodeDB.generic.default.arg: {  # -1
+            self.default_start_annotation: {  # Use the instance variable
                 "name": "none",
                 "color": [0.5, 0.5, 0.5, 1.0],  # gray
             }
@@ -328,11 +336,8 @@ class DatabaseHandler:
 
             expected_columns[column.name] = col_definition
 
-        # Add the new generic column using the same default as NodeDB.generic
-        generic_default = NodeDB.generic.default.arg if NodeDB.generic.default else None
-        expected_columns[
-            "generic"
-        ] = f'INTEGER{" DEFAULT " + str(generic_default) if generic_default is not None else ""}'
+        # Add the new generic column using the custom default annotation value
+        expected_columns["generic"] = f"INTEGER DEFAULT {self.default_start_annotation}"
 
         return expected_columns
 
