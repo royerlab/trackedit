@@ -18,7 +18,7 @@ from ultrack.core.database import (
     get_node_values,
     set_node_values,
 )
-from ultrack.core.export import tracks_layer_to_networkx, tracks_to_zarr
+from ultrack.core.export import tracks_layer_to_networkx
 from ultrack.tracks.graph import add_track_ids_to_tracks_df
 
 from trackedit.__about__ import __version__
@@ -30,7 +30,6 @@ from trackedit.utils.red_flag_funcs import (
     find_overlapping_cells,
 )
 from trackedit.utils.utils import (
-    annotations_to_zarr,
     remove_nonexisting_parents,
     solution_dataframe_from_sql_with_tmax,
 )
@@ -718,35 +717,86 @@ class DatabaseHandler:
 
     def find_all_toannotate(self) -> pd.DataFrame:
         """
-        Find all track IDs that have no annotations (generic = 0), with their mean appearance time and first ID.
+        Find all unannotated segments within tracks (generic = -1), with their time ranges and IDs.
 
         Returns
         -------
         pd.DataFrame
-            DataFrame with columns: track_id, first_t, first_id, sorted by mean appearance time
+            DataFrame with columns: track_id, first_t, last_t, first_id, last_id, sorted by first appearance time
         """
         # Get rows with no annotations
         unannotated = self.df_full[
             self.df_full["generic"] == NodeDB.generic.default.arg
         ]
 
-        # For each track_id, get the first time point and corresponding first ID
-        to_annotate = (
-            unannotated.groupby("track_id")
-            .agg({"t": "first"})  # Get the first time point of each track
-            .astype({"t": int})  # Convert first time to integer
-            .reset_index()
-            .rename(columns={"t": "first_t"})
-            .sort_values("first_t")
-            .reset_index(drop=True)
-        )
+        if unannotated.empty:
+            return pd.DataFrame(
+                columns=["track_id", "first_t", "last_t", "first_id", "last_id"]
+            )
 
-        # Get the IDs at these first times
-        to_annotate = to_annotate.merge(
-            unannotated[["track_id", "t", "id"]],
-            left_on=["track_id", "first_t"],
-            right_on=["track_id", "t"],
-        )[["track_id", "first_t", "id"]].rename(columns={"id": "first_id"})
+        # Group by track_id and find consecutive unannotated segments
+        segments = []
+
+        for track_id in unannotated["track_id"].unique():
+            track_data = unannotated[unannotated["track_id"] == track_id].sort_values(
+                "t"
+            )
+
+            if track_data.empty:
+                continue
+
+            # Find consecutive time segments
+            current_start = track_data.iloc[0]["t"]
+            current_start_id = track_data.iloc[0]["id"]
+            prev_time = current_start
+
+            for i in range(1, len(track_data)):
+                current_time = track_data.iloc[i]["t"]
+                current_id = track_data.iloc[i]["id"]
+
+                # If there's a gap in time, save the current segment and start a new one
+                if current_time != prev_time + 1:
+                    segments.append(
+                        {
+                            "track_id": track_id,
+                            "first_t": current_start,
+                            "last_t": prev_time,
+                            "first_id": current_start_id,
+                            "last_id": track_data.iloc[i - 1]["id"],
+                        }
+                    )
+                    current_start = current_time
+                    current_start_id = current_id
+
+                prev_time = current_time
+
+            # Add the last segment
+            segments.append(
+                {
+                    "track_id": track_id,
+                    "first_t": current_start,
+                    "last_t": prev_time,
+                    "first_id": current_start_id,
+                    "last_id": track_data.iloc[-1]["id"],
+                }
+            )
+
+        # Convert to DataFrame and sort
+        to_annotate = pd.DataFrame(segments)
+        if not to_annotate.empty:
+            # Ensure all numeric columns are integers
+            to_annotate = to_annotate.astype(
+                {
+                    "track_id": int,
+                    "first_t": int,
+                    "last_t": int,
+                    "first_id": int,
+                    "last_id": int,
+                }
+            )
+            to_annotate = to_annotate.sort_values(
+                ["first_t", "last_t", "first_id"]
+            ).reset_index(drop=True)
 
         return to_annotate
 
@@ -882,12 +932,65 @@ class DatabaseHandler:
         csv_filename = (
             self.working_directory / f"{self.extension_string}_annotations.csv"
         )
-        # Group by track_id and take the first label for each track
+        # Create one row per segment instead of per track
         annotations_df = self.df_full[["track_id", "t", "generic"]].copy()
         annotations_df["label"] = annotations_df["generic"].map(self.annotation_mapping)
-        df_grouped = annotations_df.groupby("track_id").first().reset_index()
-        df_grouped.to_csv(csv_filename, index=False)
-        # ToDo: check if only one label per track_id
+
+        # Group by track_id and find segments with the same label
+        segments = []
+        for track_id in annotations_df["track_id"].unique():
+            track_data = annotations_df[
+                annotations_df["track_id"] == track_id
+            ].sort_values("t")
+
+            if track_data.empty:
+                continue
+
+            # Find consecutive frames with the same label
+            current_label = track_data.iloc[0]["label"]
+            current_start = track_data.iloc[0]["t"]
+            prev_time = current_start
+
+            for i in range(1, len(track_data)):
+                current_time = track_data.iloc[i]["t"]
+                current_label_at_time = track_data.iloc[i]["label"]
+
+                # If there's a gap in time or label changes, save the current segment
+                if (
+                    current_time != prev_time + 1
+                    or current_label_at_time != current_label
+                ):
+                    segments.append(
+                        {
+                            "track_id": track_id,
+                            "first_t": int(current_start),
+                            "last_t": int(prev_time),
+                            "label": current_label,
+                        }
+                    )
+                    current_start = current_time
+                    current_label = current_label_at_time
+
+                prev_time = current_time
+
+            # Add the last segment
+            segments.append(
+                {
+                    "track_id": track_id,
+                    "first_t": int(current_start),
+                    "last_t": int(prev_time),
+                    "label": current_label,
+                }
+            )
+
+        # Convert to DataFrame and export
+        df_segments = pd.DataFrame(segments)
+        if not df_segments.empty:
+            df_segments = df_segments.sort_values(["track_id", "first_t"]).reset_index(
+                drop=True
+            )
+
+        df_segments.to_csv(csv_filename, index=False)
 
         # divisions.txt
         txt_filename = self.working_directory / f"{self.extension_string}_divisions.txt"
@@ -916,27 +1019,27 @@ class DatabaseHandler:
                     f" + {daughter_tracks[1]} ({daughter2_label})\n"
                 )
 
-        # segments.zarr
-        zarr_filename = (
-            self.working_directory / f"{self.extension_string}_segments.zarr"
-        )
-        tracks_to_zarr(
-            config=self.config_adjusted,
-            tracks_df=self.df_full,
-            store_or_path=zarr_filename,
-            overwrite=True,
-        )
+        # # segments.zarr
+        # zarr_filename = (
+        #     self.working_directory / f"{self.extension_string}_segments.zarr"
+        # )
+        # tracks_to_zarr(
+        #     config=self.config_adjusted,
+        #     tracks_df=self.df_full,
+        #     store_or_path=zarr_filename,
+        #     overwrite=True,
+        # )
 
-        # annotations.zarr
-        zarr_filename = (
-            self.working_directory / f"{self.extension_string}_annotations.zarr"
-        )
-        annotations_to_zarr(
-            config=self.config_adjusted,
-            tracks_df=self.df_full,
-            store_or_path=zarr_filename,
-            overwrite=True,
-        )
+        # # annotations.zarr
+        # zarr_filename = (
+        #     self.working_directory / f"{self.extension_string}_annotations.zarr"
+        # )
+        # annotations_to_zarr(
+        #     config=self.config_adjusted,
+        #     tracks_df=self.df_full,
+        #     store_or_path=zarr_filename,
+        #     overwrite=True,
+        # )
         print("exporting finished!")
 
     def annotation_mapping(self, label):
@@ -968,13 +1071,41 @@ class DatabaseHandler:
 
         return color_dict
 
-    def annotate_track(self, track_id: int, label: int):
-        """Annotate all cells of a track in the database with a given label."""
+    def annotate_track(
+        self, track_id: int, label: int, t_begin: int = None, t_end: int = None
+    ):
+        """Annotate cells of a track in the database with a given label.
 
-        # Then find this track_id in the toannotate
-        indices = self.df_full[self.df_full["track_id"] == track_id].index.tolist()
+        Parameters
+        ----------
+        track_id : int
+            The track ID to annotate
+        label : int
+            The annotation label to apply
+        t_begin : int, optional
+            Start time for partial annotation. If None, annotate from the beginning of the track.
+        t_end : int, optional
+            End time for partial annotation. If None, annotate to the end of the track.
+        """
 
-        self.change_values(indices, NodeDB.generic, label)
+        # Find indices for the specified track and time range
+        track_mask = self.df_full["track_id"] == track_id
+
+        if t_begin is not None or t_end is not None:
+            # Partial annotation: filter by time range
+            time_mask = pd.Series(True, index=self.df_full.index)
+            if t_begin is not None:
+                time_mask &= self.df_full["t"] >= t_begin
+            if t_end is not None:
+                time_mask &= self.df_full["t"] <= t_end
+
+            indices = self.df_full[track_mask & time_mask].index.tolist()
+        else:
+            # Full track annotation: annotate all cells of the track
+            indices = self.df_full[track_mask].index.tolist()
+
+        if indices:
+            self.change_values(indices, NodeDB.generic, label)
 
     def clear_nodes_annotations(self, nodes):
         """Clear the annotations for the entire track of a list of nodes. Called when a node is deleted."""
