@@ -338,7 +338,7 @@ class ToAnnotateBox(NavigationBox):
         # Get track_id for additional context
         track_id = cell_info["track_id"]
 
-        # Check annotation status of the entire track
+        # Check annotation status of the entire track for the status line
         track_data = self.databasehandler.df_full[
             self.databasehandler.df_full["track_id"] == track_id
         ]

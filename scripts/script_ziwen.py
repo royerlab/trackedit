@@ -13,9 +13,7 @@ warnings.filterwarnings("ignore", category=FutureWarning, message=".*qt_viewer.*
 
 # **********INPUTS*********
 # path to the working directory that contains the database file AND metadata.toml:
-working_directory = Path(
-    "/home/teun.huijben/Documents/data/Ziwen/2025_07_24_A549/"
-)
+working_directory = Path("/home/teun.huijben/Documents/data/Ziwen/2025_07_24_A549/")
 # name of the database file to start from, or "latest" to start from the latest version, defaults to "data.db"
 db_filename_start = "latest"
 # maximum number of frames display, defaults to None (use all frames)
