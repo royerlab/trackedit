@@ -80,6 +80,7 @@ class TrackEditClass:
                 colormap="green",
                 scale=self.databasehandler.scale,
                 visible=False,
+                translate=self.databasehandler.image_translate,
             )
             layer_nuc.reset_contrast_limits()
             layer_mem = self.viewer.add_image(
@@ -89,6 +90,7 @@ class TrackEditClass:
                 opacity=0.5,
                 scale=self.databasehandler.scale,
                 visible=False,
+                translate=self.databasehandler.image_translate,
             )
             layer_mem.reset_contrast_limits()
 

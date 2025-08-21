@@ -11,6 +11,7 @@ class SimpleImageArray:
         imaging_zarr_file: str,
         channel: str = "0/4/0/0",
         time_window: Tuple[int, int] = (0, 104),
+        image_z_slice: int = None,
     ):
         """
         Initialize the image array from a zarr file.
@@ -21,6 +22,10 @@ class SimpleImageArray:
         """
         # Load the full stack using dask
         self._full_stack = da.from_zarr(imaging_zarr_file, component=channel)
+        if image_z_slice is not None:
+            old_shape = self._full_stack.shape
+            self._full_stack = self._full_stack[:, :, image_z_slice, :, :]
+            print("image stack resliced from", old_shape, "to", self._full_stack.shape)
         # Initialize time window to full range
         self._time_window = time_window
 

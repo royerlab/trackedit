@@ -1,5 +1,5 @@
 from qtpy.QtCore import Qt, Signal
-from qtpy.QtWidgets import QGridLayout, QHBoxLayout, QPushButton
+from qtpy.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton
 from ultrack.core.database import NodeDB
 
 from trackedit.widgets.base_box import NavigationBox
@@ -38,6 +38,17 @@ class ToAnnotateBox(NavigationBox):
         self.toannotate_next_btn = QPushButton(">")
         self.toannotate_next_btn.setFixedWidth(30)
 
+        # Create time range input fields
+        self.t_begin_label = QLabel("t_begin:")
+        self.t_begin_input = QLineEdit()
+        self.t_begin_input.setFixedWidth(60)
+        self.t_begin_input.setPlaceholderText("0")
+
+        self.t_end_label = QLabel("t_end:")
+        self.t_end_input = QLineEdit()
+        self.t_end_input.setFixedWidth(60)
+        self.t_end_input.setPlaceholderText("100")
+
         # Layout
         selected_cell_layout = QHBoxLayout()
         selected_cell_layout.addWidget(self.selected_cell_label)
@@ -50,6 +61,16 @@ class ToAnnotateBox(NavigationBox):
 
         self.layout.addLayout(toannotate_layout)
         self.layout.setAlignment(toannotate_layout, Qt.AlignLeft)
+
+        # Add time range input layout
+        time_range_layout = QHBoxLayout()
+        time_range_layout.addWidget(self.t_begin_label)
+        time_range_layout.addWidget(self.t_begin_input)
+        time_range_layout.addWidget(self.t_end_label)
+        time_range_layout.addWidget(self.t_end_input)
+        time_range_layout.addStretch()  # Add stretch to push fields to the left
+
+        self.layout.addLayout(time_range_layout)
 
         # Change to grid layout for annotation buttons
         annotation_type_layout = QGridLayout()
@@ -125,23 +146,22 @@ class ToAnnotateBox(NavigationBox):
         self.goto_annotation()
 
     def goto_annotation(self):
-        """Jump to the time of the current annotation."""
+        """Jump to the time of the current annotation segment."""
         # Check if there are any annotations to navigate to
         if len(self.databasehandler.toannotate) == 0:
             return
 
-        annotation_time = self.databasehandler.toannotate.iloc[
+        current_segment = self.databasehandler.toannotate.iloc[
             self.current_annotation_index
-        ]["first_t"]
-        cell_id = self.databasehandler.toannotate.iloc[self.current_annotation_index][
-            "first_id"
         ]
+        annotation_time = current_segment["first_t"]
+        cell_id = current_segment["first_id"]
 
         self.current_selected_cell = cell_id
 
         self.update_chunk_from_frame_signal.emit(annotation_time)
 
-        # #update the selected nodes in the TreeWidget
+        # Update the selected nodes in the TreeWidget
         self.tracks_viewer.selected_nodes._list = []
         self.tracks_viewer.selected_nodes._list.append(cell_id)
         self.tracks_viewer.selected_nodes.list_updated.emit()
@@ -159,8 +179,47 @@ class ToAnnotateBox(NavigationBox):
             "track_id"
         ]
 
+        # Get time range from input fields
+        t_begin = None
+        t_end = None
+
+        try:
+            if self.t_begin_input.text().strip():
+                t_begin = int(self.t_begin_input.text().strip())
+            if self.t_end_input.text().strip():
+                t_end = int(self.t_end_input.text().strip())
+        except ValueError:
+            # If time range is invalid, fall back to full track annotation
+            print("Warning: Invalid time range, annotating entire track")
+            t_begin = None
+            t_end = None
+
+        # Validate time range
+        if t_begin is not None and t_end is not None and t_begin > t_end:
+            print("Warning: t_begin > t_end, swapping values")
+            t_begin, t_end = t_end, t_begin
+
+        # Validate time range against current segment bounds
+        if self.current_annotation_index < len(self.databasehandler.toannotate):
+            current_segment = self.databasehandler.toannotate.iloc[
+                self.current_annotation_index
+            ]
+            segment_first_t = current_segment["first_t"]
+            segment_last_t = current_segment["last_t"]
+
+            if t_begin is not None and t_begin < segment_first_t:
+                print(
+                    f"Warning: t_begin ({t_begin}) < segment start ({segment_first_t}), using segment start"
+                )
+                t_begin = segment_first_t
+            if t_end is not None and t_end > segment_last_t:
+                print(
+                    f"Warning: t_end ({t_end}) > segment end ({segment_last_t}), using segment end"
+                )
+                t_end = segment_last_t
+
         self.databasehandler.annotate_track(
-            track_id, label_int
+            track_id, label_int, t_begin, t_end
         )  # make changes in the database
         self.update_toannotate()  # update the toannotate list in databasehandler
         self._update_upon_click()  # update the counter and buttons
@@ -209,12 +268,14 @@ class ToAnnotateBox(NavigationBox):
         This function is called when the user clicks on a cell in the tree widget.
         It: - updates the label with the selected cell information
             - updates the counter and buttons
+            - populates the time range fields
         """
         selected_nodes = self.tracks_viewer.selected_nodes._list
 
         if len(selected_nodes) != 1:
             self.selected_cell_label.setText("No cell selected")
             self.toggle_buttons(False)
+            self.clear_time_range_fields()
             return
 
         selected_node = selected_nodes[0]
@@ -227,18 +288,38 @@ class ToAnnotateBox(NavigationBox):
             track_id = self.databasehandler.df_full.loc[self.current_selected_cell][
                 "track_id"
             ]
-            index = self.databasehandler.toannotate.index[
-                self.databasehandler.toannotate["track_id"] == track_id
-            ][0]
-            # Found the track in annotations - update counter and remove grey
-            self.current_annotation_index = index
-            self.toannotate_counter.setText(
-                f"{index + 1}/{len(self.databasehandler.toannotate)}"
-            )
-            self.toggle_buttons(True, label_int)
+            cell_time = self.databasehandler.df_full.loc[self.current_selected_cell][
+                "t"
+            ]
+
+            # Find the segment that contains this cell (by track_id and time range)
+            matching_segments = self.databasehandler.toannotate[
+                (self.databasehandler.toannotate["track_id"] == track_id)
+                & (self.databasehandler.toannotate["first_t"] <= cell_time)
+                & (self.databasehandler.toannotate["last_t"] >= cell_time)
+            ]
+
+            if not matching_segments.empty:
+                # Found the segment - update counter and enable buttons
+                index = matching_segments.index[0]
+                self.current_annotation_index = index
+                self.toannotate_counter.setText(
+                    f"{index + 1}/{len(self.databasehandler.toannotate)}"
+                )
+                self.toggle_buttons(True, label_int)
+
+                # Populate time range fields with current segment info
+                self.populate_time_range_fields(index)
+            else:
+                # Cell not in any unannotated segment - disable counter and buttons
+                self.toggle_buttons(False, label_int)
+                # Show the full track range for context
+                self.populate_full_track_range(track_id)
+
         except IndexError:
             # Track not found in annotations - disable counter and buttons
             self.toggle_buttons(False, label_int)
+            self.clear_time_range_fields()
 
     def _update_label(self, selected_node) -> int:
         """
@@ -253,6 +334,80 @@ class ToAnnotateBox(NavigationBox):
         label = self.databasehandler.annotation_mapping(
             generic_value
         )  # type(label) = str
-        self.selected_cell_label.setText(f"Selected cell: {selected_node} ({label})")
+
+        # Get track_id for additional context
+        track_id = cell_info["track_id"]
+
+        # Check annotation status of the entire track for the status line
+        track_data = self.databasehandler.df_full[
+            self.databasehandler.df_full["track_id"] == track_id
+        ]
+        unannotated_frames = track_data[
+            track_data["generic"] == NodeDB.generic.default.arg
+        ]
+
+        if len(unannotated_frames) == 0:
+            # Entire track is annotated
+            status_line = "entire track annotated"
+        elif len(unannotated_frames) == len(track_data):
+            # Entire track is unannotated - add time range
+            first_t = track_data["t"].min()
+            last_t = track_data["t"].max()
+            status_line = f"entire track not annotated (t={int(first_t)}:{int(last_t)})"
+        else:
+            # Track is partially annotated - find annotated segments
+            annotated_frames = track_data[
+                track_data["generic"] != NodeDB.generic.default.arg
+            ].sort_values("t")
+
+            # Group consecutive annotated frames into segments
+            annotated_segments = []
+            if not annotated_frames.empty:
+                current_start = annotated_frames.iloc[0]["t"]
+                prev_time = current_start
+
+                for i in range(1, len(annotated_frames)):
+                    current_time = annotated_frames.iloc[i]["t"]
+                    if current_time != prev_time + 1:
+                        # Gap found, save current segment
+                        annotated_segments.append(
+                            f"{int(current_start)}:{int(prev_time)}"
+                        )
+                        current_start = current_time
+                    prev_time = current_time
+
+                # Add the last segment
+                annotated_segments.append(f"{int(current_start)}:{int(prev_time)}")
+
+            status_line = (
+                f"track partially annotated (t={', '.join(annotated_segments)})"
+            )
+
+        # Create two-line display
+        display_text = f"Selected cell: {selected_node} ({label})\n{status_line}"
+        self.selected_cell_label.setText(display_text)
 
         return generic_value
+
+    def populate_time_range_fields(self, segment_index):
+        """Populate the time range fields with the current segment's time range."""
+        if segment_index < len(self.databasehandler.toannotate):
+            segment = self.databasehandler.toannotate.iloc[segment_index]
+            self.t_begin_input.setText(str(segment["first_t"]))
+            self.t_end_input.setText(str(segment["last_t"]))
+
+    def clear_time_range_fields(self):
+        """Clear the time range fields."""
+        self.t_begin_input.clear()
+        self.t_end_input.clear()
+
+    def populate_full_track_range(self, track_id):
+        """Populate the time range fields with the full track range for context."""
+        track_data = self.databasehandler.df_full[
+            self.databasehandler.df_full["track_id"] == track_id
+        ]
+        if not track_data.empty:
+            first_t = track_data["t"].min()
+            last_t = track_data["t"].max()
+            self.t_begin_input.setText(str(int(first_t)))
+            self.t_end_input.setText(str(int(last_t)))
