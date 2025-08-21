@@ -18,7 +18,7 @@ from ultrack.core.database import (
     get_node_values,
     set_node_values,
 )
-from ultrack.core.export import tracks_layer_to_networkx
+from ultrack.core.export import tracks_layer_to_networkx, tracks_to_zarr
 from ultrack.tracks.graph import add_track_ids_to_tracks_df
 
 from trackedit.__about__ import __version__
@@ -30,6 +30,7 @@ from trackedit.utils.red_flag_funcs import (
     find_overlapping_cells,
 )
 from trackedit.utils.utils import (
+    annotations_to_zarr,
     remove_nonexisting_parents,
     solution_dataframe_from_sql_with_tmax,
 )
@@ -53,6 +54,10 @@ class DatabaseHandler:
         work_in_existing_db: bool = False,
         imaging_zarr_file: str = None,
         imaging_channel: str = None,
+        image_z_slice: int = None,
+        image_translate: tuple = None,
+        coordinate_filters: list = None,
+        default_start_annotation: int = None,  # Make it optional
     ):
 
         # inputs
@@ -68,7 +73,10 @@ class DatabaseHandler:
         self.time_chunk_overlap = time_chunk_overlap
         self.imaging_zarr_file = imaging_zarr_file
         self.imaging_channel = imaging_channel
+        self.image_z_slice = image_z_slice
+        self.image_translate = image_translate
         self.imaging_flag = True if self.imaging_zarr_file is not None else False
+        self.coordinate_filters = coordinate_filters
 
         # Filenames / directories
         self.extension_string = ""
@@ -107,13 +115,20 @@ class DatabaseHandler:
         self.ndim = len(
             self.data_shape_full
         )  # number of dimensions of the data, 4 for 3D+time, 3 for 2D+time
-        if self.ndim == len(self.scale) + 1:
-            self.z_scale = self.scale[0]
-        else:
-            self.z_scale = None
+        if self.ndim != len(self.scale) + 1:
             raise ValueError(
                 f"Expected scale with {self.ndim-1} values, (Z)YX, but scale has {len(self.scale)} values."
             )
+        if self.ndim == 4:
+            self.z_scale = self.scale[0]
+            self.y_scale = self.scale[1]
+            self.x_scale = self.scale[2]
+        elif self.ndim == 3:
+            self.z_scale = None
+            self.y_scale = self.scale[0]
+            self.x_scale = self.scale[1]
+        else:
+            raise ValueError(f"Database should be 2D or 3D, not {self.ndim-1}D")
 
         # change initial chunk depending on data shape
         if self.data_shape_full[0] < self.time_chunk_length:
@@ -129,6 +144,13 @@ class DatabaseHandler:
         self.data_shape_chunk = self.data_shape_full.copy()
         self.data_shape_chunk[0] = self.time_chunk_length
 
+        # Store the default annotation value, fall back to NodeDB.generic default if not provided
+        self.default_start_annotation = (
+            default_start_annotation
+            if default_start_annotation is not None
+            else NodeDB.generic.default.arg
+        )
+
         self.add_missing_columns_to_db()
 
         # DatabaseArray()
@@ -137,12 +159,14 @@ class DatabaseHandler:
             shape=self.data_shape_chunk,
             time_window=self.time_window,
             color_by_field=NodeDB.id,
+            coordinate_filters=self.coordinate_filters,
         )
         self.annotArray = DatabaseArray(
             database_path=self.db_path_new,
             shape=self.data_shape_chunk,
             time_window=self.time_window,
             color_by_field=NodeDB.generic,
+            coordinate_filters=self.coordinate_filters,
         )
         self.check_zarr_existance()
         if self.imaging_flag:
@@ -150,8 +174,10 @@ class DatabaseHandler:
                 imaging_zarr_file=self.imaging_zarr_file,
                 channel=self.imaging_channel,
                 time_window=self.time_window,
+                image_z_slice=self.image_z_slice,
             )
         self.df_full = self.db_to_df(entire_database=True)
+
         # ToDo: df_full might be very large for large datasets, but annotation/redflags/division need it
         self.nxgraph = self.df_to_nxgraph()
         self.red_flags_ignore_list = self._load_red_flags_ignore_list()
@@ -174,7 +200,7 @@ class DatabaseHandler:
 
         # Default label for unlabeled cells
         default_annotation = {
-            NodeDB.generic.default.arg: {  # -1
+            self.default_start_annotation: {  # Use the instance variable
                 "name": "none",
                 "color": [0.5, 0.5, 0.5, 1.0],  # gray
             }
@@ -310,11 +336,8 @@ class DatabaseHandler:
 
             expected_columns[column.name] = col_definition
 
-        # Add the new generic column using the same default as NodeDB.generic
-        generic_default = NodeDB.generic.default.arg if NodeDB.generic.default else None
-        expected_columns[
-            "generic"
-        ] = f'INTEGER{" DEFAULT " + str(generic_default) if generic_default is not None else ""}'
+        # Add the new generic column using the custom default annotation value
+        expected_columns["generic"] = f"INTEGER DEFAULT {self.default_start_annotation}"
 
         return expected_columns
 
@@ -567,6 +590,11 @@ class DatabaseHandler:
                 NodeDB.generic,
             ),
         )
+
+        if self.coordinate_filters is not None:
+            for field, op, value in self.coordinate_filters:
+                df = df[op(df[field.name], value)]
+
         df = remove_nonexisting_parents(df)
         df = add_track_ids_to_tracks_df(df)
         df.sort_values(by=["track_id", "t"], inplace=True)
@@ -589,6 +617,7 @@ class DatabaseHandler:
             raise ValueError(
                 f"Expected dataset with 3 or 4 dimensions, T(Z)YX. Found {self.ndim}."
             )
+
         if include_node_ids:
             df.loc[:, "id"] = df.index
             columns.append("id")
@@ -613,8 +642,10 @@ class DatabaseHandler:
         """
         # apply scale, only do this here to avoid scaling the original dataframe
         df_scaled = self.db_to_df()
-        if self.ndim == 4:
+        if self.ndim == 4:  # 4 for 3D+time, 3 for 2D+time
             df_scaled.loc[:, "z"] = df_scaled.z * self.z_scale  # apply scale
+        df_scaled.loc[:, "y"] = df_scaled.y * self.y_scale  # apply scale
+        df_scaled.loc[:, "x"] = df_scaled.x * self.x_scale  # apply scale
 
         nxgraph = tracks_layer_to_networkx(df_scaled)
 
@@ -1019,27 +1050,27 @@ class DatabaseHandler:
                     f" + {daughter_tracks[1]} ({daughter2_label})\n"
                 )
 
-        # # segments.zarr
-        # zarr_filename = (
-        #     self.working_directory / f"{self.extension_string}_segments.zarr"
-        # )
-        # tracks_to_zarr(
-        #     config=self.config_adjusted,
-        #     tracks_df=self.df_full,
-        #     store_or_path=zarr_filename,
-        #     overwrite=True,
-        # )
+        # segments.zarr
+        zarr_filename = (
+            self.working_directory / f"{self.extension_string}_segments.zarr"
+        )
+        tracks_to_zarr(
+            config=self.config_adjusted,
+            tracks_df=self.df_full,
+            store_or_path=zarr_filename,
+            overwrite=True,
+        )
 
-        # # annotations.zarr
-        # zarr_filename = (
-        #     self.working_directory / f"{self.extension_string}_annotations.zarr"
-        # )
-        # annotations_to_zarr(
-        #     config=self.config_adjusted,
-        #     tracks_df=self.df_full,
-        #     store_or_path=zarr_filename,
-        #     overwrite=True,
-        # )
+        # annotations.zarr
+        zarr_filename = (
+            self.working_directory / f"{self.extension_string}_annotations.zarr"
+        )
+        annotations_to_zarr(
+            config=self.config_adjusted,
+            tracks_df=self.df_full,
+            store_or_path=zarr_filename,
+            overwrite=True,
+        )
         print("exporting finished!")
 
     def annotation_mapping(self, label):

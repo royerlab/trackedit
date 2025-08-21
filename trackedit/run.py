@@ -35,9 +35,13 @@ def run_trackedit(
     work_in_existing_db: bool = False,
     imaging_zarr_file: Optional[str] = None,
     imaging_channel: Optional[str] = None,
+    image_z_slice: Optional[int] = None,
+    image_translate: Optional[Tuple[float, ...]] = None,
     viewer: Optional[napari.Viewer] = None,
     flag_show_hierarchy: bool = True,
     annotation_mapping: Optional[dict] = None,
+    coordinate_filters: Optional[list] = None,
+    default_start_annotation: Optional[int] = None,
 ) -> Tuple[napari.Viewer, TrackEditClass]:
     """Run TrackEdit on a database file.
 
@@ -79,6 +83,10 @@ def run_trackedit(
         work_in_existing_db=work_in_existing_db,
         imaging_zarr_file=imaging_zarr_file,
         imaging_channel=imaging_channel,
+        image_z_slice=image_z_slice,
+        image_translate=image_translate,
+        coordinate_filters=coordinate_filters,
+        default_start_annotation=default_start_annotation,
     )
 
     # overwrite some motile functions
