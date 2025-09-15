@@ -83,7 +83,8 @@ higra = ">=0.6.12,<0.7"
 numba = { version = ">=0.57.0,<0.61", channel = "numba" }
 llvmlite = { version = ">=0.44.0,<0.45", channel = "numba" }
 ilpy = ">=0.4.0,<0.5"
-napari-ome-zarr = ">=0.6.1,<0.7"
+# napari-ome-zarr = ">=0.6.1,<0.7"
+zarr = ">=2.15.0,<3.0.0" #we need old version that has zarr<3, because of Ultrack
 psycopg2-binary = ">=2.9.6"
 pyqt = ">=5.15.9,<6"
 numpy = "<2.2"
