@@ -39,10 +39,10 @@ extra-dependencies = [
   "mypy>=1.0.0",
 ]
 [tool.hatch.envs.types.scripts]
-check = "mypy --install-types --non-interactive {args:trackedit tests}"
+check = "mypy --install-types --non-interactive {args:trackedit trackedit/_tests}"
 
 [tool.coverage.run]
-source_pkgs = ["trackedit", "tests"]
+source_pkgs = ["trackedit", "trackedit/_tests"]
 branch = true
 parallel = true
 omit = [
@@ -51,7 +51,7 @@ omit = [
 
 [tool.coverage.paths]
 trackedit = ["trackedit", "*/trackedit/trackedit"]
-tests = ["tests", "*/trackedit/tests"]
+tests = ["trackedit/_tests", "*/trackedit/trackedit/_tests"]
 
 [tool.coverage.report]
 exclude_lines = [
@@ -90,6 +90,7 @@ pyqt = ">=5.15.9,<6"
 numpy = "<2.2"
 pre-commit = ">=4.1.0,<5"
 dask = ">=2025.2.0,<2026"
+pytest = ">=8.4.2,<9"
 
 [tool.pixi.feature.test.dependencies]
 pytest = "*"

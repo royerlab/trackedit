@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import List, Optional, Tuple
 
 import dask.array as da
 
@@ -12,6 +12,7 @@ class SimpleImageArray:
         channel: str = "0/4/0/0",
         time_window: Tuple[int, int] = (0, 104),
         image_z_slice: int = None,
+        imaging_layer_names: Optional[List[str]] = None,
     ):
         """
         Initialize the image array from a zarr file.
@@ -19,6 +20,9 @@ class SimpleImageArray:
         Args:
             imaging_zarr_file: Path to the zarr file
             channel: Channel path within the zarr file (default: '0/4/0/0')
+            time_window: Time window for the image stack
+            image_z_slice: Optional z-slice to extract
+            imaging_layer_names: Names for imaging channels. If None, defaults to ['nuclear', 'membrane'] for 2 channels
         """
         # Load the full stack using dask
         self._full_stack = da.from_zarr(imaging_zarr_file, component=channel)
@@ -32,24 +36,56 @@ class SimpleImageArray:
         # Set initial stack based on full time window
         self._update_stack()
 
+        # Detect number of channels and set layer names
+        self.n_channels = self._stack.shape[1] if len(self._stack.shape) > 1 else 1
+
+        # Set layer names with backward compatibility
+        if imaging_layer_names is None:
+            if self.n_channels == 2:
+                self.layer_names = ["nuclear", "membrane"]
+            else:
+                self.layer_names = [f"channel_{i}" for i in range(self.n_channels)]
+        else:
+            if len(imaging_layer_names) != self.n_channels:
+                raise ValueError(
+                    f"Number of layer names ({len(imaging_layer_names)}) "
+                    f"doesn't match number of channels ({self.n_channels})"
+                )
+            self.layer_names = imaging_layer_names.copy()
+
     def _update_stack(self):
         """Update the stack based on current time window"""
         self._stack = self._full_stack[self._time_window[0] : self._time_window[1]]
 
+    def get_channel_data(self, channel_idx: int) -> da.Array:
+        """Get data for a specific channel by index"""
+        if channel_idx >= self.n_channels:
+            raise ValueError(
+                f"Channel index {channel_idx} >= number of channels ({self.n_channels})"
+            )
+        return self._stack[:, channel_idx]
+
+    def get_channel_by_name(self, name: str) -> da.Array:
+        """Get channel data by name"""
+        if name not in self.layer_names:
+            raise ValueError(f"Channel name '{name}' not found in {self.layer_names}")
+        idx = self.layer_names.index(name)
+        return self.get_channel_data(idx)
+
     @property
     def nuclear(self) -> da.Array:
-        """Get the nuclear channel data"""
-        return self._stack[:, 0]
+        """Get the nuclear channel data (backward compatibility)"""
+        return self.get_channel_by_name("nuclear")
 
     @property
     def membrane(self) -> da.Array:
-        """Get the membrane channel data"""
-        return self._stack[:, 1]
+        """Get the membrane channel data (backward compatibility)"""
+        return self.get_channel_by_name("membrane")
 
     @property
     def shape(self) -> Tuple[int, ...]:
-        """Get the shape of a single channel (identical for nuclear and membrane)"""
-        return self._stack[:, 0].shape
+        """Get the shape of a single channel"""
+        return self.get_channel_data(0).shape
 
     @property
     def time_window(self) -> Tuple[int, int]:

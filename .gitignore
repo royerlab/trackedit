@@ -166,6 +166,8 @@ cython_debug/
 
 # vscode files
 .history
+.vscode/
+CLAUDE.md
 
 # Ignore examples files
 examples/*/*

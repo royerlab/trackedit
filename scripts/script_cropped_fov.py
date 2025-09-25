@@ -27,7 +27,7 @@ allow_overwrite = False
 
 # OPTIONAL: imaging data
 imaging_zarr_file = (
-    "/hpc/projects/intracellular_dashboard/organelle_dynamics/rerun/"
+    "/hpc/projects/intracellular_dashboard/organelle_dynamics/"
     "2025_07_24_A549_SEC61_TOMM20_G3BP1_ZIKV/2-assemble/"
     "2025_07_24_A549_SEC61_TOMM20_G3BP1_ZIKV.zarr/A/1/000000/"
 )
