@@ -49,7 +49,7 @@ class SimpleImageArray:
             if len(imaging_layer_names) != self.n_channels:
                 raise ValueError(
                     f"Number of layer names ({len(imaging_layer_names)}) "
-                    f"doesn't match number of channels ({self.n_channels})"
+                    f"doesn't match number of zarr channels ({self.n_channels})"
                 )
             self.layer_names = imaging_layer_names.copy()
 
