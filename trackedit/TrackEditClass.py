@@ -72,27 +72,28 @@ class TrackEditClass:
             color_dict=self.databasehandler.color_mapping
         )
 
-        # Add Imaging layer to viewer
+        # Add Imaging layers to viewer
         if self.databasehandler.imaging_flag:
-            layer_nuc = self.viewer.add_image(
-                self.databasehandler.imagingArray.nuclear,
-                name="im_nuclear",
-                colormap="green",
-                scale=self.databasehandler.scale,
-                visible=False,
-                translate=self.databasehandler.image_translate,
-            )
-            layer_nuc.reset_contrast_limits()
-            layer_mem = self.viewer.add_image(
-                self.databasehandler.imagingArray.membrane,
-                name="im_membrane",
-                colormap="red",
-                opacity=0.5,
-                scale=self.databasehandler.scale,
-                visible=False,
-                translate=self.databasehandler.image_translate,
-            )
-            layer_mem.reset_contrast_limits()
+            # Define colormap sequence
+            colormaps = ["green", "red", "blue", "magenta", "cyan", "yellow"]
+
+            for i, layer_name in enumerate(
+                self.databasehandler.imagingArray.layer_names
+            ):
+                channel_data = self.databasehandler.imagingArray.get_channel_data(i)
+                colormap = colormaps[i % len(colormaps)]
+                opacity = 1.0 if i == 0 else 0.5  # First layer full opacity, others 0.5
+
+                layer = self.viewer.add_image(
+                    channel_data,
+                    name=f"im_{layer_name}",
+                    colormap=colormap,
+                    opacity=opacity,
+                    scale=self.databasehandler.scale,
+                    visible=False,
+                    translate=self.databasehandler.image_translate,
+                )
+                layer.reset_contrast_limits()
 
         tabwidget_bottom = QTabWidget()
         tabwidget_bottom.addTab(self.TreeWidget, "TreeWidget")
@@ -188,12 +189,11 @@ class TrackEditClass:
         self.databasehandler.set_time_chunk(new_chunk)
         self.update_hierarchy_layer()
         if self.databasehandler.imaging_flag:
-            self.viewer.layers[
-                "im_nuclear"
-            ].data = self.databasehandler.imagingArray.nuclear
-            self.viewer.layers[
-                "im_membrane"
-            ].data = self.databasehandler.imagingArray.membrane
+            for i, layer_name in enumerate(
+                self.databasehandler.imagingArray.layer_names
+            ):
+                channel_data = self.databasehandler.imagingArray.get_channel_data(i)
+                self.viewer.layers[f"im_{layer_name}"].data = channel_data
 
         self.add_tracks()
 
@@ -244,12 +244,11 @@ class TrackEditClass:
         self.databasehandler.set_time_chunk(new_chunk)
         self.update_hierarchy_layer()
         if self.databasehandler.imaging_flag:
-            self.viewer.layers[
-                "im_nuclear"
-            ].data = self.databasehandler.imagingArray.nuclear
-            self.viewer.layers[
-                "im_membrane"
-            ].data = self.databasehandler.imagingArray.membrane
+            for i, layer_name in enumerate(
+                self.databasehandler.imagingArray.layer_names
+            ):
+                channel_data = self.databasehandler.imagingArray.get_channel_data(i)
+                self.viewer.layers[f"im_{layer_name}"].data = channel_data
 
         # Update tracks if chunks are different OR if this was triggered by a Tmax change
         # TODO: not sure this is the best way to do this

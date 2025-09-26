@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import napari
 
@@ -42,6 +42,7 @@ def run_trackedit(
     annotation_mapping: Optional[dict] = None,
     coordinate_filters: Optional[list] = None,
     default_start_annotation: Optional[int] = None,
+    imaging_layer_names: Optional[List[str]] = None,
 ) -> Tuple[napari.Viewer, TrackEditClass]:
     """Run TrackEdit on a database file.
 
@@ -61,6 +62,7 @@ def run_trackedit(
         viewer: Optional existing napari viewer
         flag_show_hierarchy: Show hierarchy in the viewer
         annotation_mapping: Mapping of annotation ids to names and colors
+        imaging_layer_names: Names for imaging layers. If None, defaults to ['nuclear', 'membrane'] for 2 channels
 
     Returns:
         Tuple[napari.Viewer, TrackEditClass]: The viewer instance and TrackEdit instance
@@ -87,6 +89,7 @@ def run_trackedit(
         image_translate=image_translate,
         coordinate_filters=coordinate_filters,
         default_start_annotation=default_start_annotation,
+        imaging_layer_names=imaging_layer_names,
     )
 
     # overwrite some motile functions

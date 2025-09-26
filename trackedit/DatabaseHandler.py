@@ -58,6 +58,7 @@ class DatabaseHandler:
         image_translate: tuple = None,
         coordinate_filters: list = None,
         default_start_annotation: int = None,  # Make it optional
+        imaging_layer_names: list = None,
     ):
 
         # inputs
@@ -75,8 +76,11 @@ class DatabaseHandler:
         self.imaging_channel = imaging_channel
         self.image_z_slice = image_z_slice
         self.image_translate = image_translate
-        self.imaging_flag = True if self.imaging_zarr_file is not None else False
+        self.imaging_flag = (
+            True if self.imaging_zarr_file and self.imaging_zarr_file != "" else False
+        )
         self.coordinate_filters = coordinate_filters
+        self.imaging_layer_names = imaging_layer_names
 
         # Filenames / directories
         self.extension_string = ""
@@ -175,6 +179,7 @@ class DatabaseHandler:
                 channel=self.imaging_channel,
                 time_window=self.time_window,
                 image_z_slice=self.image_z_slice,
+                imaging_layer_names=self.imaging_layer_names,
             )
         self.df_full = self.db_to_df(entire_database=True)
 
