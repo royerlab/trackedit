@@ -214,7 +214,10 @@ def annotations_to_zarr(
     shape = config.data_config.metadata["shape"]
     dtype = np.int32
 
-    if isinstance(store_or_path, zarr.MemoryStore) and config.data_config.n_workers > 1:
+    if (
+        isinstance(store_or_path, zarr.storage.MemoryStore)
+        and config.data_config.n_workers > 1
+    ):
         raise ValueError(
             "zarr.MemoryStore and multiple workers are not allowed. "
             f"Found {config.data_config.n_workers} workers in `data_config`."
