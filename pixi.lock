@@ -10387,14 +10387,14 @@ packages:
   requires_dist:
   - mip>=1.16rc0
   requires_python: '>=3.10'
-  editable: true
 - pypi: .
   name: trackedit
-  version: 0.0.8
+  version: 0.0.9
   sha256: 98243d0f9ea9ae8ee8a2b1f5f85a67662c524dc59162a141b0c08e31a8e12d2c
   requires_dist:
   - mip>=1.16rc0
   requires_python: '>=3.10'
+  editable: true
 - pypi: https://files.pythonhosted.org/packages/00/c0/8f5d070730d7836adc9c9b6408dec68c6ced86b304a9b26a14df072a6e8c/traitlets-5.14.3-py3-none-any.whl
   name: traitlets
   version: 5.14.3
