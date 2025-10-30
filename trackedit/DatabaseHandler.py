@@ -1200,22 +1200,29 @@ class DatabaseHandler:
                 )
                 return
 
-            # Check if the zarr root exists by looking for .zgroup
+            # Check if the zarr root exists by looking for zarr.json (zarr v3) or .zgroup (zarr v2)
             zarr_root = Path(self.imaging_zarr_file)
-            if not (zarr_root / ".zgroup").exists():
+            if (
+                not (zarr_root / "zarr.json").exists()
+                and not (zarr_root / ".zgroup").exists()
+            ):
                 self.imaging_flag = False
                 print(
-                    f"Warning: Not a valid zarr dataset at {self.imaging_zarr_file} (missing .zgroup). "
+                    f"Warning: Not a valid zarr dataset at {self.imaging_zarr_file} (missing zarr.json or .zgroup). "
                     "Imaging data not shown."
                 )
                 return
 
-            # Check if the channel is a valid zarr array by looking for .zarray
+            # Check if the channel is a valid zarr array by looking for zarr.json (zarr v3) or .zarray (zarr v2)
             channel_path = zarr_root / Path(self.imaging_channel)
-            if not (channel_path / ".zarray").exists():
+            if (
+                not (channel_path / "zarr.json").exists()
+                and not (channel_path / ".zarray").exists()
+            ):
                 self.imaging_flag = False
                 print(
-                    f"Warning: Not a valid zarr array at channel path {self.imaging_channel} (missing .zarray). "
+                    f"Warning: Not a valid zarr array at channel path {self.imaging_channel} "
+                    "(missing zarr.json or .zarray). "
                     "Imaging data not shown."
                 )
 
