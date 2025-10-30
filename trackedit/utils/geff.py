@@ -1,8 +1,9 @@
+from pathlib import Path
+
 import click
 import geff
 import numpy as np
 import sqlalchemy as sa
-from pathlib import Path
 from sqlalchemy.orm import Session
 from tqdm import tqdm
 from ultrack.core.database import Base, LinkDB, NodeDB
@@ -11,10 +12,10 @@ from ultrack.core.segmentation.node import Node
 
 def convert_geff_to_db(geff_path: Path, output_path: Path = None) -> None:
     """Convert GEFF file to ULTrack SQLite database.
-    
+
     Args:
         geff_path: Path to the input GEFF file
-        output_path: Optional path to the output database file. 
+        output_path: Optional path to the output database file.
                     If None, defaults to <input_stem>_to_db.db
     """
     # Determine output database path
@@ -84,8 +85,10 @@ def convert_geff_to_db(geff_path: Path, output_path: Path = None) -> None:
         node_obj.mask = mask_bool
         node_obj.bbox = bbox
         node_obj.area = int(np.sum(node_obj.mask))
-        node_obj.centroid = node_obj._centroid() if hasattr(node_obj, "_centroid") else None
-        
+        node_obj.centroid = (
+            node_obj._centroid() if hasattr(node_obj, "_centroid") else None
+        )
+
         # Create database record
         node_record = {
             "id": node_id,
@@ -146,20 +149,21 @@ def convert_geff_to_db(geff_path: Path, output_path: Path = None) -> None:
         session.commit()
     print(f"✓ Inserted {len(edge_records)} edges")
 
-    print(f"\nDatabase reconstruction complete!")
+    print("\nDatabase reconstruction complete!")
     print(f"Database saved to: {database_path}")
 
 
 @click.command()
 @click.argument("geff_path", type=click.Path(exists=True, path_type=Path))
 @click.option(
-    "--output", "-o", 
+    "--output",
+    "-o",
     type=click.Path(path_type=Path),
-    help="Output database path (default: <input_stem>_to_db.db)"
+    help="Output database path (default: <input_stem>_to_db.db)",
 )
 def convert_geff_to_db_cli(geff_path: Path, output: Path = None) -> None:
     """Convert GEFF file to ULTrack SQLite database (CLI version).
-    
+
     Args:
         geff_path: Path to the input GEFF file
         output: Optional output database path
