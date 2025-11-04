@@ -49,9 +49,7 @@ def convert_geff_to_db(geff_path: Path, output_path: Path = None) -> None:
 
     # Get node ID mapping from graph attributes
     to_rx_id_map = rx_graph.attrs.get("to_rx_id_map", {})
-    print("to_rx_id_map:", to_rx_id_map)
-    rx_to_original_id = {v: k for k, v in to_rx_id_map.items()}
-    print("rx_to_original_id:", rx_to_original_id)
+    rx_to_original_id = {v: k + 1 for k, v in to_rx_id_map.items()}
 
     # First pass: determine if data is 2D or 3D by checking z-coordinate variation
     z_coords = []
@@ -176,15 +174,15 @@ def convert_geff_to_db(geff_path: Path, output_path: Path = None) -> None:
     with Session(engine) as session:
         session.bulk_insert_mappings(NodeDB, node_records)
         session.commit()
-    print(f"✓ Inserted {len(node_records)} nodes into the database")
+    print(f"✓ Inserted {len(node_records)} nodes")
 
     # Insert edges into database
     with Session(engine) as session:
         session.bulk_insert_mappings(LinkDB, edge_records)
         session.commit()
-    print(f"✓ Inserted {len(edge_records)} edges into the database")
+    print(f"✓ Inserted {len(edge_records)} edges")
 
-    print(f"Database saved to: {database_path}")
+    print(f"✓ Database saved to: {database_path}")
 
 
 @click.command()
