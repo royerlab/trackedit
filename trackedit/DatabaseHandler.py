@@ -596,6 +596,14 @@ class DatabaseHandler:
             ),
         )
 
+        print("df columns:", df.columns)
+        print("NodeDB.id:", NodeDB.id)
+        print("NodeDB.id.name:", NodeDB.id.name)
+        if df.index.values.min() <= 0:
+            raise ValueError(
+                "Database contains nodes with node_ids <= 0. Please ensure all node IDs are positive integers."
+            )
+
         if self.coordinate_filters is not None:
             for field, op, value in self.coordinate_filters:
                 df = df[op(df[field.name], value)]

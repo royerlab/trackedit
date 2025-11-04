@@ -39,23 +39,41 @@ def convert_geff_to_db(geff_path: Path, output_path: Path = None) -> None:
     rx_graph, geff_metadata = geff.read(str(geff_path), backend="rustworkx")
 
     # Validate GEFF metadata
-    print("Checking GEFF metadata...")
-    required_node_props = ["parent_id", "t", "z", "y", "x", "solution", "mask", "bbox"]
+    required_node_props = ["t", "z", "y", "x", "solution", "mask", "bbox"]
     node_props = geff_metadata.node_props_metadata
     missing_props = [prop for prop in required_node_props if prop not in node_props]
     if missing_props:
         raise ValueError(f"Missing required node properties in GEFF: {missing_props}")
-    print("✓ All required node properties present")
 
     print(f"Found {rx_graph.num_nodes()} nodes and {rx_graph.num_edges()} edges")
 
-    # Process nodes
-    print("Preparing node records...")
-    node_records = []
-
     # Get node ID mapping from graph attributes
     to_rx_id_map = rx_graph.attrs.get("to_rx_id_map", {})
+    print("to_rx_id_map:", to_rx_id_map)
     rx_to_original_id = {v: k for k, v in to_rx_id_map.items()}
+    print("rx_to_original_id:", rx_to_original_id)
+
+    # First pass: determine if data is 2D or 3D by checking z-coordinate variation
+    z_coords = []
+    for rx_node_id in rx_graph.node_indices():
+        node_attrs = rx_graph[rx_node_id]
+        z_coords.append(float(node_attrs["z"]))
+
+    z_range = max(z_coords) - min(z_coords)
+    is_2d_data = z_range < 0.1  # If z varies by less than 0.1, consider it 2D
+
+    if is_2d_data:
+        print(
+            f"Detected 2D data (z range: {z_range:.3f}). Masks and bboxes will be converted to 2D."
+        )
+    else:
+        print(
+            f"Detected 3D data (z range: {z_range:.3f}). Masks and bboxes will remain 3D."
+        )
+
+    # Process nodes first (all with parent_id = -1)
+    print("Preparing node records...")
+    node_records = []
 
     for rx_node_id in tqdm(rx_graph.node_indices(), desc="Processing nodes"):
         node_attrs = rx_graph[rx_node_id]
@@ -64,7 +82,6 @@ def convert_geff_to_db(geff_path: Path, output_path: Path = None) -> None:
         node_id = rx_to_original_id.get(rx_node_id, rx_node_id)
 
         # Extract node attributes from GEFF
-        parent_id = int(node_attrs["parent_id"])
         t = int(node_attrs["t"])
         z = float(node_attrs["z"])
         y = float(node_attrs["y"])
@@ -77,6 +94,20 @@ def convert_geff_to_db(geff_path: Path, output_path: Path = None) -> None:
         if not isinstance(mask_array, np.ndarray):
             mask_array = np.array(mask_array)
         mask_bool = np.ascontiguousarray(mask_array, dtype=bool)
+
+        # Convert to 2D if data is detected as 2D
+        if is_2d_data and mask_bool.ndim == 3:
+            # For 2D data, take the first z-slice or sum across z if multiple slices
+            if mask_bool.shape[0] == 1:
+                mask_bool = mask_bool[0]  # Take the single z-slice
+            else:
+                mask_bool = np.any(mask_bool, axis=0)  # Combine all z-slices
+
+        # Handle bbox similarly
+        if is_2d_data and len(bbox) == 6:  # 3D bbox: [x1, y1, z1, x2, y2, z2]
+            bbox = np.array(
+                [bbox[1], bbox[2], bbox[4], bbox[5]]
+            )  # Extract [x1, y1, x2, y2] -> [x_min, y_min, x_max, y_max]
 
         # Create Node object
         # Note: The vendored Node.__init__ sets mask and bbox to None when parent is None,
@@ -93,7 +124,7 @@ def convert_geff_to_db(geff_path: Path, output_path: Path = None) -> None:
         node_record = {
             "id": node_id,
             "t": t,
-            "parent_id": parent_id,
+            "parent_id": -1,  # Initialize all as root nodes, will update from solution edges
             "hier_parent_id": -1,
             "t_node_id": 0,
             "t_hier_id": 0,
@@ -113,16 +144,10 @@ def convert_geff_to_db(geff_path: Path, output_path: Path = None) -> None:
         }
         node_records.append(node_record)
 
-    # Insert nodes into database
-    print("Inserting nodes into database...")
-    with Session(engine) as session:
-        session.bulk_insert_mappings(NodeDB, node_records)
-        session.commit()
-    print(f"✓ Inserted {len(node_records)} nodes")
-
-    # Process edges
-    print("Preparing edge records...")
     edge_records = []
+    # Create a mapping from node_id to index in node_records for quick updates
+    node_id_to_index = {record["id"]: i for i, record in enumerate(node_records)}
+
     for edge_idx in tqdm(rx_graph.edge_indices(), desc="Processing edges"):
         # Get source and target rustworkx node IDs
         source_rx, target_rx = rx_graph.get_edge_endpoints_by_index(edge_idx)
@@ -133,23 +158,32 @@ def convert_geff_to_db(geff_path: Path, output_path: Path = None) -> None:
 
         # Get edge attributes
         edge_attrs = rx_graph.get_edge_data_by_index(edge_idx)
-        iou = float(edge_attrs["iou"])
+
+        # Check if this is a solution edge
+        if edge_attrs.get("solution", False):
+            # Source is parent, target is child - update the node record directly
+            if target_id in node_id_to_index:
+                target_index = node_id_to_index[target_id]
+                node_records[target_index]["parent_id"] = source_id
 
         edge_record = {
             "source_id": source_id,
             "target_id": target_id,
-            "weight": iou,
         }
         edge_records.append(edge_record)
 
+    # Insert nodes into database (now with correct parent IDs)
+    with Session(engine) as session:
+        session.bulk_insert_mappings(NodeDB, node_records)
+        session.commit()
+    print(f"✓ Inserted {len(node_records)} nodes into the database")
+
     # Insert edges into database
-    print("Inserting edges into database...")
     with Session(engine) as session:
         session.bulk_insert_mappings(LinkDB, edge_records)
         session.commit()
-    print(f"✓ Inserted {len(edge_records)} edges")
+    print(f"✓ Inserted {len(edge_records)} edges into the database")
 
-    print("\nDatabase reconstruction complete!")
     print(f"Database saved to: {database_path}")
 
 
