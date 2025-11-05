@@ -183,6 +183,8 @@ def convert_geff_to_db(geff_path: Path, output_path: Path = None) -> None:
     print(f"✓ Inserted {len(edge_records)} edges")
 
     print(f"✓ Database saved to: {database_path}")
+    print("Don't forget to create a metadata.toml file with the following content: ")
+    print("shape = [ 5, 128, 128, 128] ([t, (z, ), y, x])")
 
 
 @click.command()
