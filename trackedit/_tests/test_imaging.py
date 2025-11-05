@@ -57,8 +57,8 @@ def create_mock_imaging_zarr(
     # Create empty array with zeros
     data = np.zeros(shape, dtype=np.uint16)
 
-    # Store in the zarr array
-    group_0_inner.create_dataset(
+    # Store in the zarr array - using zarr v3 API
+    group_0_inner.create_array(
         "0", data=data, chunks=(1, size // 4, size // 4, size // 4, 2)
     )
 
