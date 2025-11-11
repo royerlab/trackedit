@@ -190,7 +190,7 @@ class DatabaseHandler:
         self.toannotate = self.find_all_toannotate()
         self.divisions = self.find_all_divisions()
         self.log(
-            f"Start annotation session - TrackEdit v{__version__} ({datetime.now()})"
+            f"Start annotation session - TrackEdit v{__version__} ({datetime.now().replace(microsecond=0)})"
         )
         self.log(
             f"Parameters: Tmax: {self.Tmax}, working_directory: {self.working_directory}, "
@@ -242,11 +242,14 @@ class DatabaseHandler:
 
         return log_file_path
 
-    def log(self, message):
+    def log(self, message, is_header=True):
         """Append a message to the log file."""
         with open(self.log_file, "a") as log:
-            time_stap = f"[{datetime.now()}]"
-            log.write(time_stap + " " + message + "\n")
+            time_stamp = f"[{datetime.now().replace(microsecond=0)}]"
+            if is_header:
+                log.write(message + "\n")
+            else:
+                log.write("\t\t" + time_stamp + " " + message + "\n")
 
     def initialize_config(self):
         # import db filename properly into an Ultrack config, neccesary for chaning values in database
@@ -429,7 +432,7 @@ class DatabaseHandler:
         log_filename_new = f"{name}_changelog.txt"
         return old_filename, db_filename_new, log_filename_new
 
-    def change_values(self, indices, field, values):
+    def change_values(self, indices, field, values, log_header=None):
         """Change values in the database for one or multiple indices.
 
         Parameters
@@ -441,12 +444,17 @@ class DatabaseHandler:
         value : int or list
             Value(s) to set. If a single value is provided, it will be applied to all indices.
             If a list is provided, it must match the length of indices.
+        log_header : str, optional
+            Optional header to prepend to log messages.
         """
         # Convert single index to list
         if isinstance(indices, (int, np.integer)):
             indices = [int(indices)]
         else:
             indices = [int(i) for i in indices]
+
+        if log_header is not None:
+            self.log(log_header)
 
         # Handle value input
         if isinstance(values, (list, np.ndarray)):
@@ -483,7 +491,7 @@ class DatabaseHandler:
                 else old_vals
             )
             message = f"db: setting {field.name}[id={indices[i]}] = {values[i]} (was {old_val})"
-            self.log(message)
+            self.log(message, is_header=False)
 
     def calc_time_window(self):
         time_chunk_starts = np.arange(
@@ -1146,7 +1154,12 @@ class DatabaseHandler:
             indices = self.df_full[track_mask].index.tolist()
 
         if indices:
-            self.change_values(indices, NodeDB.generic, label)
+            self.change_values(
+                indices,
+                NodeDB.generic,
+                label,
+                log_header="annotate_track:" + str(track_id),
+            )
 
     def clear_nodes_annotations(self, nodes):
         """Clear the annotations for the entire track of a list of nodes. Called when a node is deleted."""
