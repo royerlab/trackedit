@@ -8,6 +8,9 @@ from sqlalchemy.orm import Session
 from tqdm import tqdm
 from ultrack.core.database import Base, LinkDB, NodeDB
 from ultrack.core.segmentation.node import Node
+from ultrack.core.segmentation.processing import _generate_id
+
+_max_segments_per_time = 1_000_000
 
 
 def convert_geff_to_db(geff_path: Path, output_path: Path = None) -> None:
@@ -58,7 +61,7 @@ def convert_geff_to_db(geff_path: Path, output_path: Path = None) -> None:
         z_coords.append(float(node_attrs["z"]))
 
     z_range = max(z_coords) - min(z_coords)
-    is_2d_data = z_range < 0.1  # If z varies by less than 0.1, consider it 2D
+    is_2d_data = z_range < 1e-10  # Use small tolerance for numerical precision
 
     if is_2d_data:
         print(
@@ -118,9 +121,12 @@ def convert_geff_to_db(geff_path: Path, output_path: Path = None) -> None:
             node_obj._centroid() if hasattr(node_obj, "_centroid") else None
         )
 
+        # Convert to Ultrack node ID format (t0000xxx)
+        node_id_ultrack_format = _generate_id(node_id, t, _max_segments_per_time)
+
         # Create database record
         node_record = {
-            "id": node_id,
+            "id": node_id_ultrack_format,
             "t": t,
             "parent_id": -1,  # Initialize all as root nodes, will update from solution edges
             "hier_parent_id": -1,
@@ -150,9 +156,17 @@ def convert_geff_to_db(geff_path: Path, output_path: Path = None) -> None:
         # Get source and target rustworkx node IDs
         source_rx, target_rx = rx_graph.get_edge_endpoints_by_index(edge_idx)
 
-        # Convert to original node IDs
+        # Convert to original node IDs (1:N)
         source_id = rx_to_original_id.get(source_rx, source_rx)
         target_id = rx_to_original_id.get(target_rx, target_rx)
+
+        # Convert to Ultrack node ID format (t0000xxx)
+        source_id = _generate_id(
+            source_id, int(rx_graph[source_rx]["t"]), _max_segments_per_time
+        )
+        target_id = _generate_id(
+            target_id, int(rx_graph[target_rx]["t"]), _max_segments_per_time
+        )
 
         # Get edge attributes
         edge_attrs = rx_graph.get_edge_data_by_index(edge_idx)
