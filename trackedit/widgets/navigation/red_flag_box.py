@@ -69,6 +69,10 @@ class RedFlagBox(NavigationBox):
             )
 
         self.update_red_flag_counter_and_info()
+        self.databasehandler.log(
+            f"Number of remaining red flags: {len(self.databasehandler.red_flags)}",
+            is_header=False,
+        )
 
     def _update_button_states(self):
         """Update the enabled state of navigation buttons based on red flag count."""
