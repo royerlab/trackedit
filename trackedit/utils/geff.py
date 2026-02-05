@@ -197,8 +197,24 @@ def convert_geff_to_db(geff_path: Path, output_path: Path = None) -> None:
     print(f"✓ Inserted {len(edge_records)} edges")
 
     print(f"✓ Database saved to: {database_path}")
-    print("Don't forget to create a metadata.toml file with the following content: ")
-    print("shape = [ 5, 128, 128, 128] ([t, (z, ), y, x])")
+
+    # Extract and save shape metadata to TOML file
+    if geff_metadata.extra and "tracksdata" in geff_metadata.extra:
+        shape = geff_metadata.extra["tracksdata"].get("shape")
+        if shape:
+            metadata_path = database_path.parent / "metadata.toml"
+            shape_str = ", ".join(str(s) for s in shape)
+            toml_content = f"shape = [ {shape_str},]\n"
+            metadata_path.write_text(toml_content)
+            print(f"✓ Saved metadata to: {metadata_path}")
+        else:
+            print("No shape found in GEFF metadata extra/tracksdata")
+    else:
+        print("⚠ No extra/tracksdata metadata found in GEFF file")
+        print(
+            "Don't forget to create a metadata.toml file with the following content: "
+        )
+        print("shape = [ 5, 128, 128, 128] ([t, (z, ), y, x])")
 
 
 @click.command()
