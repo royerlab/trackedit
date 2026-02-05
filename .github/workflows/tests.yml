@@ -15,10 +15,9 @@ jobs:
         with:
           submodules: 'recursive'
 
-      - name: Install Pixi
-        run: |
-          curl -sSf https://pixi.sh/install.sh | bash -s -- -y
-          echo "$HOME/.pixi/bin" >> $GITHUB_PATH
+      - uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          pixi-version: v0.38.0
 
       - uses: tlambert03/setup-qt-libs@v1
 
