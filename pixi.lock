@@ -10440,7 +10440,7 @@ packages:
   requires_python: '>=3.7'
 - pypi: .
   name: trackedit
-  version: 0.0.10
+  version: 0.0.12
   sha256: 53d7ebc64418c7e2c6c3b9b83ee5341fa024c3fae629304a75d31deb78d8bff3
   requires_dist:
   - click>=8.0
@@ -10450,7 +10450,7 @@ packages:
   editable: true
 - pypi: .
   name: trackedit
-  version: 0.0.10
+  version: 0.0.12
   sha256: 53d7ebc64418c7e2c6c3b9b83ee5341fa024c3fae629304a75d31deb78d8bff3
   requires_dist:
   - click>=8.0
