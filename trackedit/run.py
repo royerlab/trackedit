@@ -40,6 +40,8 @@ def run_trackedit(
     viewer: Optional[napari.Viewer] = None,
     flag_show_hierarchy: bool = True,
     flag_allow_adding_spherical_cell: bool = False,
+    flag_remove_red_flags_at_edge: bool = False,
+    remove_red_flags_at_edge_threshold: int = 10,
     annotation_mapping: Optional[dict] = None,
     coordinate_filters: Optional[list] = None,
     default_start_annotation: Optional[int] = None,
@@ -92,6 +94,8 @@ def run_trackedit(
         coordinate_filters=coordinate_filters,
         default_start_annotation=default_start_annotation,
         imaging_layer_names=imaging_layer_names,
+        flag_remove_red_flags_at_edge=flag_remove_red_flags_at_edge,
+        remove_red_flags_at_edge_threshold=remove_red_flags_at_edge_threshold,
     )
 
     # overwrite some motile functions

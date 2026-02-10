@@ -60,6 +60,8 @@ class DatabaseHandler:
         coordinate_filters: list = None,
         default_start_annotation: int = None,  # Make it optional
         imaging_layer_names: list = None,
+        flag_remove_red_flags_at_edge: bool = False,
+        remove_red_flags_at_edge_threshold: int = 10,
     ):
 
         # inputs
@@ -82,6 +84,8 @@ class DatabaseHandler:
         )
         self.coordinate_filters = coordinate_filters
         self.imaging_layer_names = imaging_layer_names
+        self.flag_remove_red_flags_at_edge = flag_remove_red_flags_at_edge
+        self.remove_red_flags_at_edge_threshold = remove_red_flags_at_edge_threshold
 
         # Filenames / directories
         self.extension_string = ""
@@ -718,11 +722,14 @@ class DatabaseHandler:
         # result_df = result_df[result_df["t"] != 1]
 
         # Filter out red flags at the edge of the field of view
-        # (often false positives from cells entering/leaving the imaging volume)
-        data_shape_spatial = self.data_shape_full[1:]  # Remove time dimension
-        result_df = filter_red_flags_at_edge(
-            result_df, df, data_shape_spatial, edge_threshold=10, ndim=self.ndim
-        )
+        if self.flag_remove_red_flags_at_edge:
+            result_df = filter_red_flags_at_edge(
+                red_flags = result_df,
+                df_full = df,
+                data_shape=self.data_shape_full[1:],
+                edge_threshold=self.remove_red_flags_at_edge_threshold,
+                ndim=self.ndim,
+            )
 
         return result_df
 

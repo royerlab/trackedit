@@ -48,5 +48,7 @@ if __name__ == "__main__":
         imaging_channel=imaging_channel,
         imaging_layer_names=imaging_layer_names,
         annotation_mapping=annotation_mapping,
-        flag_allow_adding_spherical_cell=True,  # Enable spherical cell feature
+        flag_allow_adding_spherical_cell=True,
+        flag_remove_red_flags_at_edge=True,
+        remove_red_flags_at_edge_threshold=10,
     )
