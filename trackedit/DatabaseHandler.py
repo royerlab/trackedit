@@ -26,6 +26,7 @@ from trackedit.arrays.DatabaseArray import DatabaseArray
 from trackedit.arrays.ImagingArray import SimpleImageArray
 from trackedit.utils.red_flag_funcs import (
     combine_red_flags,
+    filter_red_flags_at_edge,
     find_all_starts_and_ends,
     find_overlapping_cells,
 )
@@ -59,6 +60,8 @@ class DatabaseHandler:
         coordinate_filters: list = None,
         default_start_annotation: int = None,  # Make it optional
         imaging_layer_names: list = None,
+        flag_remove_red_flags_at_edge: bool = False,
+        remove_red_flags_at_edge_threshold: int = 10,
     ):
 
         # inputs
@@ -81,6 +84,8 @@ class DatabaseHandler:
         )
         self.coordinate_filters = coordinate_filters
         self.imaging_layer_names = imaging_layer_names
+        self.flag_remove_red_flags_at_edge = flag_remove_red_flags_at_edge
+        self.remove_red_flags_at_edge_threshold = remove_red_flags_at_edge_threshold
 
         # Filenames / directories
         self.extension_string = ""
@@ -715,6 +720,16 @@ class DatabaseHandler:
         # ToDo: make option to filter redflags in the first two timepoints
         # (useful for neuromast with suboptimal beginning)
         # result_df = result_df[result_df["t"] != 1]
+
+        # Filter out red flags at the edge of the field of view
+        if self.flag_remove_red_flags_at_edge:
+            result_df = filter_red_flags_at_edge(
+                red_flags=result_df,
+                df_full=df,
+                data_shape=self.data_shape_full[1:],
+                edge_threshold=self.remove_red_flags_at_edge_threshold,
+                ndim=self.ndim,
+            )
 
         return result_df
 
