@@ -18,11 +18,13 @@ class CustomEditingMenu(EditingMenu):
         viewer: napari.Viewer,
         databasehandler: DatabaseHandler,
         allow_adding_spherical_cell: bool = False,
+        adding_spherical_cell_radius: int = 10,
     ):
         super().__init__(viewer)  # Call the original init method
         self.databasehandler = databasehandler
         self.allow_adding_spherical_cell = allow_adding_spherical_cell
-
+        self.adding_spherical_cell_radius = adding_spherical_cell_radius
+        
         main_layout = self.layout()  # This retrieves the QVBoxLayout from EditingMenu
         main_layout.insertWidget(0, QLabel(r"""<h3>Edit tracks</h3>"""))
 
@@ -67,7 +69,9 @@ class CustomEditingMenu(EditingMenu):
 
         # Conditionally add spherical cell button
         if self.allow_adding_spherical_cell:
-            self.add_spherical_cell_btn = QPushButton("Add Spherical Cell")
+            self.add_spherical_cell_btn = QPushButton(
+                f"Add Spherical Cell (R={self.adding_spherical_cell_radius}px)"
+            )
             self.add_spherical_cell_btn.setCheckable(True)  # Toggle on/off
             self.add_spherical_cell_btn.setStyleSheet(
                 "QPushButton:checked { background-color: #4CAF50; color: white; }"
@@ -76,7 +80,6 @@ class CustomEditingMenu(EditingMenu):
 
             spherical_cell_layout = QHBoxLayout()
             spherical_cell_layout.addWidget(self.add_spherical_cell_btn)
-            spherical_cell_layout.addWidget(QLabel("R=10px"))
 
             node_box.layout().addLayout(spherical_cell_layout)
             node_box.setMaximumHeight(200)  # Increased to fit spherical cell button

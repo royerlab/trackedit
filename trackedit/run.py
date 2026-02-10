@@ -40,6 +40,7 @@ def run_trackedit(
     viewer: Optional[napari.Viewer] = None,
     flag_show_hierarchy: bool = True,
     flag_allow_adding_spherical_cell: bool = False,
+    adding_spherical_cell_radius: int = 10,
     flag_remove_red_flags_at_edge: bool = False,
     remove_red_flags_at_edge_threshold: int = 10,
     annotation_mapping: Optional[dict] = None,
@@ -112,6 +113,7 @@ def run_trackedit(
         databasehandler=DB_handler,
         flag_show_hierarchy=flag_show_hierarchy,
         flag_allow_adding_spherical_cell=flag_allow_adding_spherical_cell,
+        adding_spherical_cell_radius=adding_spherical_cell_radius,
     )
     if DB_handler.ndim == 4:
         viewer.dims.ndisplay = 3  # 3D view

@@ -24,6 +24,7 @@ class TrackEditClass:
         databasehandler: DatabaseHandler,
         flag_show_hierarchy: bool = True,
         flag_allow_adding_spherical_cell: bool = False,
+        adding_spherical_cell_radius: int = 10,
     ):
         self.viewer = viewer
         self.viewer.layers.clear()  # Remove all existing layers
@@ -39,6 +40,7 @@ class TrackEditClass:
             self.viewer,
             self.databasehandler,
             allow_adding_spherical_cell=flag_allow_adding_spherical_cell,
+            adding_spherical_cell_radius=adding_spherical_cell_radius,
         )
 
         tabwidget_right = QTabWidget()

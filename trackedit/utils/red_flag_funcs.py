@@ -309,14 +309,6 @@ def filter_red_flags_at_edge(
     at_edge_mask = min_distance_to_edge <= edge_threshold
     filtered_non_overlap = non_overlap_red_flags[~at_edge_mask]
 
-    # Report how many red flags were removed due to edge filtering
-    num_removed_at_edge = at_edge_mask.sum()
-    if num_removed_at_edge > 0:
-        print(
-            f"Filtered out {num_removed_at_edge} 'added'/'removed' red flags at FOV edge "
-            f"(within {edge_threshold} pixels)"
-        )
-
     # Combine filtered non-overlap events with all overlap events
     filtered_red_flags = pd.concat(
         [filtered_non_overlap, overlap_red_flags], ignore_index=True

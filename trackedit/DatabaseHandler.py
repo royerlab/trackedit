@@ -724,8 +724,8 @@ class DatabaseHandler:
         # Filter out red flags at the edge of the field of view
         if self.flag_remove_red_flags_at_edge:
             result_df = filter_red_flags_at_edge(
-                red_flags = result_df,
-                df_full = df,
+                red_flags=result_df,
+                df_full=df,
                 data_shape=self.data_shape_full[1:],
                 edge_threshold=self.remove_red_flags_at_edge_threshold,
                 ndim=self.ndim,
