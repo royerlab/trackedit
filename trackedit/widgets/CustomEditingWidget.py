@@ -11,10 +11,17 @@ class CustomEditingMenu(EditingMenu):
 
     add_cell_button_pressed = Signal(int)
     duplicate_cell_button_pressed = Signal(int, int)
+    add_spherical_cell_toggled = Signal(bool)  # Signal for spherical cell mode toggle
 
-    def __init__(self, viewer: napari.Viewer, databasehandler: DatabaseHandler):
+    def __init__(
+        self,
+        viewer: napari.Viewer,
+        databasehandler: DatabaseHandler,
+        allow_adding_spherical_cell: bool = False,
+    ):
         super().__init__(viewer)  # Call the original init method
         self.databasehandler = databasehandler
+        self.allow_adding_spherical_cell = allow_adding_spherical_cell
 
         main_layout = self.layout()  # This retrieves the QVBoxLayout from EditingMenu
         main_layout.insertWidget(0, QLabel(r"""<h3>Edit tracks</h3>"""))
@@ -57,9 +64,26 @@ class CustomEditingMenu(EditingMenu):
         node_box = main_layout.itemAt(1).widget()
         node_box.layout().addLayout(add_cell_layout)
         node_box.layout().addLayout(duplicate_cell_layout)
-        node_box.setMaximumHeight(150)
 
-        self.setMaximumHeight(430)
+        # Conditionally add spherical cell button
+        if self.allow_adding_spherical_cell:
+            self.add_spherical_cell_btn = QPushButton("Add Spherical Cell")
+            self.add_spherical_cell_btn.setCheckable(True)  # Toggle on/off
+            self.add_spherical_cell_btn.setStyleSheet(
+                "QPushButton:checked { background-color: #4CAF50; color: white; }"
+            )
+            self.add_spherical_cell_btn.clicked.connect(self._on_spherical_cell_clicked)
+
+            spherical_cell_layout = QHBoxLayout()
+            spherical_cell_layout.addWidget(self.add_spherical_cell_btn)
+            spherical_cell_layout.addWidget(QLabel("R=10px"))
+
+            node_box.layout().addLayout(spherical_cell_layout)
+            node_box.setMaximumHeight(200)  # Increased to fit spherical cell button
+            self.setMaximumHeight(480)  # Increased to fit spherical cell button
+        else:
+            node_box.setMaximumHeight(150)  # Original height
+            self.setMaximumHeight(430)  # Original height
 
     def update_add_cell_btn_state(self, text):
         state, _, _ = self.add_cell_input.validator().validate(text, 0)
@@ -92,3 +116,7 @@ class CustomEditingMenu(EditingMenu):
         else:
             self.add_cell_input.setText("")
             self.duplicate_cell_id_input.setText("")
+
+    def _on_spherical_cell_clicked(self, checked):
+        """Emit signal when spherical cell button is toggled."""
+        self.add_spherical_cell_toggled.emit(checked)
