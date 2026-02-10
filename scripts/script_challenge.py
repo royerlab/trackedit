@@ -21,12 +21,12 @@ scale = (4, 1, 1)
 allow_overwrite = False
 
 # OPTIONAL: imaging data
-# imaging_zarr_file = (
-#     "/hpc/....../deconvolved.zarr"
-# )
-# imaging_channel = "0/4/0/0"
-imaging_zarr_file = None
-imaging_channel = None
+imaging_zarr_file = (
+    "/hpc/projects/group.royer/people/thibaut.goldsborough/"
+    "tracking-challenge/cellmotv0/2026_01_22_dorado/0000_0195_0050_0532.zarr"
+)
+imaging_channel = "0"
+imaging_layer_names = ["dense", "sparse"]
 
 # OPTIONAL: annotation mapping (default is neuromast cell types)
 # annotation_mapping = {
@@ -46,6 +46,7 @@ if __name__ == "__main__":
         allow_overwrite=allow_overwrite,
         imaging_zarr_file=imaging_zarr_file,
         imaging_channel=imaging_channel,
+        imaging_layer_names=imaging_layer_names,
         annotation_mapping=annotation_mapping,
         flag_allow_adding_spherical_cell=True,  # Enable spherical cell feature
     )

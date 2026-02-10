@@ -26,6 +26,7 @@ from trackedit.arrays.DatabaseArray import DatabaseArray
 from trackedit.arrays.ImagingArray import SimpleImageArray
 from trackedit.utils.red_flag_funcs import (
     combine_red_flags,
+    filter_red_flags_at_edge,
     find_all_starts_and_ends,
     find_overlapping_cells,
 )
@@ -715,6 +716,13 @@ class DatabaseHandler:
         # ToDo: make option to filter redflags in the first two timepoints
         # (useful for neuromast with suboptimal beginning)
         # result_df = result_df[result_df["t"] != 1]
+
+        # Filter out red flags at the edge of the field of view
+        # (often false positives from cells entering/leaving the imaging volume)
+        data_shape_spatial = self.data_shape_full[1:]  # Remove time dimension
+        result_df = filter_red_flags_at_edge(
+            result_df, df, data_shape_spatial, edge_threshold=10, ndim=self.ndim
+        )
 
         return result_df
 
