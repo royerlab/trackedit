@@ -24,7 +24,7 @@ class CustomEditingMenu(EditingMenu):
         self.databasehandler = databasehandler
         self.allow_adding_spherical_cell = allow_adding_spherical_cell
         self.adding_spherical_cell_radius = adding_spherical_cell_radius
-        
+
         main_layout = self.layout()  # This retrieves the QVBoxLayout from EditingMenu
         main_layout.insertWidget(0, QLabel(r"""<h3>Edit tracks</h3>"""))
 
