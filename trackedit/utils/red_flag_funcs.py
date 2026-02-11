@@ -202,3 +202,122 @@ def combine_red_flags(*red_flag_dfs: pd.DataFrame) -> pd.DataFrame:
         combined_df = combined_df.sort_values(["t", "id"]).reset_index(drop=True)
 
     return combined_df
+
+
+def filter_red_flags_at_edge(
+    red_flags: pd.DataFrame,
+    df_full: pd.DataFrame,
+    data_shape: tuple,
+    edge_threshold: int,
+    ndim: int,
+) -> pd.DataFrame:
+    """
+    Filter out 'added' and 'removed' red flags near the edge of the field of view (FOV).
+
+    Red flags with event type 'added' or 'removed' at the edge are often false
+    positives caused by cells entering or leaving the imaging volume. Overlap
+    events are kept regardless of position since they represent real spatial
+    conflicts between cells.
+
+    Parameters
+    ----------
+    red_flags : pd.DataFrame
+        DataFrame with red flag information, must have 'id' and 'event' columns
+    df_full : pd.DataFrame
+        DataFrame with all cell data, must have 'id', 'z', 'y', 'x' columns
+        (indexed by 'id' or with 'id' as a column)
+    data_shape : tuple
+        Spatial dimensions of the data (excluding time):
+        - For 3D data: (z_max, y_max, x_max)
+        - For 2D data: (y_max, x_max)
+    edge_threshold : int
+        Distance threshold in pixels - cells within this distance from any
+        edge are considered "at edge"
+    ndim : int
+        Number of dimensions: 4 for 3D+time, 3 for 2D+time
+
+    Returns
+    -------
+    pd.DataFrame
+        Filtered red flags DataFrame with edge-related 'added'/'removed' events removed,
+        but all 'overlap' events preserved
+    """
+    if red_flags.empty:
+        return red_flags
+
+    # Separate overlap events (always keep) from added/removed events (filter at edge)
+    overlap_mask = red_flags["event"] == "overlap"
+    overlap_red_flags = red_flags[overlap_mask]
+    non_overlap_red_flags = red_flags[~overlap_mask]
+
+    # If no non-overlap red flags, return all overlaps
+    if non_overlap_red_flags.empty:
+        return overlap_red_flags.reset_index(drop=True)
+
+    # Ensure df_full has 'id' as a column for merging (not as index)
+    # Handle case where 'id' might be index, column, or both
+    if df_full.index.name == "id":
+        if "id" in df_full.columns:
+            # 'id' is both index and column - just drop the index, keep the column
+            df_full = df_full.reset_index(drop=True)
+        else:
+            # 'id' is only the index - convert it to a column
+            df_full = df_full.reset_index(drop=False)
+    elif "id" not in df_full.columns:
+        # If 'id' is neither index nor column, raise error
+        raise ValueError(
+            "df_full must have 'id' as either index or column for red flag filtering"
+        )
+
+    # Merge non-overlap red flags with cell position data
+    red_flags_with_pos = non_overlap_red_flags.merge(
+        df_full[["id", "z", "y", "x"]], on="id", how="left"
+    )
+
+    # Calculate distance to edges for each red flag
+    if ndim == 4:
+        # 3D data: check z, y, x
+        z_max, y_max, x_max = data_shape
+
+        distances_to_edges = pd.DataFrame(
+            {
+                "z_min": red_flags_with_pos["z"],
+                "z_max": z_max - red_flags_with_pos["z"] - 1,
+                "y_min": red_flags_with_pos["y"],
+                "y_max": y_max - red_flags_with_pos["y"] - 1,
+                "x_min": red_flags_with_pos["x"],
+                "x_max": x_max - red_flags_with_pos["x"] - 1,
+            }
+        )
+    else:
+        # 2D data: check y, x only
+        y_max, x_max = data_shape
+
+        distances_to_edges = pd.DataFrame(
+            {
+                "y_min": red_flags_with_pos["y"],
+                "y_max": y_max - red_flags_with_pos["y"] - 1,
+                "x_min": red_flags_with_pos["x"],
+                "x_max": x_max - red_flags_with_pos["x"] - 1,
+            }
+        )
+
+    # Find minimum distance to any edge for each red flag
+    min_distance_to_edge = distances_to_edges.min(axis=1)
+
+    # Keep only 'added'/'removed' red flags that are NOT at the edge
+    at_edge_mask = min_distance_to_edge <= edge_threshold
+    filtered_non_overlap = non_overlap_red_flags[~at_edge_mask]
+
+    # Combine filtered non-overlap events with all overlap events
+    filtered_red_flags = pd.concat(
+        [filtered_non_overlap, overlap_red_flags], ignore_index=True
+    )
+
+    # Sort by time and id for consistent ordering
+    if not filtered_red_flags.empty:
+        filtered_red_flags = filtered_red_flags.sort_values(["t", "id"]).reset_index(
+            drop=True
+        )
+
+    return filtered_red_flags

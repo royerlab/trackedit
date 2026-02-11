@@ -39,6 +39,10 @@ def run_trackedit(
     image_translate: Optional[Tuple[float, ...]] = None,
     viewer: Optional[napari.Viewer] = None,
     flag_show_hierarchy: bool = True,
+    flag_allow_adding_spherical_cell: bool = False,
+    adding_spherical_cell_radius: int = 10,
+    flag_remove_red_flags_at_edge: bool = False,
+    remove_red_flags_at_edge_threshold: int = 10,
     annotation_mapping: Optional[dict] = None,
     coordinate_filters: Optional[list] = None,
     default_start_annotation: Optional[int] = None,
@@ -61,6 +65,7 @@ def run_trackedit(
         imaging_channel: Channel to use from imaging file
         viewer: Optional existing napari viewer
         flag_show_hierarchy: Show hierarchy in the viewer
+        flag_allow_adding_spherical_cell: Allow adding spherical cells via button (default: False)
         annotation_mapping: Mapping of annotation ids to names and colors
         imaging_layer_names: Names for imaging layers. If None, defaults to ['nuclear', 'membrane'] for 2 channels
 
@@ -90,6 +95,8 @@ def run_trackedit(
         coordinate_filters=coordinate_filters,
         default_start_annotation=default_start_annotation,
         imaging_layer_names=imaging_layer_names,
+        flag_remove_red_flags_at_edge=flag_remove_red_flags_at_edge,
+        remove_red_flags_at_edge_threshold=remove_red_flags_at_edge_threshold,
     )
 
     # overwrite some motile functions
@@ -102,7 +109,11 @@ def run_trackedit(
     )
 
     track_edit = TrackEditClass(
-        viewer, databasehandler=DB_handler, flag_show_hierarchy=flag_show_hierarchy
+        viewer,
+        databasehandler=DB_handler,
+        flag_show_hierarchy=flag_show_hierarchy,
+        flag_allow_adding_spherical_cell=flag_allow_adding_spherical_cell,
+        adding_spherical_cell_radius=adding_spherical_cell_radius,
     )
     if DB_handler.ndim == 4:
         viewer.dims.ndisplay = 3  # 3D view
