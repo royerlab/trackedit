@@ -307,7 +307,8 @@ def filter_red_flags_at_edge(
 
     # Keep only 'added'/'removed' red flags that are NOT at the edge
     at_edge_mask = min_distance_to_edge <= edge_threshold
-    filtered_non_overlap = non_overlap_red_flags[~at_edge_mask]
+    # Use .values to avoid index alignment issues between non_overlap_red_flags and at_edge_mask
+    filtered_non_overlap = non_overlap_red_flags[~at_edge_mask.values]
 
     # Combine filtered non-overlap events with all overlap events
     filtered_red_flags = pd.concat(
