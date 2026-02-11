@@ -284,6 +284,72 @@ def patched_create_pyqtgraph_content(self, track_df, feature):
 
 TreePlot._create_pyqtgraph_content = patched_create_pyqtgraph_content
 
+
+# Patch TrackLabels click handler to fix DatabaseArray lazy loading issue
+def patch_track_labels_click_handler():
+    """Monkey patch TrackLabels to add DatabaseArray loading workaround.
+
+    After colormap updates, napari's get_value() fails to trigger DatabaseArray
+    loading. This patch pre-accesses the array to force loading before get_value().
+    See: .claude/click-selection-bug-fix.md for details.
+    """
+    from motile_tracker.data_views.views.layers.track_labels import TrackLabels
+
+    # Store original __init__
+    _original_init = TrackLabels.__init__
+
+    def patched_init(self, viewer, data, name, opacity, scale, tracks_viewer):
+        # Call original __init__ which sets up the original click callback
+        _original_init(self, viewer, data, name, opacity, scale, tracks_viewer)
+
+        # Remove the original click callback (it's the last one added)
+        if self.mouse_drag_callbacks:
+            self.mouse_drag_callbacks.pop()
+
+        # Add our fixed click callback
+        @self.mouse_drag_callbacks.append
+        def fixed_click(layer, event):
+            if (
+                event.type == "mouse_press"
+                and layer.mode == "pan_zoom"
+                and not (
+                    layer.tracks_viewer.mode == "lineage"
+                    and layer.viewer.dims.ndisplay == 3
+                )
+            ):
+                # WORKAROUND: Pre-access array to trigger DatabaseArray loading
+                # Without this, get_value() fails after colormap updates
+                data_coords = layer.world_to_data(event.position)
+                try:
+                    t_idx = int(data_coords[0])
+                    # Access time slice to ensure DatabaseArray.fill_array() is called
+                    _ = layer.data[t_idx]
+                except Exception:
+                    pass  # If this fails, get_value() will also fail
+
+                label = layer.get_value(
+                    event.position,
+                    view_direction=event.view_direction,
+                    dims_displayed=event.dims_displayed,
+                    world=True,
+                )
+
+                if (
+                    label is not None
+                    and label != 0
+                    and layer.colormap.map(label)[-1] != 0
+                ):
+                    append = "Shift" in event.modifiers
+                    layer.tracks_viewer.selected_nodes.add(label, append)
+
+    # Replace TrackLabels.__init__ with patched version
+    TrackLabels.__init__ = patched_init
+
+
+# Apply the patch
+patch_track_labels_click_handler()
+
+
 # def get_status(self, position, view_direction=None, dims_displayed=None, world=True):
 #     return "True" #works to allow napari grid view, but not for cursor position/value display
 # TrackLabels.get_status = get_status
