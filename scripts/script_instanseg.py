@@ -13,7 +13,9 @@ warnings.filterwarnings("ignore", category=FutureWarning, message=".*qt_viewer.*
 
 # **********INPUTS*********
 # path to the working directory that contains the database file AND metadata.toml:
-working_directory = Path("/home/teun.huijben/Documents/data/Thibaut/masks_on_geff/")
+working_directory = Path(
+    "/hpc/projects/group.royer/people/teun.huijben/data/Thibault/4th_exp//masks_on_geff/"
+)
 # name of the database file to start from, or "latest" to start from the latest version, defaults to "data.db"
 db_filename_start = "latest"
 # maximum number of frames display, defaults to None (use all frames)

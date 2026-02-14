@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import sqlalchemy as sqla
 from ultrack.core.database import OverlapDB, Session
@@ -322,3 +323,154 @@ def filter_red_flags_at_edge(
         )
 
     return filtered_red_flags
+
+
+def find_trajectory_changes(
+    df: pd.DataFrame,
+    scale: tuple,
+    displacement_threshold_multiplier: float = 2.5,
+    angle_threshold_deg: float = 120,
+    min_displacement_for_angle: float = None,
+) -> pd.DataFrame:
+    """
+    Detect trajectory jumps and direction changes.
+
+    Binary classification: 'good' or 'change' for each movement.
+    A movement is 'change' if EITHER:
+    - Large displacement (> threshold), OR
+    - Sharp direction change (> angle_threshold) AND displacement is significant
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with columns: track_id, t, z, y, x (indexed by id)
+    scale : tuple
+        (z_scale, y_scale, x_scale) for anisotropic scaling
+    displacement_threshold_multiplier : float
+        Multiplier for displacement threshold (default 2.5× the 95th percentile)
+    angle_threshold_deg : float
+        Angle change threshold in degrees (default 120)
+    min_displacement_for_angle : float or None
+        Min displacement to check angles (default: 75th percentile)
+
+    Returns
+    -------
+    pd.DataFrame
+        Red flags with columns: t, id, event='trajectory_change'
+    """
+
+    # Pass 1: Calculate all displacements for adaptive thresholds
+    all_displacements = []
+    for track_id, track_df in df.groupby("track_id"):
+        if len(track_df) < 2:
+            continue
+        track_df = track_df.sort_values("t")
+        dz = np.diff(track_df["z"].values) * scale[0]
+        dy = np.diff(track_df["y"].values) * scale[1]
+        dx = np.diff(track_df["x"].values) * scale[2]
+        displacements = np.sqrt(dz**2 + dy**2 + dx**2)
+        all_displacements.extend(displacements)
+
+    if len(all_displacements) == 0:
+        return pd.DataFrame(columns=["t", "id", "event"])
+
+    # Set thresholds
+    disp_threshold = (
+        np.percentile(all_displacements, 95) * displacement_threshold_multiplier
+    )
+    if min_displacement_for_angle is None:
+        min_displacement_for_angle = np.percentile(all_displacements, 75)
+
+    # Pass 2: Classify all movements
+    changes = []
+    for track_id, track_df in df.groupby("track_id"):
+        if len(track_df) < 2:
+            continue
+
+        track_df = track_df.sort_values("t")
+        z = track_df["z"].values
+        y = track_df["y"].values
+        x = track_df["x"].values
+        t = track_df["t"].values
+        ids = track_df.index.values
+
+        dz = np.diff(z) * scale[0]
+        dy = np.diff(y) * scale[1]
+        dx = np.diff(x) * scale[2]
+        displacements = np.sqrt(dz**2 + dy**2 + dx**2)
+
+        for i, disp in enumerate(displacements):
+            is_change = False
+
+            # Check 1: Large displacement?
+            if disp > disp_threshold:
+                is_change = True
+
+            # Check 2: Sharp direction change (only if displacement is significant)?
+            if disp > min_displacement_for_angle and i > 0:
+                v1 = np.array([dz[i - 1], dy[i - 1], dx[i - 1]])
+                v2 = np.array([dz[i], dy[i], dx[i]])
+                norm1 = np.linalg.norm(v1)
+                norm2 = np.linalg.norm(v2)
+
+                if norm1 > 0 and norm2 > 0:
+                    cos_angle = np.dot(v1, v2) / (norm1 * norm2)
+                    cos_angle = np.clip(cos_angle, -1, 1)
+                    angle_rad = np.arccos(cos_angle)
+                    angle_deg = np.degrees(angle_rad)
+
+                    if angle_deg > angle_threshold_deg:
+                        is_change = True
+
+            if is_change:
+                changes.append(
+                    {"t": t[i + 1], "id": ids[i + 1], "event": "trajectory_change"}
+                )
+
+    return pd.DataFrame(changes)
+
+
+def find_area_changes(df: pd.DataFrame, threshold: float = 0.5) -> pd.DataFrame:
+    """
+    Detect drastic area/volume changes.
+
+    Flags cells with >50% (default) area increase or decrease between timesteps.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with columns: track_id, t, area (indexed by id)
+    threshold : float
+        Relative change threshold (default 0.5 = 50%)
+
+    Returns
+    -------
+    pd.DataFrame
+        Red flags with columns: t, id, event='area_change'
+    """
+
+    if "area" not in df.columns:
+        return pd.DataFrame(columns=["t", "id", "event"])
+
+    changes = []
+
+    for track_id, track_df in df.groupby("track_id"):
+        if len(track_df) < 2:
+            continue
+
+        track_df = track_df.sort_values("t")
+        areas = track_df["area"].values
+        t = track_df["t"].values
+        ids = track_df.index.values
+
+        # Relative change: (new - old) / old
+        relative_changes = np.diff(areas) / areas[:-1]
+
+        for i, rel_change in enumerate(relative_changes):
+            # Flag if absolute change > threshold (50% by default)
+            if np.abs(rel_change) > threshold:
+                changes.append(
+                    {"t": t[i + 1], "id": ids[i + 1], "event": "area_change"}
+                )
+
+    return pd.DataFrame(changes)
