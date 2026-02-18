@@ -17,7 +17,7 @@ from motile_tracker.data_model.actions import ActionGroup, AddEdges, DeleteEdges
 from motile_tracker.data_model.solution_tracks import SolutionTracks
 from motile_tracker.data_model.tracks_controller import TracksController
 from motile_tracker.data_views import TracksViewer
-from motile_tracker.data_views.views.tree_view.tree_widget import TreePlot
+from motile_tracker.data_views.views.tree_view.tree_widget import TreePlot, TreeWidget
 
 AttrValue: TypeAlias = Any
 AttrValues: TypeAlias = Sequence[AttrValue]
@@ -353,3 +353,46 @@ patch_track_labels_click_handler()
 # def get_status(self, position, view_direction=None, dims_displayed=None, world=True):
 #     return "True" #works to allow napari grid view, but not for cursor position/value display
 # TrackLabels.get_status = get_status
+
+
+# --- toggle_layers: show/hide all three tracking layers ---
+
+
+def toggle_layers(self, event=None):
+    """Toggle visibility of all tracking layers (points, labels, tracks)."""
+    lg = self.tracking_layers
+    layers = [
+        l for l in [lg.tracks_layer, lg.seg_layer, lg.points_layer] if l is not None
+    ]
+    if not layers:
+        return
+    new_visible = not layers[0].visible
+    for layer in layers:
+        layer.visible = new_visible
+
+
+TracksViewer.toggle_layers = toggle_layers
+
+_old_set_keybinds = TracksViewer.set_keybinds
+
+
+def patched_set_keybinds(self):
+    _old_set_keybinds(self)
+    self.viewer.bind_key("v")(self.toggle_layers)
+
+
+TracksViewer.set_keybinds = patched_set_keybinds
+
+_old_tree_key_press = TreeWidget.keyPressEvent
+
+
+def patched_tree_key_press(self, event):
+    from qtpy.QtCore import Qt
+
+    if event.key() == Qt.Key_V:
+        self.tracks_viewer.toggle_layers()
+    else:
+        _old_tree_key_press(self, event)
+
+
+TreeWidget.keyPressEvent = patched_tree_key_press
