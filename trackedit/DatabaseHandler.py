@@ -740,6 +740,7 @@ class DatabaseHandler:
                 data_shape=self.data_shape_full[1:],
                 edge_threshold=self.remove_red_flags_at_edge_threshold,
                 ndim=self.ndim,
+                scale=self.scale,
             )
 
         return result_df
