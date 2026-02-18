@@ -355,7 +355,7 @@ patch_track_labels_click_handler()
 # TrackLabels.get_status = get_status
 
 
-# --- select_track: select all nodes of the currently selected node's track ---
+# --- Custom keybindings ---
 
 
 def select_track(self, event=None):
@@ -371,43 +371,6 @@ def select_track(self, event=None):
     self.selected_nodes.add_list(list(track_nodes), append=False)
 
 
-TracksViewer.select_track = select_track
-
-_old_set_keybinds = TracksViewer.set_keybinds
-
-
-def patched_set_keybinds(self):
-    _old_set_keybinds(self)
-    self.viewer.bind_key("t")(self.select_track)
-
-
-TracksViewer.set_keybinds = patched_set_keybinds
-
-
-def tree_widget_select_track(self):
-    self.tracks_viewer.select_track()
-
-
-TreeWidget.select_track = tree_widget_select_track
-
-_old_tree_key_press = TreeWidget.keyPressEvent
-
-
-def patched_tree_key_press(self, event):
-    from qtpy.QtCore import Qt
-
-    if event.key() == Qt.Key_T:
-        self.select_track()
-    else:
-        _old_tree_key_press(self, event)
-
-
-TreeWidget.keyPressEvent = patched_tree_key_press
-
-
-# --- toggle_layers: show/hide all three tracking layers ---
-
-
 def toggle_layers(self, event=None):
     """Toggle visibility of all tracking layers (points, labels, tracks)."""
     lg = self.tracking_layers
@@ -421,6 +384,7 @@ def toggle_layers(self, event=None):
         layer.visible = new_visible
 
 
+TracksViewer.select_track = select_track
 TracksViewer.toggle_layers = toggle_layers
 
 _old_set_keybinds = TracksViewer.set_keybinds
@@ -428,6 +392,7 @@ _old_set_keybinds = TracksViewer.set_keybinds
 
 def patched_set_keybinds(self):
     _old_set_keybinds(self)
+    self.viewer.bind_key("t")(self.select_track)
     self.viewer.bind_key("v")(self.toggle_layers)
 
 
@@ -439,7 +404,9 @@ _old_tree_key_press = TreeWidget.keyPressEvent
 def patched_tree_key_press(self, event):
     from qtpy.QtCore import Qt
 
-    if event.key() == Qt.Key_V:
+    if event.key() == Qt.Key_T:
+        self.tracks_viewer.select_track()
+    elif event.key() == Qt.Key_V:
         self.tracks_viewer.toggle_layers()
     else:
         _old_tree_key_press(self, event)
