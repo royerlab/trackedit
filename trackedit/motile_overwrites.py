@@ -17,7 +17,7 @@ from motile_tracker.data_model.actions import ActionGroup, AddEdges, DeleteEdges
 from motile_tracker.data_model.solution_tracks import SolutionTracks
 from motile_tracker.data_model.tracks_controller import TracksController
 from motile_tracker.data_views import TracksViewer
-from motile_tracker.data_views.views.tree_view.tree_widget import TreePlot
+from motile_tracker.data_views.views.tree_view.tree_widget import TreePlot, TreeWidget
 
 AttrValue: TypeAlias = Any
 AttrValues: TypeAlias = Sequence[AttrValue]
@@ -353,3 +353,63 @@ patch_track_labels_click_handler()
 # def get_status(self, position, view_direction=None, dims_displayed=None, world=True):
 #     return "True" #works to allow napari grid view, but not for cursor position/value display
 # TrackLabels.get_status = get_status
+
+
+# --- Custom keybindings ---
+
+
+def select_track(self, event=None):
+    """Select all nodes belonging to the same track as the currently selected node.
+    Only works if all currently selected nodes belong to the same track."""
+    if len(self.selected_nodes) == 0 or self.tracks is None:
+        return
+    track_ids = {self.tracks.get_track_id(n) for n in self.selected_nodes}
+    if len(track_ids) > 1:
+        return
+    track_id = next(iter(track_ids))
+    track_nodes = self.tracks.track_id_to_node.get(track_id, [])
+    self.selected_nodes.add_list(list(track_nodes), append=False)
+
+
+def toggle_layers(self, event=None):
+    """Toggle visibility of all tracking layers (points, labels, tracks)."""
+    lg = self.tracking_layers
+    layers = [
+        l for l in [lg.tracks_layer, lg.seg_layer, lg.points_layer] if l is not None
+    ]
+    if not layers:
+        return
+    new_visible = not layers[0].visible
+    for layer in layers:
+        layer.visible = new_visible
+
+
+TracksViewer.select_track = select_track
+TracksViewer.toggle_layers = toggle_layers
+
+_old_set_keybinds = TracksViewer.set_keybinds
+
+
+def patched_set_keybinds(self):
+    _old_set_keybinds(self)
+    self.viewer.bind_key("t")(self.select_track)
+    self.viewer.bind_key("v")(self.toggle_layers)
+
+
+TracksViewer.set_keybinds = patched_set_keybinds
+
+_old_tree_key_press = TreeWidget.keyPressEvent
+
+
+def patched_tree_key_press(self, event):
+    from qtpy.QtCore import Qt
+
+    if event.key() == Qt.Key_T:
+        self.tracks_viewer.select_track()
+    elif event.key() == Qt.Key_V:
+        self.tracks_viewer.toggle_layers()
+    else:
+        _old_tree_key_press(self, event)
+
+
+TreeWidget.keyPressEvent = patched_tree_key_press
