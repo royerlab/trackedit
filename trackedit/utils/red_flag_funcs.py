@@ -294,15 +294,20 @@ def filter_red_flags_at_edge(
     if ndim == 4:
         z_max, y_max, x_max = data_shape
         at_edge_mask = (
-            (pos["z"] <= z_threshold) | (z_max - pos["z"] - 1 <= z_threshold) |
-            (pos["y"] <= xy_threshold) | (y_max - pos["y"] - 1 <= xy_threshold) |
-            (pos["x"] <= xy_threshold) | (x_max - pos["x"] - 1 <= xy_threshold)
+            (pos["z"] <= z_threshold)
+            | (z_max - pos["z"] - 1 <= z_threshold)
+            | (pos["y"] <= xy_threshold)
+            | (y_max - pos["y"] - 1 <= xy_threshold)
+            | (pos["x"] <= xy_threshold)
+            | (x_max - pos["x"] - 1 <= xy_threshold)
         )
     else:
         y_max, x_max = data_shape
         at_edge_mask = (
-            (pos["y"] <= xy_threshold) | (y_max - pos["y"] - 1 <= xy_threshold) |
-            (pos["x"] <= xy_threshold) | (x_max - pos["x"] - 1 <= xy_threshold)
+            (pos["y"] <= xy_threshold)
+            | (y_max - pos["y"] - 1 <= xy_threshold)
+            | (pos["x"] <= xy_threshold)
+            | (x_max - pos["x"] - 1 <= xy_threshold)
         )
 
     # Keep only red flags that are NOT at the edge
