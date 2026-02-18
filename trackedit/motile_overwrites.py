@@ -17,7 +17,7 @@ from motile_tracker.data_model.actions import ActionGroup, AddEdges, DeleteEdges
 from motile_tracker.data_model.solution_tracks import SolutionTracks
 from motile_tracker.data_model.tracks_controller import TracksController
 from motile_tracker.data_views import TracksViewer
-from motile_tracker.data_views.views.tree_view.tree_widget import TreePlot
+from motile_tracker.data_views.views.tree_view.tree_widget import TreePlot, TreeWidget
 
 AttrValue: TypeAlias = Any
 AttrValues: TypeAlias = Sequence[AttrValue]
@@ -353,3 +353,53 @@ patch_track_labels_click_handler()
 # def get_status(self, position, view_direction=None, dims_displayed=None, world=True):
 #     return "True" #works to allow napari grid view, but not for cursor position/value display
 # TrackLabels.get_status = get_status
+
+
+# --- select_track: select all nodes of the currently selected node's track ---
+
+
+def select_track(self, event=None):
+    """Select all nodes belonging to the same track as the currently selected node.
+    Only works if all currently selected nodes belong to the same track."""
+    if len(self.selected_nodes) == 0 or self.tracks is None:
+        return
+    track_ids = {self.tracks.get_track_id(n) for n in self.selected_nodes}
+    if len(track_ids) > 1:
+        return
+    track_id = next(iter(track_ids))
+    track_nodes = self.tracks.track_id_to_node.get(track_id, [])
+    self.selected_nodes.add_list(list(track_nodes), append=False)
+
+
+TracksViewer.select_track = select_track
+
+_old_set_keybinds = TracksViewer.set_keybinds
+
+
+def patched_set_keybinds(self):
+    _old_set_keybinds(self)
+    self.viewer.bind_key("t")(self.select_track)
+
+
+TracksViewer.set_keybinds = patched_set_keybinds
+
+
+def tree_widget_select_track(self):
+    self.tracks_viewer.select_track()
+
+
+TreeWidget.select_track = tree_widget_select_track
+
+_old_tree_key_press = TreeWidget.keyPressEvent
+
+
+def patched_tree_key_press(self, event):
+    from qtpy.QtCore import Qt
+
+    if event.key() == Qt.Key_T:
+        self.select_track()
+    else:
+        _old_tree_key_press(self, event)
+
+
+TreeWidget.keyPressEvent = patched_tree_key_press
