@@ -118,10 +118,8 @@ def check_selection(TV):
     TV.selected_nodes.add(2000001, append=True)
     TV.select_track()  # select track of last selected node
     num_selected_after_select_track = len(TV.selected_nodes)
-    print('num_selected_after_select_track', num_selected_after_select_track)
-    assert (
-        num_selected_after_select_track == 3
-    )
+    print("num_selected_after_select_track", num_selected_after_select_track)
+    assert num_selected_after_select_track == 3
 
 
 def check_time_box(time_box):
