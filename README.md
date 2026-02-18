@@ -40,6 +40,7 @@ Note: make sure to first `pixi shell` in the $MYDATA directory, before running t
 | Click on point/label | Select node (centers view if needed) |
 | SHIFT + click | Add node to selection |
 | Q | Toggle between all nodes view and selected lineages only |
+| V | Toggle visibility of all tracking layers (points, labels, tracks) |
 
 #### Tree View Controls
 | Mouse / Key binding | Action |
@@ -53,6 +54,7 @@ Note: make sure to first `pixi shell` in the $MYDATA directory, before running t
 | SHIFT + Mouse drag | Rectangular node selection |
 | Right click | Reset view |
 | Q | Toggle between all lineages (vertical) and selected lineages (horizontal) |
+| T | Select all nodes of the tracks to which to currently selected node belongs too |
 | ~~W~~ | ~~Switch between lineage tree and object size plot~~ |
 | ← | Select node to the left |
 | → | Select node to the right |
