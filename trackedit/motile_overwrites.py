@@ -17,7 +17,7 @@ from motile_tracker.data_model.actions import ActionGroup, AddEdges, DeleteEdges
 from motile_tracker.data_model.solution_tracks import SolutionTracks
 from motile_tracker.data_model.tracks_controller import TracksController
 from motile_tracker.data_views import TracksViewer
-from motile_tracker.data_views.views.tree_view.tree_widget import TreePlot
+from motile_tracker.data_views.views.tree_view.tree_widget import TreePlot, TreeWidget
 
 AttrValue: TypeAlias = Any
 AttrValues: TypeAlias = Sequence[AttrValue]
@@ -41,8 +41,19 @@ def create_db_add_nodes(DB_handler):
                 int(n),
                 [NodeDB.z, NodeDB.y, NodeDB.x],
             )
-            pos = pos.tolist()
-            pos[0] *= DB_handler.z_scale
+            pos = pos.tolist()  # pos is always 3D
+            if DB_handler.ndim == 4:
+                pos[0] *= DB_handler.z_scale
+                pos[1] *= DB_handler.y_scale
+                pos[2] *= DB_handler.x_scale
+            elif DB_handler.ndim == 3:
+                pos = pos[1:]
+                pos[0] *= DB_handler.y_scale
+                pos[1] *= DB_handler.x_scale
+            else:
+                raise ValueError(
+                    f"Database should be 2D or 3D, not {DB_handler.ndim-1}D"
+                )
             new_pos.append(pos)
         self.positions = np.array(new_pos)
 
@@ -51,7 +62,12 @@ def create_db_add_nodes(DB_handler):
         )
 
         # Change the selected/annotation status of the nodes
-        DB_handler.change_values(indices=self.nodes, field=NodeDB.selected, values=1)
+        DB_handler.change_values(
+            indices=self.nodes,
+            field=NodeDB.selected,
+            values=1,
+            log_header="AddNodes:" + str(self.nodes),
+        )
         DB_handler.change_values(
             indices=self.nodes, field=NodeDB.generic, values=NodeDB.generic.default.arg
         )
@@ -74,10 +90,15 @@ def create_db_delete_nodes(DB_handler):
             DB_handler.df_full["parent_id"].isin(self.nodes)
         ].index.tolist()
         print("orphaned_children", orphaned_children)
+        log_header = "DeleteNodes:" + str(self.nodes)
         if orphaned_children:
             DB_handler.change_values(
-                indices=orphaned_children, field=NodeDB.parent_id, values=-1
+                indices=orphaned_children,
+                field=NodeDB.parent_id,
+                values=-1,
+                log_header=log_header,
             )
+            log_header = None  # prevent printing twice
             show_warning(
                 "An edge in the next time window is removed, so 'UNDO' will not work."
             )
@@ -85,7 +106,9 @@ def create_db_delete_nodes(DB_handler):
             # because normal edges are already properly removed
 
         # Set nodes as unselected
-        DB_handler.change_values(indices=self.nodes, field=NodeDB.selected, values=0)
+        DB_handler.change_values(
+            indices=self.nodes, field=NodeDB.selected, values=0, log_header=log_header
+        )
 
     return db_delete_nodes
 
@@ -109,7 +132,10 @@ def create_db_add_edges(DB_handler):
 
         # Batch the changes into a single call
         DB_handler.change_values(
-            indices=child_nodes, field=NodeDB.parent_id, values=parent_nodes
+            indices=child_nodes,
+            field=NodeDB.parent_id,
+            values=parent_nodes,
+            log_header="AddEdges:" + str(self.edges),
         )
 
     return db_add_edges
@@ -130,7 +156,12 @@ def create_db_delete_edges(DB_handler):
         child_nodes = [e[1] for e in self.edges]
 
         # Batch the changes into a single call
-        DB_handler.change_values(indices=child_nodes, field=NodeDB.parent_id, values=-1)
+        DB_handler.change_values(
+            indices=child_nodes,
+            field=NodeDB.parent_id,
+            values=-1,
+            log_header="DeleteEdges:" + str(self.edges),
+        )
 
     return db_delete_edges
 
@@ -253,6 +284,132 @@ def patched_create_pyqtgraph_content(self, track_df, feature):
 
 TreePlot._create_pyqtgraph_content = patched_create_pyqtgraph_content
 
+
+# Patch TrackLabels click handler to fix DatabaseArray lazy loading issue
+def patch_track_labels_click_handler():
+    """Monkey patch TrackLabels to add DatabaseArray loading workaround.
+
+    After colormap updates, napari's get_value() fails to trigger DatabaseArray
+    loading. This patch pre-accesses the array to force loading before get_value().
+    See: .claude/click-selection-bug-fix.md for details.
+    """
+    from motile_tracker.data_views.views.layers.track_labels import TrackLabels
+
+    # Store original __init__
+    _original_init = TrackLabels.__init__
+
+    def patched_init(self, viewer, data, name, opacity, scale, tracks_viewer):
+        # Call original __init__ which sets up the original click callback
+        _original_init(self, viewer, data, name, opacity, scale, tracks_viewer)
+
+        # Remove the original click callback (it's the last one added)
+        if self.mouse_drag_callbacks:
+            self.mouse_drag_callbacks.pop()
+
+        # Add our fixed click callback
+        @self.mouse_drag_callbacks.append
+        def fixed_click(layer, event):
+            if (
+                event.type == "mouse_press"
+                and layer.mode == "pan_zoom"
+                and not (
+                    layer.tracks_viewer.mode == "lineage"
+                    and layer.viewer.dims.ndisplay == 3
+                )
+            ):
+                # WORKAROUND: Pre-access array to trigger DatabaseArray loading
+                # Without this, get_value() fails after colormap updates
+                data_coords = layer.world_to_data(event.position)
+                try:
+                    t_idx = int(data_coords[0])
+                    # Access time slice to ensure DatabaseArray.fill_array() is called
+                    _ = layer.data[t_idx]
+                except Exception:
+                    pass  # If this fails, get_value() will also fail
+
+                label = layer.get_value(
+                    event.position,
+                    view_direction=event.view_direction,
+                    dims_displayed=event.dims_displayed,
+                    world=True,
+                )
+
+                if (
+                    label is not None
+                    and label != 0
+                    and layer.colormap.map(label)[-1] != 0
+                ):
+                    append = "Shift" in event.modifiers
+                    layer.tracks_viewer.selected_nodes.add(label, append)
+
+    # Replace TrackLabels.__init__ with patched version
+    TrackLabels.__init__ = patched_init
+
+
+# Apply the patch
+patch_track_labels_click_handler()
+
+
 # def get_status(self, position, view_direction=None, dims_displayed=None, world=True):
 #     return "True" #works to allow napari grid view, but not for cursor position/value display
 # TrackLabels.get_status = get_status
+
+
+# --- Custom keybindings ---
+
+
+def select_track(self, event=None):
+    """Select all nodes belonging to the same track as the currently selected node.
+    Only works if all currently selected nodes belong to the same track."""
+    if len(self.selected_nodes) == 0 or self.tracks is None:
+        return
+    track_ids = {self.tracks.get_track_id(n) for n in self.selected_nodes}
+    if len(track_ids) > 1:
+        return
+    track_id = next(iter(track_ids))
+    track_nodes = self.tracks.track_id_to_node.get(track_id, [])
+    self.selected_nodes.add_list(list(track_nodes), append=False)
+
+
+def toggle_layers(self, event=None):
+    """Toggle visibility of all tracking layers (points, labels, tracks)."""
+    lg = self.tracking_layers
+    layers = [
+        l for l in [lg.tracks_layer, lg.seg_layer, lg.points_layer] if l is not None
+    ]
+    if not layers:
+        return
+    new_visible = not layers[0].visible
+    for layer in layers:
+        layer.visible = new_visible
+
+
+TracksViewer.select_track = select_track
+TracksViewer.toggle_layers = toggle_layers
+
+_old_set_keybinds = TracksViewer.set_keybinds
+
+
+def patched_set_keybinds(self):
+    _old_set_keybinds(self)
+    self.viewer.bind_key("t")(self.select_track)
+    self.viewer.bind_key("v")(self.toggle_layers)
+
+
+TracksViewer.set_keybinds = patched_set_keybinds
+
+_old_tree_key_press = TreeWidget.keyPressEvent
+
+
+def patched_tree_key_press(self, event):
+    from qtpy.QtCore import Qt
+
+    if event.key() == Qt.Key_T:
+        self.tracks_viewer.select_track()
+    elif event.key() == Qt.Key_V:
+        self.tracks_viewer.toggle_layers()
+    else:
+        _old_tree_key_press(self, event)
+
+
+TreeWidget.keyPressEvent = patched_tree_key_press

@@ -7,8 +7,6 @@ from sqlalchemy import Column
 from sqlalchemy.orm import Session
 from ultrack.core.database import NodeDB
 
-# import traceback
-
 
 class DatabaseArray:
     def __init__(
@@ -19,6 +17,7 @@ class DatabaseArray:
         color_by_field: Column = NodeDB.id,
         dtype: np.dtype = np.int32,
         current_time: int = np.nan,
+        coordinate_filters: list = None,  # Add this parameter
     ):
         """Create an array that directly visualizes the segments in the ultrack database.
 
@@ -38,6 +37,8 @@ class DatabaseArray:
 
         self.ndim = len(self.shape)
         self.array = np.zeros(self.shape[1:], dtype=self.dtype)
+
+        self.coordinate_filters = coordinate_filters
 
     def __getitem__(
         self,
@@ -140,10 +141,15 @@ class DatabaseArray:
         self.array.fill(0)
 
         with Session(engine) as session:
-            query = list(
-                session.query(self.color_by_field, NodeDB.pickle).where(
-                    NodeDB.t == time, NodeDB.selected
+            # Build query with dynamic filters
+            query_filters = [NodeDB.t == time, NodeDB.selected]
+            if self.coordinate_filters is not None:
+                query_filters.extend(
+                    [op(field, value) for field, op, value in self.coordinate_filters]
                 )
+
+            query = list(
+                session.query(self.color_by_field, NodeDB.pickle).where(*query_filters)
             )
 
             if len(query) == 0:

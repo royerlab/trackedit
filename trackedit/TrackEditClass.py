@@ -2,7 +2,7 @@ import napari
 import numpy as np
 from motile_toolbox.candidate_graph import NodeAttr
 from napari.utils.colormaps import DirectLabelColormap
-from napari.utils.notifications import show_warning
+from napari.utils.notifications import show_info, show_warning
 from qtpy.QtWidgets import QTabWidget
 from ultrack.core.database import NodeDB, get_node_values
 from ultrack.core.interactive import add_new_node
@@ -10,6 +10,7 @@ from ultrack.core.interactive import add_new_node
 from motile_tracker.data_model.solution_tracks import SolutionTracks
 from motile_tracker.data_views import TracksViewer, TreeWidget
 from trackedit.DatabaseHandler import DatabaseHandler
+from trackedit.utils.utils import create_cell_mask_and_bbox, fix_overlap_ancestor_ids
 from trackedit.widgets.annotation.annotation_widget import AnnotationWidget
 from trackedit.widgets.CustomEditingWidget import CustomEditingMenu
 from trackedit.widgets.HierarchyWidget import HierarchyVizWidget
@@ -22,6 +23,8 @@ class TrackEditClass:
         viewer: napari.Viewer,
         databasehandler: DatabaseHandler,
         flag_show_hierarchy: bool = True,
+        flag_allow_adding_spherical_cell: bool = False,
+        adding_spherical_cell_radius: int = 10,
     ):
         self.viewer = viewer
         self.viewer.layers.clear()  # Remove all existing layers
@@ -33,7 +36,12 @@ class TrackEditClass:
         self.TreeWidget = TreeWidget(self.viewer)
         self.NavigationWidget = NavigationWidget(self.viewer, self.databasehandler)
         self.AnnotationWidget = AnnotationWidget(self.viewer, self.databasehandler)
-        self.EditingMenu = CustomEditingMenu(self.viewer, self.databasehandler)
+        self.EditingMenu = CustomEditingMenu(
+            self.viewer,
+            self.databasehandler,
+            allow_adding_spherical_cell=flag_allow_adding_spherical_cell,
+            adding_spherical_cell_radius=adding_spherical_cell_radius,
+        )
 
         tabwidget_right = QTabWidget()
         tabwidget_right.addTab(self.NavigationWidget, "Navigation")
@@ -72,25 +80,28 @@ class TrackEditClass:
             color_dict=self.databasehandler.color_mapping
         )
 
-        # Add Imaging layer to viewer
+        # Add Imaging layers to viewer
         if self.databasehandler.imaging_flag:
-            layer_nuc = self.viewer.add_image(
-                self.databasehandler.imagingArray.nuclear,
-                name="im_nuclear",
-                colormap="green",
-                scale=self.databasehandler.scale,
-                visible=False,
-            )
-            layer_nuc.reset_contrast_limits()
-            layer_mem = self.viewer.add_image(
-                self.databasehandler.imagingArray.membrane,
-                name="im_membrane",
-                colormap="red",
-                opacity=0.5,
-                scale=self.databasehandler.scale,
-                visible=False,
-            )
-            layer_mem.reset_contrast_limits()
+            # Define colormap sequence
+            colormaps = ["green", "red", "blue", "magenta", "cyan", "yellow"]
+
+            for i, layer_name in enumerate(
+                self.databasehandler.imagingArray.layer_names
+            ):
+                channel_data = self.databasehandler.imagingArray.get_channel_data(i)
+                colormap = colormaps[i % len(colormaps)]
+                opacity = 1.0 if i == 0 else 0.5  # First layer full opacity, others 0.5
+
+                layer = self.viewer.add_image(
+                    channel_data,
+                    name=f"im_{layer_name}",
+                    colormap=colormap,
+                    opacity=opacity,
+                    scale=self.databasehandler.scale,
+                    visible=False,
+                    translate=self.databasehandler.image_translate,
+                )
+                layer.reset_contrast_limits()
 
         tabwidget_bottom = QTabWidget()
         tabwidget_bottom.addTab(self.TreeWidget, "TreeWidget")
@@ -115,6 +126,14 @@ class TrackEditClass:
         self.EditingMenu.duplicate_cell_button_pressed.connect(
             self.duplicate_cell_from_database
         )
+
+        # Connect spherical cell signal if feature is enabled
+        if flag_allow_adding_spherical_cell:
+            self.EditingMenu.add_spherical_cell_toggled.connect(
+                self._toggle_add_cell_mode
+            )
+            # Initialize spherical cell mode flag
+            self._add_cell_mode_active = False
 
         self.add_tracks()
         self.NavigationWidget.time_box.update_chunk_label()
@@ -186,12 +205,11 @@ class TrackEditClass:
         self.databasehandler.set_time_chunk(new_chunk)
         self.update_hierarchy_layer()
         if self.databasehandler.imaging_flag:
-            self.viewer.layers[
-                "im_nuclear"
-            ].data = self.databasehandler.imagingArray.nuclear
-            self.viewer.layers[
-                "im_membrane"
-            ].data = self.databasehandler.imagingArray.membrane
+            for i, layer_name in enumerate(
+                self.databasehandler.imagingArray.layer_names
+            ):
+                channel_data = self.databasehandler.imagingArray.get_channel_data(i)
+                self.viewer.layers[f"im_{layer_name}"].data = channel_data
 
         self.add_tracks()
 
@@ -242,12 +260,11 @@ class TrackEditClass:
         self.databasehandler.set_time_chunk(new_chunk)
         self.update_hierarchy_layer()
         if self.databasehandler.imaging_flag:
-            self.viewer.layers[
-                "im_nuclear"
-            ].data = self.databasehandler.imagingArray.nuclear
-            self.viewer.layers[
-                "im_membrane"
-            ].data = self.databasehandler.imagingArray.membrane
+            for i, layer_name in enumerate(
+                self.databasehandler.imagingArray.layer_names
+            ):
+                channel_data = self.databasehandler.imagingArray.get_channel_data(i)
+                self.viewer.layers[f"im_{layer_name}"].data = channel_data
 
         # Update tracks if chunks are different OR if this was triggered by a Tmax change
         # TODO: not sure this is the best way to do this
@@ -408,3 +425,141 @@ class TrackEditClass:
             self.tracksviewer.tracks_controller.add_nodes(attributes, pixels)
             self.EditingMenu.duplicate_cell_id_input.setText("")
             self.EditingMenu.duplicate_time_input.setText("")
+
+    def add_spherical_cell_at_position(self, position_scaled, radius_pixels=10):
+        """Add a new cell with spherical segmentation at the given position.
+
+        Parameters
+        ----------
+        position_scaled : array-like
+            Position in viewer coordinates (scaled)
+        radius_pixels : float
+            Radius of the sphere in pixels (default: 10)
+
+        Returns
+        -------
+        new_node_id : int or None
+            Database ID of the newly created node, or None if failed
+        """
+        current_time = self.viewer.dims.current_step[0]
+        self.update_chunk_from_frame(current_time)
+
+        # Create mask and bbox
+        mask, bbox = create_cell_mask_and_bbox(
+            position_scaled=position_scaled,
+            radius_pixels=radius_pixels,
+            ndim=self.databasehandler.ndim,
+            scale=(
+                self.databasehandler.z_scale,
+                self.databasehandler.y_scale,
+                self.databasehandler.x_scale,
+            )
+            if self.databasehandler.ndim == 4
+            else (self.databasehandler.y_scale, self.databasehandler.x_scale),
+            data_shape_full=self.databasehandler.data_shape_full,
+        )
+        if mask is None:
+            return None
+
+        # Add to database
+        try:
+            new_node_id = add_new_node(
+                self.databasehandler.config_adjusted,
+                time=current_time,
+                mask=mask,
+                bbox=bbox,
+                include_overlaps=True,
+            )
+            fix_overlap_ancestor_ids(
+                database_path=self.databasehandler.config_adjusted.data_config.database_path,
+                new_node_id=new_node_id,
+                current_time=current_time,
+            )
+        except Exception as e:
+            show_warning(f"Failed to add node to database: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return None
+
+        # Add to tracking system
+        track_ids = (
+            self.NavigationWidget.tracks_viewer.tracks_controller.tracks.track_id_to_node.keys()
+        )
+        max_track_id = max(track_ids) if track_ids else 0
+        time_in_chunk = current_time - self.databasehandler.time_window[0]
+
+        attributes = {
+            NodeAttr.TIME.value: [time_in_chunk],
+            NodeAttr.TRACK_ID.value: [max_track_id + 1],
+            "node_id": [new_node_id],
+        }
+        self.tracksviewer.tracks_controller.add_nodes(
+            attributes, [(np.array([0, 0, 0]))]
+        )
+
+        # Refresh and auto-disable
+        show_info(f"Added spherical cell with ID {new_node_id}")
+        self.databasehandler.segments.force_refill()
+        self.viewer.layers[self.databasehandler.name + "_seg"].refresh()
+
+        # Auto-disable only if button exists
+        if hasattr(self.EditingMenu, "add_spherical_cell_btn"):
+            from qtpy.QtCore import QTimer
+
+            QTimer.singleShot(
+                0,
+                lambda: (
+                    self.EditingMenu.add_spherical_cell_btn.setChecked(False),
+                    self._toggle_add_cell_mode(False),
+                ),
+            )
+
+        return new_node_id
+
+    def _toggle_add_cell_mode(self, checked):
+        """Toggle the add spherical cell mode on/off."""
+        self._add_cell_mode_active = checked
+
+        if checked:
+            # Only add callback if not already present
+            if self._on_mouse_click_add_cell not in self.viewer.mouse_drag_callbacks:
+                self.viewer.mouse_drag_callbacks.append(self._on_mouse_click_add_cell)
+        else:
+            # Remove ALL instances of the callback (in case of duplicates)
+            while self._on_mouse_click_add_cell in self.viewer.mouse_drag_callbacks:
+                try:
+                    self.viewer.mouse_drag_callbacks.remove(
+                        self._on_mouse_click_add_cell
+                    )
+                except ValueError:
+                    break
+
+    def _on_mouse_click_add_cell(self, viewer, event):
+        """Handle mouse click when add cell mode is active.
+
+        Called when user clicks in viewer while add cell mode is on.
+        """
+        # Guard: only proceed if mode is actually active
+        if not self._add_cell_mode_active:
+            return
+
+        # Only trigger on click (not drag)
+        if event.type == "mouse_press":
+            # Get click position in data coordinates
+            # Position includes time dimension: (t, z, y, x) or (t, y, x)
+            position = viewer.cursor.position
+
+            # Extract spatial coordinates (remove time)
+            if self.databasehandler.ndim == 4:
+                # 4D data: (t, z, y, x) -> (z, y, x)
+                position_spatial = position[1:]
+            else:
+                # 3D data: (t, y, x) -> (y, x)
+                position_spatial = position[1:]
+
+            # Add spherical cell at clicked position
+            self.add_spherical_cell_at_position(position_spatial)
+
+            # Yield to prevent further event propagation
+            yield

@@ -69,6 +69,10 @@ class RedFlagBox(NavigationBox):
             )
 
         self.update_red_flag_counter_and_info()
+        self.databasehandler.log(
+            f"Number of remaining red flags: {len(self.databasehandler.red_flags)}",
+            is_header=False,
+        )
 
     def _update_button_states(self):
         """Update the enabled state of navigation buttons based on red flag count."""
@@ -78,11 +82,7 @@ class RedFlagBox(NavigationBox):
 
         # Update ignore button state based on current red flag event type
         if has_flags and not self.databasehandler.red_flags.empty:
-            current_event = self.databasehandler.red_flags.iloc[
-                self.current_red_flag_index
-            ]["event"]
-            # Only enable ignore button for "added" and "removed" events, not "overlap"
-            self.red_flag_ignore_btn.setEnabled(current_event != "overlap")
+            self.red_flag_ignore_btn.setEnabled(True)
         else:
             self.red_flag_ignore_btn.setEnabled(False)
 

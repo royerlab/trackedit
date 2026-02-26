@@ -56,6 +56,7 @@ def test_trackedit_widgets(
         imaging_zarr_file="",
         imaging_channel="",
         viewer=viewer,
+        flag_allow_adding_spherical_cell=True,  # Enable spherical cell feature for testing
     )
 
     # Get the NavigationWidget directly from TrackEdit instance
@@ -83,6 +84,7 @@ def test_trackedit_widgets(
     check_selection(TV)
     check_time_box(time_box)
     check_editing(TV, editing_menu)
+    check_add_spherical_cell(track_edit, editing_menu)
     check_red_flag_box(TV, red_flag_box, time_box)
     check_division_box(division_box)
     check_annotation(toAnnotateBox)
@@ -111,6 +113,13 @@ def check_selection(TV):
     assert (
         num_selected_after == num_selected_before + 2
     ), "Multiple cell selection failed"
+
+    # Test: Select track
+    TV.selected_nodes.add(2000001, append=True)
+    TV.select_track()  # select track of last selected node
+    num_selected_after_select_track = len(TV.selected_nodes)
+    print("num_selected_after_select_track", num_selected_after_select_track)
+    assert num_selected_after_select_track == 3
 
 
 def check_time_box(time_box):
@@ -184,6 +193,55 @@ def check_editing(TV, editing_menu):
     editing_menu.duplicate_cell_id_input.setText(str(cell_id))
     editing_menu.duplicate_time_input.setText(str(1))  # original time was 1
     editing_menu.duplicate_cell_from_button()
+
+
+def check_add_spherical_cell(track_edit, editing_menu):
+    """Check spherical cell addition functionality"""
+
+    # Verify button exists when feature is enabled
+    assert hasattr(
+        editing_menu, "add_spherical_cell_btn"
+    ), "Spherical cell button not found"
+
+    # Test: Add spherical cell at a specific position
+    # Position in viewer coordinates (scaled) - center of volume
+    position = (32, 32, 32)  # (z, y, x) for 3D data
+
+    # Call the method directly to add a cell
+    new_node_id = track_edit.add_spherical_cell_at_position(
+        position_scaled=position, radius_pixels=10
+    )
+
+    # Verify a node was created
+    assert new_node_id is not None, "Failed to create spherical cell"
+    assert isinstance(new_node_id, int), "Node ID should be an integer"
+
+    # Verify the node exists in the database
+    engine = sqla.create_engine(editing_menu.databasehandler.db_path_new)
+    with Session(engine) as session:
+        node = session.query(NodeDB).filter(NodeDB.id == new_node_id).first()
+        assert node is not None, "Node not found in database"
+        assert node.selected is True, "Node should be selected in solution"
+
+    # Verify the node was added to the tracking system
+    tracks = track_edit.tracksviewer.tracks_controller.tracks
+    assert (
+        new_node_id in tracks.node_id_to_track_id
+    ), "Node not added to tracking system"
+
+    # Test: Button toggle functionality
+    # Enable the mode
+    editing_menu.add_spherical_cell_btn.setChecked(True)
+    editing_menu._on_spherical_cell_clicked(True)
+    assert track_edit._add_cell_mode_active is True, "Add cell mode should be active"
+
+    # Disable the mode
+    editing_menu.add_spherical_cell_btn.setChecked(False)
+    editing_menu._on_spherical_cell_clicked(False)
+    assert track_edit._add_cell_mode_active is False, "Add cell mode should be inactive"
+
+    # Test: Undo the addition
+    track_edit.tracksviewer.undo()
 
 
 def check_red_flag_box(TV, red_flag_box, time_box):
