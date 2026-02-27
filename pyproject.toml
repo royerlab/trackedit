@@ -96,6 +96,7 @@ pyqt = ">=5.15.9,<6"
 numpy = "<2.2"
 pre-commit = ">=4.1.0,<5"
 dask = ">=2025.2.0,<2026"
+pyscipopt = "*"  #for ilpy (on mac)
 
 [tool.pixi.feature.test.dependencies]
 pytest = "*"
