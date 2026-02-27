@@ -12,6 +12,7 @@ class CustomEditingMenu(EditingMenu):
     add_cell_button_pressed = Signal(int)
     duplicate_cell_button_pressed = Signal(int, int)
     add_spherical_cell_toggled = Signal(bool)  # Signal for spherical cell mode toggle
+    add_instanseg_cell_toggled = Signal(bool)  # Signal for InstanSeg cell mode toggle
 
     def __init__(
         self,
@@ -19,11 +20,13 @@ class CustomEditingMenu(EditingMenu):
         databasehandler: DatabaseHandler,
         allow_adding_spherical_cell: bool = False,
         adding_spherical_cell_radius: int = 10,
+        allow_adding_instanseg_cell: bool = False,
     ):
         super().__init__(viewer)  # Call the original init method
         self.databasehandler = databasehandler
         self.allow_adding_spherical_cell = allow_adding_spherical_cell
         self.adding_spherical_cell_radius = adding_spherical_cell_radius
+        self.allow_adding_instanseg_cell = allow_adding_instanseg_cell
 
         main_layout = self.layout()  # This retrieves the QVBoxLayout from EditingMenu
         main_layout.insertWidget(0, QLabel(r"""<h3>Edit tracks</h3>"""))
@@ -82,11 +85,34 @@ class CustomEditingMenu(EditingMenu):
             spherical_cell_layout.addWidget(self.add_spherical_cell_btn)
 
             node_box.layout().addLayout(spherical_cell_layout)
-            node_box.setMaximumHeight(200)  # Increased to fit spherical cell button
-            self.setMaximumHeight(480)  # Increased to fit spherical cell button
-        else:
+
+        # Conditionally add InstanSeg cell button
+        if self.allow_adding_instanseg_cell:
+            self.add_instanseg_cell_btn = QPushButton("Add InstanSeg Cell")
+            self.add_instanseg_cell_btn.setCheckable(True)  # Toggle on/off
+            self.add_instanseg_cell_btn.setStyleSheet(
+                "QPushButton:checked { background-color: #FF5722; color: white; }"
+            )
+            self.add_instanseg_cell_btn.clicked.connect(self._on_instanseg_cell_clicked)
+
+            instanseg_cell_layout = QHBoxLayout()
+            instanseg_cell_layout.addWidget(self.add_instanseg_cell_btn)
+
+            node_box.layout().addLayout(instanseg_cell_layout)
+
+        # Adjust heights based on which buttons are present
+        num_extra_buttons = sum(
+            [self.allow_adding_spherical_cell, self.allow_adding_instanseg_cell]
+        )
+        if num_extra_buttons == 0:
             node_box.setMaximumHeight(150)  # Original height
             self.setMaximumHeight(430)  # Original height
+        elif num_extra_buttons == 1:
+            node_box.setMaximumHeight(200)  # One extra button
+            self.setMaximumHeight(480)  # One extra button
+        else:  # num_extra_buttons == 2
+            node_box.setMaximumHeight(250)  # Two extra buttons
+            self.setMaximumHeight(530)  # Two extra buttons
 
     def update_add_cell_btn_state(self, text):
         state, _, _ = self.add_cell_input.validator().validate(text, 0)
@@ -123,3 +149,7 @@ class CustomEditingMenu(EditingMenu):
     def _on_spherical_cell_clicked(self, checked):
         """Emit signal when spherical cell button is toggled."""
         self.add_spherical_cell_toggled.emit(checked)
+
+    def _on_instanseg_cell_clicked(self, checked):
+        """Emit signal when InstanSeg cell button is toggled."""
+        self.add_instanseg_cell_toggled.emit(checked)

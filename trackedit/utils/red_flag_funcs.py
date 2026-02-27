@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import sqlalchemy as sqla
 from ultrack.core.database import OverlapDB, Session
@@ -210,6 +211,7 @@ def filter_red_flags_at_edge(
     data_shape: tuple,
     edge_threshold: int,
     ndim: int,
+    scale: tuple = None,
 ) -> pd.DataFrame:
     """
     Filter out 'added' and 'removed' red flags near the edge of the field of view (FOV).
@@ -231,10 +233,14 @@ def filter_red_flags_at_edge(
         - For 3D data: (z_max, y_max, x_max)
         - For 2D data: (y_max, x_max)
     edge_threshold : int
-        Distance threshold in pixels - cells within this distance from any
-        edge are considered "at edge"
+        Distance threshold in XY pixels. The Z threshold is derived by converting
+        this to a physical distance and back: z_threshold = edge_threshold * xy_scale / z_scale
     ndim : int
         Number of dimensions: 4 for 3D+time, 3 for 2D+time
+    scale : tuple or None
+        (z_scale, y_scale, x_scale) for 3D or (y_scale, x_scale) for 2D.
+        Used to make the Z threshold equivalent in physical units to the XY threshold.
+        If None, the same pixel threshold is used for all dimensions.
 
     Returns
     -------
@@ -274,40 +280,39 @@ def filter_red_flags_at_edge(
         df_full[["id", "z", "y", "x"]], on="id", how="left"
     )
 
-    # Calculate distance to edges for each red flag
-    if ndim == 4:
-        # 3D data: check z, y, x
-        z_max, y_max, x_max = data_shape
+    # Compute per-dimension pixel thresholds
+    xy_threshold = edge_threshold
+    if ndim == 4 and scale is not None:
+        z_scale, y_scale, x_scale = scale
+        # Convert xy_threshold to physical distance, then to z pixels
+        z_threshold = edge_threshold * y_scale / z_scale
+    else:
+        z_threshold = edge_threshold  # Fall back to same threshold if no scale given
 
-        distances_to_edges = pd.DataFrame(
-            {
-                "z_min": red_flags_with_pos["z"],
-                "z_max": z_max - red_flags_with_pos["z"] - 1,
-                "y_min": red_flags_with_pos["y"],
-                "y_max": y_max - red_flags_with_pos["y"] - 1,
-                "x_min": red_flags_with_pos["x"],
-                "x_max": x_max - red_flags_with_pos["x"] - 1,
-            }
+    # Check each dimension against its own threshold and flag cells at any edge
+    pos = red_flags_with_pos
+    if ndim == 4:
+        z_max, y_max, x_max = data_shape
+        at_edge_mask = (
+            (pos["z"] <= z_threshold)
+            | (z_max - pos["z"] - 1 <= z_threshold)
+            | (pos["y"] <= xy_threshold)
+            | (y_max - pos["y"] - 1 <= xy_threshold)
+            | (pos["x"] <= xy_threshold)
+            | (x_max - pos["x"] - 1 <= xy_threshold)
         )
     else:
-        # 2D data: check y, x only
         y_max, x_max = data_shape
-
-        distances_to_edges = pd.DataFrame(
-            {
-                "y_min": red_flags_with_pos["y"],
-                "y_max": y_max - red_flags_with_pos["y"] - 1,
-                "x_min": red_flags_with_pos["x"],
-                "x_max": x_max - red_flags_with_pos["x"] - 1,
-            }
+        at_edge_mask = (
+            (pos["y"] <= xy_threshold)
+            | (y_max - pos["y"] - 1 <= xy_threshold)
+            | (pos["x"] <= xy_threshold)
+            | (x_max - pos["x"] - 1 <= xy_threshold)
         )
 
-    # Find minimum distance to any edge for each red flag
-    min_distance_to_edge = distances_to_edges.min(axis=1)
-
-    # Keep only 'added'/'removed' red flags that are NOT at the edge
-    at_edge_mask = min_distance_to_edge <= edge_threshold
-    filtered_non_overlap = non_overlap_red_flags[~at_edge_mask]
+    # Keep only red flags that are NOT at the edge
+    # Use .values to avoid index alignment issues between non_overlap_red_flags and at_edge_mask
+    filtered_non_overlap = non_overlap_red_flags[~at_edge_mask.values]
 
     # Combine filtered non-overlap events with all overlap events
     filtered_red_flags = pd.concat(
@@ -321,3 +326,154 @@ def filter_red_flags_at_edge(
         )
 
     return filtered_red_flags
+
+
+def find_trajectory_changes(
+    df: pd.DataFrame,
+    scale: tuple,
+    displacement_threshold_multiplier: float = 2.5,
+    angle_threshold_deg: float = 120,
+    min_displacement_for_angle: float = None,
+) -> pd.DataFrame:
+    """
+    Detect trajectory jumps and direction changes.
+
+    Binary classification: 'good' or 'change' for each movement.
+    A movement is 'change' if EITHER:
+    - Large displacement (> threshold), OR
+    - Sharp direction change (> angle_threshold) AND displacement is significant
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with columns: track_id, t, z, y, x (indexed by id)
+    scale : tuple
+        (z_scale, y_scale, x_scale) for anisotropic scaling
+    displacement_threshold_multiplier : float
+        Multiplier for displacement threshold (default 2.5× the 95th percentile)
+    angle_threshold_deg : float
+        Angle change threshold in degrees (default 120)
+    min_displacement_for_angle : float or None
+        Min displacement to check angles (default: 75th percentile)
+
+    Returns
+    -------
+    pd.DataFrame
+        Red flags with columns: t, id, event='trajectory_change'
+    """
+
+    # Pass 1: Calculate all displacements for adaptive thresholds
+    all_displacements = []
+    for track_id, track_df in df.groupby("track_id"):
+        if len(track_df) < 2:
+            continue
+        track_df = track_df.sort_values("t")
+        dz = np.diff(track_df["z"].values) * scale[0]
+        dy = np.diff(track_df["y"].values) * scale[1]
+        dx = np.diff(track_df["x"].values) * scale[2]
+        displacements = np.sqrt(dz**2 + dy**2 + dx**2)
+        all_displacements.extend(displacements)
+
+    if len(all_displacements) == 0:
+        return pd.DataFrame(columns=["t", "id", "event"])
+
+    # Set thresholds
+    disp_threshold = (
+        np.percentile(all_displacements, 95) * displacement_threshold_multiplier
+    )
+    if min_displacement_for_angle is None:
+        min_displacement_for_angle = np.percentile(all_displacements, 75)
+
+    # Pass 2: Classify all movements
+    changes = []
+    for track_id, track_df in df.groupby("track_id"):
+        if len(track_df) < 2:
+            continue
+
+        track_df = track_df.sort_values("t")
+        z = track_df["z"].values
+        y = track_df["y"].values
+        x = track_df["x"].values
+        t = track_df["t"].values
+        ids = track_df.index.values
+
+        dz = np.diff(z) * scale[0]
+        dy = np.diff(y) * scale[1]
+        dx = np.diff(x) * scale[2]
+        displacements = np.sqrt(dz**2 + dy**2 + dx**2)
+
+        for i, disp in enumerate(displacements):
+            is_change = False
+
+            # Check 1: Large displacement?
+            if disp > disp_threshold:
+                is_change = True
+
+            # Check 2: Sharp direction change (only if displacement is significant)?
+            if disp > min_displacement_for_angle and i > 0:
+                v1 = np.array([dz[i - 1], dy[i - 1], dx[i - 1]])
+                v2 = np.array([dz[i], dy[i], dx[i]])
+                norm1 = np.linalg.norm(v1)
+                norm2 = np.linalg.norm(v2)
+
+                if norm1 > 0 and norm2 > 0:
+                    cos_angle = np.dot(v1, v2) / (norm1 * norm2)
+                    cos_angle = np.clip(cos_angle, -1, 1)
+                    angle_rad = np.arccos(cos_angle)
+                    angle_deg = np.degrees(angle_rad)
+
+                    if angle_deg > angle_threshold_deg:
+                        is_change = True
+
+            if is_change:
+                changes.append(
+                    {"t": t[i + 1], "id": ids[i + 1], "event": "trajectory_change"}
+                )
+
+    return pd.DataFrame(changes)
+
+
+def find_area_changes(df: pd.DataFrame, threshold: float = 0.5) -> pd.DataFrame:
+    """
+    Detect drastic area/volume changes.
+
+    Flags cells with >50% (default) area increase or decrease between timesteps.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with columns: track_id, t, area (indexed by id)
+    threshold : float
+        Relative change threshold (default 0.5 = 50%)
+
+    Returns
+    -------
+    pd.DataFrame
+        Red flags with columns: t, id, event='area_change'
+    """
+
+    if "area" not in df.columns:
+        return pd.DataFrame(columns=["t", "id", "event"])
+
+    changes = []
+
+    for track_id, track_df in df.groupby("track_id"):
+        if len(track_df) < 2:
+            continue
+
+        track_df = track_df.sort_values("t")
+        areas = track_df["area"].values
+        t = track_df["t"].values
+        ids = track_df.index.values
+
+        # Relative change: (new - old) / old
+        relative_changes = np.diff(areas) / areas[:-1]
+
+        for i, rel_change in enumerate(relative_changes):
+            # Flag if absolute change > threshold (50% by default)
+            if np.abs(rel_change) > threshold:
+                changes.append(
+                    {"t": t[i + 1], "id": ids[i + 1], "event": "area_change"}
+                )
+
+    return pd.DataFrame(changes)
