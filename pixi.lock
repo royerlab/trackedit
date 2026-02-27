@@ -10366,7 +10366,7 @@ packages:
   requires_python: '>=3.7'
 - pypi: .
   name: trackedit
-  version: 0.0.17
+  version: 0.0.18
   sha256: e3ea06828dd0f0f532cdef2d99705bb2ff0625d97c09c333513b1fcf0b5f0b4c
   requires_dist:
   - click>=8.0
