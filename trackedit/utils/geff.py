@@ -14,7 +14,7 @@ _max_segments_per_time = 1_000_000
 
 
 def convert_geff_to_db(geff_path: Path, output_path: Path = None) -> None:
-    """Convert GEFF file to ULTrack SQLite database.
+    """Convert GEFF file to Ultrack SQLite database.
 
     Args:
         geff_path: Path to the input GEFF file
@@ -226,7 +226,7 @@ def convert_geff_to_db(geff_path: Path, output_path: Path = None) -> None:
     help="Output database path (default: <input_stem>_to_db.db)",
 )
 def convert_geff_to_db_cli(geff_path: Path, output: Path = None) -> None:
-    """Convert GEFF file to ULTrack SQLite database (CLI version).
+    """Convert GEFF file to Ultrack SQLite database (CLI version).
 
     Args:
         geff_path: Path to the input GEFF file

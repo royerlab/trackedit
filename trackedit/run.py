@@ -41,6 +41,9 @@ def run_trackedit(
     flag_show_hierarchy: bool = True,
     flag_allow_adding_spherical_cell: bool = False,
     adding_spherical_cell_radius: int = 10,
+    flag_allow_adding_instanseg_cell: bool = False,
+    instanseg_model_path: Optional[str] = None,
+    instanseg_device: Optional[str] = None,
     flag_remove_red_flags_at_edge: bool = False,
     remove_red_flags_at_edge_threshold: int = 10,
     annotation_mapping: Optional[dict] = None,
@@ -66,6 +69,11 @@ def run_trackedit(
         viewer: Optional existing napari viewer
         flag_show_hierarchy: Show hierarchy in the viewer
         flag_allow_adding_spherical_cell: Allow adding spherical cells via button (default: False)
+        adding_spherical_cell_radius: Radius of spherical cells in pixels (default: 10)
+        flag_allow_adding_instanseg_cell: Allow adding InstanSeg-segmented cells via button (default: False)
+        instanseg_model_path: Path to InstanSeg TorchScript model file
+            (required if flag_allow_adding_instanseg_cell=True)
+        instanseg_device: Device for InstanSeg inference ('cuda', 'cpu', or None for auto-detect)
         annotation_mapping: Mapping of annotation ids to names and colors
         imaging_layer_names: Names for imaging layers. If None, defaults to ['nuclear', 'membrane'] for 2 channels
 
@@ -99,6 +107,26 @@ def run_trackedit(
         remove_red_flags_at_edge_threshold=remove_red_flags_at_edge_threshold,
     )
 
+    # Load InstanSeg model if enabled
+    instanseg_inference = None
+    if flag_allow_adding_instanseg_cell:
+        if instanseg_model_path is None:
+            raise ValueError(
+                "flag_allow_adding_instanseg_cell=True requires instanseg_model_path"
+            )
+
+        import torch
+
+        from trackedit.instanseg_inference import InstanSegInference
+
+        device = instanseg_device or ("cuda" if torch.cuda.is_available() else "cpu")
+
+        instanseg_inference = InstanSegInference(
+            model_path=instanseg_model_path,
+            device=device,
+            cache_size=1,  # Reduce memory usage - only cache current frame
+        )
+
     # overwrite some motile functions
     DeleteNodes._apply = create_db_delete_nodes(DB_handler)
     DeleteEdges._apply = create_db_delete_edges(DB_handler)
@@ -114,6 +142,8 @@ def run_trackedit(
         flag_show_hierarchy=flag_show_hierarchy,
         flag_allow_adding_spherical_cell=flag_allow_adding_spherical_cell,
         adding_spherical_cell_radius=adding_spherical_cell_radius,
+        flag_allow_adding_instanseg_cell=flag_allow_adding_instanseg_cell,
+        instanseg_inference=instanseg_inference,
     )
     if DB_handler.ndim == 4:
         viewer.dims.ndisplay = 3  # 3D view

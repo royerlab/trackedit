@@ -27,7 +27,7 @@ def convert():
     help="Output database path (default: <input_stem>_from_geff.db)",
 )
 def geff_to_db(geff_path: Path, output: Path = None):
-    """Convert GEFF file to ULTrack SQLite database.
+    """Convert GEFF file to Ultrack SQLite database.
 
     Args:
         geff_path: Path to the input GEFF file

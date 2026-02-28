@@ -605,6 +605,7 @@ class DatabaseHandler:
                 NodeDB.z,
                 NodeDB.y,
                 NodeDB.x,
+                NodeDB.area,
                 NodeDB.generic,
             ),
         )
@@ -714,7 +715,17 @@ class DatabaseHandler:
             df, self.db_path_new
         )
 
+        # Trajectory changes (jumps and direction changes)
+        # rfs_trajectory = find_trajectory_changes(df, self.scale)
+
+        # Area/volume changes
+        # rfs_area = find_area_changes(df)
+
         # Combine all red flag detection results
+        # result_df = combine_red_flags(
+        # rfs_starts_and_ends, rfs_overlap, rfs_trajectory, rfs_area
+        # )
+
         result_df = combine_red_flags(rfs_starts_and_ends, rfs_overlap)
 
         # ToDo: make option to filter redflags in the first two timepoints
@@ -729,6 +740,7 @@ class DatabaseHandler:
                 data_shape=self.data_shape_full[1:],
                 edge_threshold=self.remove_red_flags_at_edge_threshold,
                 ndim=self.ndim,
+                scale=self.scale,
             )
 
         return result_df
