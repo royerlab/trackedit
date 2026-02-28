@@ -88,7 +88,8 @@ motile_tracker = { path = "./motile_tracker"}
 higra = ">=0.6.12,<0.7"
 numba = { version = ">=0.57.0,<0.61", channel = "numba" }
 llvmlite = { version = ">=0.44.0,<0.45", channel = "numba" }
-ilpy = ">=0.4.0,<0.5"
+ilpy = ">=0.5.1,<0.6"
+pyscipopt = "*" # needed for ilpy on mac
 # napari-ome-zarr = ">=0.6.1,<0.7"
 zarr = ">=3.0.0,<4.0.0" # zarr v3 support, ultrack now compatible
 psycopg2-binary = ">=2.9.6"
@@ -96,7 +97,6 @@ pyqt = ">=5.15.9,<6"
 numpy = "<2.2"
 pre-commit = ">=4.1.0,<5"
 dask = ">=2025.2.0,<2026"
-pyscipopt = "*"  #for ilpy (on mac)
 
 [tool.pixi.feature.test.dependencies]
 pytest = "*"
