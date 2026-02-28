@@ -14,7 +14,8 @@ import torch.nn.functional as F
 from napari.utils.notifications import show_warning
 
 # Target pixel size for isotropic rescaling (must match training)
-TARGET_PIXEL_SIZE = 0.5
+TARGET_PIXEL_SIZE = 0.3
+_BACKBONE_DIVISOR = 32  # UNet spatial dims must be divisible by this (2^depth)
 
 
 def normalize(image: np.ndarray) -> np.ndarray:
@@ -67,21 +68,53 @@ def rescale_to_isotropic(
 
 
 def rescale_labels_back(labels: np.ndarray, original_shape: tuple) -> np.ndarray:
-    """Rescale labels from isotropic back to original shape using nearest interpolation."""
+    """Rescale a 3D binary mask from isotropic back to original shape.
+
+    Uses trilinear interpolation (mode="trilinear" required for 5D tensors:
+    batch+channel+Z+Y+X). Thresholds at 0.5 to recover a binary mask with
+    smooth sub-voxel boundaries instead of nearest-neighbor staircase artefacts.
+    """
     tensor = torch.from_numpy(labels.astype(np.float32)).unsqueeze(0).unsqueeze(0)
-    rescaled = F.interpolate(tensor, size=original_shape, mode="nearest")
-    return rescaled.squeeze().numpy().astype(np.int32)
+    rescaled = F.interpolate(
+        tensor, size=original_shape, mode="trilinear", align_corners=False
+    )
+    return (rescaled.squeeze().numpy() > 0.5).astype(np.int32)
 
 
 def run_backbone(model, image_normalized: np.ndarray, device: str) -> torch.Tensor:
-    """Run only the backbone. Returns (C, D, H, W) prediction tensor on GPU."""
+    """Run only the backbone. Returns (C, D, H, W) prediction tensor on GPU.
+
+    Args:
+        image_normalized: (Z, Y, X) single-channel or (C, Z, Y, X) multi-channel
+    """
     tensor = torch.from_numpy(image_normalized).float()
     if tensor.ndim == 3:
         tensor = tensor.unsqueeze(0).unsqueeze(0)  # (1, 1, Z, Y, X)
+    elif tensor.ndim == 4:
+        tensor = tensor.unsqueeze(0)  # (1, C, Z, Y, X)
+
+    # UNet skip connections require spatial dims divisible by _BACKBONE_DIVISOR.
+    # Pad to the next multiple, run backbone, then crop output back.
+    original_spatial = tensor.shape[2:]  # (Z, Y, X)
+    padded_spatial = tuple(
+        ((s + _BACKBONE_DIVISOR - 1) // _BACKBONE_DIVISOR) * _BACKBONE_DIVISOR
+        for s in original_spatial
+    )
+    # F.pad takes padding in reverse dim order: (x_before, x_after, y_before, y_after, ...)
+    pad_args = []
+    for orig, padded in zip(reversed(original_spatial), reversed(padded_spatial)):
+        pad_args += [0, padded - orig]
+    tensor = F.pad(tensor, pad_args)
+
     tensor = tensor.to(device)
     with torch.no_grad():
-        pred = model.backbone(tensor)  # (1, C, D, H, W)
-    return pred[0]  # (C, D, H, W), stays on device
+        pred = model.backbone(tensor)  # (1, C, D_pad, H_pad, W_pad)
+
+    # Crop back to original spatial size before returning
+    pred_cropped = pred[
+        0, :, : original_spatial[0], : original_spatial[1], : original_spatial[2]
+    ]
+    return pred_cropped  # (C, D, H, W), stays on device
 
 
 def run_postprocessing(
@@ -245,7 +278,7 @@ class InstanSegInference:
         """Run InstanSeg inference with seed at position.
 
         Args:
-            image_volume: Raw image volume (Z, Y, X) at original resolution
+            image_volume: Raw image volume (C, Z, Y, X) with all channels
             time_frame: Time frame index (for caching)
             position: (z, y, x) seed position in original data coordinates
             scale: (z_scale, y_scale, x_scale) voxel sizes in microns
@@ -253,18 +286,28 @@ class InstanSegInference:
         Returns:
             (mask, bbox) tuple:
             - mask: Binary mask (Z, Y, X) at original resolution, or None if no cell
-            - bbox: Bounding box ((z_min, y_min, x_min), (z_max, y_max, x_max)), or None
+            - bbox: Bounding box as flat array [z_min, y_min, x_min, z_max, y_max, x_max], or None
         """
         try:
-            # Normalize image
-            image_normalized = normalize(image_volume)
+            # image_volume is (C, Z, Y, X); extract spatial shape for coordinate math
+            n_channels = image_volume.shape[0]
+            original_shape = image_volume.shape[1:]  # (Z, Y, X)
 
-            # Rescale to isotropic resolution (on GPU if available)
-            image_isotropic, scale_factors = rescale_to_isotropic(
-                image_normalized, scale, TARGET_PIXEL_SIZE, device=self.device
-            )
-            iso_shape = image_isotropic.shape
-            original_shape = image_volume.shape
+            # Rescale to isotropic first, then normalize on the smaller volume.
+            # e.g. 73×1024×1024 → 61×256×256 is ~19× fewer pixels for percentile.
+            iso_channels = []
+            scale_factors = None
+            for c in range(n_channels):
+                ch_isotropic, scale_factors = rescale_to_isotropic(
+                    image_volume[c].astype(np.float32),
+                    scale,
+                    TARGET_PIXEL_SIZE,
+                    device=self.device,
+                )
+                ch_normalized = normalize(ch_isotropic)
+                iso_channels.append(ch_normalized)
+            image_isotropic = np.stack(iso_channels, axis=0)  # (C, Z_iso, Y_iso, X_iso)
+            iso_shape = image_isotropic.shape[1:]  # spatial only, for coord conversion
 
             # Check cache for embeddings
             if time_frame in self.cached_embeddings:
@@ -289,7 +332,7 @@ class InstanSegInference:
                     original_shape,
                 )
 
-            # Convert position to isotropic coordinates
+            # Convert position to isotropic coordinates (spatial shapes only)
             position_iso = self._convert_to_isotropic_coords(
                 position, original_shape, iso_shape
             )
@@ -372,11 +415,6 @@ class InstanSegInference:
         """
         # Run backbone inference
         embeddings = run_backbone(self.model, image_isotropic, self.device)
-
-        # Report GPU memory usage if available
-        if self.device == "cuda" and torch.cuda.is_available():
-            gpu_mem_mb = torch.cuda.memory_allocated() / 1e6
-            print(f"GPU memory: {gpu_mem_mb:.0f} MB")
 
         # Add to cache
         self.cached_embeddings[time_frame] = (

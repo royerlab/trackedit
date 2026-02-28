@@ -181,6 +181,13 @@ class TrackEditClass:
 
         # Add tracks and verify layer creation
         self.tracksviewer.tracks_list.add_tracks(tracks, name=self.databasehandler.name)
+
+        # Set point size to 0.5 µm. Positions are stored in micron units (scaled by
+        # z/y/x_scale), so size=5 (the motile_tracker default) is 5 µm — too large.
+        points_layer = self.tracksviewer.tracking_layers.points_layer
+        if points_layer is not None:
+            points_layer.set_point_size(0.5)
+
         self.viewer.layers.selection.active = self.viewer.layers[
             self.databasehandler.name + "_seg"
         ]  # select segmentation layer
@@ -664,18 +671,20 @@ class TrackEditClass:
             show_warning("InstanSeg inference engine not initialized.")
             return None
 
-        # Update chunk if needed
-        self.update_chunk_from_frame(current_time)
+        # No chunk update needed: the click comes from the viewer cursor so we are
+        # already on the correct chunk. update_chunk_from_frame triggers add_tracks()
+        # which is expensive (~4-5s) and unnecessary here.
 
-        # Get image at current time - use sparse channel (index 1)
-        image_volume = self.databasehandler.imagingArray.get_channel_data(1)[
-            current_time
-        ]  # (Z, Y, X) or (Y, X)
-
-        # Convert dask array to numpy array if needed
-        if hasattr(image_volume, "compute"):
-            image_volume = image_volume.compute()
-        image_volume = np.asarray(image_volume)
+        # Get all channels at current time and stack to (C, Z, Y, X) or (C, Y, X).
+        # Ray casting uses channel 0 (nuclear); all channels are fed to the model.
+        imaging = self.databasehandler.imagingArray
+        volumes = []
+        for ch_idx in range(imaging.n_channels):
+            ch_data = imaging.get_channel_data(ch_idx)[current_time]
+            if hasattr(ch_data, "compute"):
+                ch_data = ch_data.compute()
+            volumes.append(np.asarray(ch_data))
+        image_volume = np.stack(volumes, axis=0)  # (C, Z, Y, X) or (C, Y, X)
 
         # Get view direction for ray casting
         vd_world = getattr(viewer.cursor, "_view_direction", None)
@@ -717,8 +726,12 @@ class TrackEditClass:
 
         origin_data = cursor_spatial_world / scale_array
 
+        # image_volume is (C, Z, Y, X) or (C, Y, X); spatial shape excludes channel dim
+        spatial_shape = image_volume.shape[1:]
+        nuclear_volume = image_volume[0]  # use nuclear channel (idx 0) for ray casting
+
         # Cast ray through volume in both directions
-        diag = int(np.sqrt(sum(s**2 for s in image_volume.shape)))
+        diag = int(np.sqrt(sum(s**2 for s in spatial_shape)))
         t_values = np.arange(-diag, diag + 1, dtype=float)
         ray_points = origin_data[None, :] + t_values[:, None] * vd_data[None, :]
         ray_voxels = np.round(ray_points).astype(int)
@@ -727,18 +740,18 @@ class TrackEditClass:
         if self.databasehandler.ndim == 4:
             valid = (
                 (ray_voxels[:, 0] >= 0)
-                & (ray_voxels[:, 0] < image_volume.shape[0])
+                & (ray_voxels[:, 0] < spatial_shape[0])
                 & (ray_voxels[:, 1] >= 0)
-                & (ray_voxels[:, 1] < image_volume.shape[1])
+                & (ray_voxels[:, 1] < spatial_shape[1])
                 & (ray_voxels[:, 2] >= 0)
-                & (ray_voxels[:, 2] < image_volume.shape[2])
+                & (ray_voxels[:, 2] < spatial_shape[2])
             )
         else:
             valid = (
                 (ray_voxels[:, 0] >= 0)
-                & (ray_voxels[:, 0] < image_volume.shape[0])
+                & (ray_voxels[:, 0] < spatial_shape[0])
                 & (ray_voxels[:, 1] >= 0)
-                & (ray_voxels[:, 1] < image_volume.shape[1])
+                & (ray_voxels[:, 1] < spatial_shape[1])
             )
 
         ray_voxels = ray_voxels[valid]
@@ -746,14 +759,14 @@ class TrackEditClass:
             show_warning("Ray does not intersect volume. Try clicking inside the data.")
             return None
 
-        # Deduplicate and find voxel with maximum intensity (brightest pixel)
+        # Deduplicate and find voxel with maximum intensity in nuclear channel
         ray_voxels = np.unique(ray_voxels, axis=0)
         if self.databasehandler.ndim == 4:
-            intensities = image_volume[
+            intensities = nuclear_volume[
                 ray_voxels[:, 0], ray_voxels[:, 1], ray_voxels[:, 2]
             ]
         else:
-            intensities = image_volume[ray_voxels[:, 0], ray_voxels[:, 1]]
+            intensities = nuclear_volume[ray_voxels[:, 0], ray_voxels[:, 1]]
 
         best_idx = int(np.argmax(intensities))
         best_voxel = ray_voxels[best_idx]
@@ -768,8 +781,8 @@ class TrackEditClass:
                 self.databasehandler.x_scale,
             )
         else:
-            # 2D data: InstanSeg expects 3D, add singleton z dimension
-            image_volume = image_volume[np.newaxis, ...]  # (1, Y, X)
+            # 2D data: InstanSeg expects 3D, add singleton z dimension per channel
+            image_volume = image_volume[:, np.newaxis, ...]  # (C, 1, Y, X)
             position_data = (0,) + position_data  # (0, y, x)
             # Use y_scale as z_scale for isotropic rescaling
             scale = (

@@ -28,9 +28,7 @@ from trackedit.utils.red_flag_funcs import (
     combine_red_flags,
     filter_red_flags_at_edge,
     find_all_starts_and_ends,
-    find_area_changes,
     find_overlapping_cells,
-    find_trajectory_changes,
 )
 from trackedit.utils.utils import (
     annotations_to_zarr,
@@ -718,15 +716,17 @@ class DatabaseHandler:
         )
 
         # Trajectory changes (jumps and direction changes)
-        rfs_trajectory = find_trajectory_changes(df, self.scale)
+        # rfs_trajectory = find_trajectory_changes(df, self.scale)
 
         # Area/volume changes
-        rfs_area = find_area_changes(df)
+        # rfs_area = find_area_changes(df)
 
         # Combine all red flag detection results
-        result_df = combine_red_flags(
-            rfs_starts_and_ends, rfs_overlap, rfs_trajectory, rfs_area
-        )
+        # result_df = combine_red_flags(
+        # rfs_starts_and_ends, rfs_overlap, rfs_trajectory, rfs_area
+        # )
+
+        result_df = combine_red_flags(rfs_starts_and_ends, rfs_overlap)
 
         # ToDo: make option to filter redflags in the first two timepoints
         # (useful for neuromast with suboptimal beginning)
