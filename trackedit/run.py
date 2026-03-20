@@ -12,6 +12,8 @@ from motile_tracker.data_model.actions import (
 from motile_tracker.data_views import TracksViewer
 from trackedit.DatabaseHandler import DatabaseHandler
 from trackedit.motile_overwrites import (
+    TracksLayerGroup,
+    create_center_view,
     create_db_add_edges,
     create_db_add_nodes,
     create_db_delete_edges,
@@ -132,6 +134,7 @@ def run_trackedit(
     DeleteEdges._apply = create_db_delete_edges(DB_handler)
     AddEdges._apply = create_db_add_edges(DB_handler)
     AddNodes._apply = create_db_add_nodes(DB_handler)
+    TracksLayerGroup.center_view = create_center_view(DB_handler)
     TracksViewer._refresh = create_tracks_viewer_and_segments_refresh(
         layer_name=layer_name
     )
