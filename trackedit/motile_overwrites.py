@@ -17,7 +17,6 @@ from motile_tracker.data_model.actions import ActionGroup, AddEdges, DeleteEdges
 from motile_tracker.data_model.solution_tracks import SolutionTracks
 from motile_tracker.data_model.tracks_controller import TracksController
 from motile_tracker.data_views import TracksViewer
-from motile_tracker.data_views.views.layers.tracks_layer_group import TracksLayerGroup
 from motile_tracker.data_views.views.tree_view.tree_widget import TreePlot, TreeWidget
 
 AttrValue: TypeAlias = Any

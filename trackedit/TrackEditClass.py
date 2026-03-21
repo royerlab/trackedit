@@ -728,7 +728,9 @@ class TrackEditClass:
 
             # image_volume is (C, Z, Y, X) or (C, Y, X); spatial shape excludes channel dim
             spatial_shape = image_volume.shape[1:]
-            nuclear_volume = image_volume[0]  # use nuclear channel (idx 0) for ray casting
+            nuclear_volume = image_volume[
+                0
+            ]  # use nuclear channel (idx 0) for ray casting
 
             # Cast ray through volume in both directions
             diag = int(np.sqrt(sum(s**2 for s in spatial_shape)))
