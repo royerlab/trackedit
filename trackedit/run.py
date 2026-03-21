@@ -10,9 +10,9 @@ from motile_tracker.data_model.actions import (
     DeleteNodes,
 )
 from motile_tracker.data_views import TracksViewer
+from motile_tracker.data_views.views.layers.tracks_layer_group import TracksLayerGroup
 from trackedit.DatabaseHandler import DatabaseHandler
 from trackedit.motile_overwrites import (
-    TracksLayerGroup,
     create_center_view,
     create_db_add_edges,
     create_db_add_nodes,
