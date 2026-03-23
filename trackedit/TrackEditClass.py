@@ -686,13 +686,8 @@ class TrackEditClass:
             volumes.append(np.asarray(ch_data))
         image_volume = np.stack(volumes, axis=0)  # (C, Z, Y, X) or (C, Y, X)
 
-        # Get view direction for ray casting
+        # Get view direction for ray casting (unavailable in napari's 2D canvas mode)
         vd_world = getattr(viewer.cursor, "_view_direction", None)
-        if vd_world is None or np.allclose(vd_world, 0):
-            show_warning(
-                "Could not get view direction from napari cursor. Try clicking again."
-            )
-            return None
 
         # Get cursor position in world coordinates
         cursor_pos_world = np.asarray(viewer.cursor.position, dtype=float)
@@ -713,64 +708,73 @@ class TrackEditClass:
                 [self.databasehandler.y_scale, self.databasehandler.x_scale]
             )
 
-        # Convert view direction and cursor position to data coordinates
-        vd_world = np.asarray(vd_world, dtype=float)
-        # View direction is also 4D (time + spatial), extract only spatial components
-        vd_spatial_world = vd_world[1:] if len(vd_world) == 4 else vd_world
-        vd_data = vd_spatial_world / scale_array
-        norm = np.linalg.norm(vd_data)
-        if norm == 0:
-            show_warning("Invalid view direction. Try clicking again.")
-            return None
-        vd_data /= norm
-
         origin_data = cursor_spatial_world / scale_array
 
-        # image_volume is (C, Z, Y, X) or (C, Y, X); spatial shape excludes channel dim
-        spatial_shape = image_volume.shape[1:]
-        nuclear_volume = image_volume[0]  # use nuclear channel (idx 0) for ray casting
-
-        # Cast ray through volume in both directions
-        diag = int(np.sqrt(sum(s**2 for s in spatial_shape)))
-        t_values = np.arange(-diag, diag + 1, dtype=float)
-        ray_points = origin_data[None, :] + t_values[:, None] * vd_data[None, :]
-        ray_voxels = np.round(ray_points).astype(int)
-
-        # Keep only voxels inside the volume
-        if self.databasehandler.ndim == 4:
-            valid = (
-                (ray_voxels[:, 0] >= 0)
-                & (ray_voxels[:, 0] < spatial_shape[0])
-                & (ray_voxels[:, 1] >= 0)
-                & (ray_voxels[:, 1] < spatial_shape[1])
-                & (ray_voxels[:, 2] >= 0)
-                & (ray_voxels[:, 2] < spatial_shape[2])
-            )
+        if vd_world is None or np.allclose(vd_world, 0):
+            # 2D canvas mode: no view direction available, use cursor position directly
+            position_data = tuple(np.round(origin_data).astype(float))
         else:
-            valid = (
-                (ray_voxels[:, 0] >= 0)
-                & (ray_voxels[:, 0] < spatial_shape[0])
-                & (ray_voxels[:, 1] >= 0)
-                & (ray_voxels[:, 1] < spatial_shape[1])
-            )
+            # 3D canvas mode: cast ray and find brightest voxel along it
+            # Convert view direction to data coordinates
+            vd_world = np.asarray(vd_world, dtype=float)
+            # View direction is also 4D (time + spatial), extract only spatial components
+            vd_spatial_world = vd_world[1:] if len(vd_world) == 4 else vd_world
+            vd_data = vd_spatial_world / scale_array
+            norm = np.linalg.norm(vd_data)
+            if norm == 0:
+                show_warning("Invalid view direction. Try clicking again.")
+                return None
+            vd_data /= norm
 
-        ray_voxels = ray_voxels[valid]
-        if len(ray_voxels) == 0:
-            show_warning("Ray does not intersect volume. Try clicking inside the data.")
-            return None
+            # image_volume is (C, Z, Y, X) or (C, Y, X); spatial shape excludes channel dim
+            spatial_shape = image_volume.shape[1:]
+            nuclear_volume = image_volume[
+                0
+            ]  # use nuclear channel (idx 0) for ray casting
 
-        # Deduplicate and find voxel with maximum intensity in nuclear channel
-        ray_voxels = np.unique(ray_voxels, axis=0)
-        if self.databasehandler.ndim == 4:
-            intensities = nuclear_volume[
-                ray_voxels[:, 0], ray_voxels[:, 1], ray_voxels[:, 2]
-            ]
-        else:
-            intensities = nuclear_volume[ray_voxels[:, 0], ray_voxels[:, 1]]
+            # Cast ray through volume in both directions
+            diag = int(np.sqrt(sum(s**2 for s in spatial_shape)))
+            t_values = np.arange(-diag, diag + 1, dtype=float)
+            ray_points = origin_data[None, :] + t_values[:, None] * vd_data[None, :]
+            ray_voxels = np.round(ray_points).astype(int)
 
-        best_idx = int(np.argmax(intensities))
-        best_voxel = ray_voxels[best_idx]
-        position_data = tuple(best_voxel.astype(float))
+            # Keep only voxels inside the volume
+            if self.databasehandler.ndim == 4:
+                valid = (
+                    (ray_voxels[:, 0] >= 0)
+                    & (ray_voxels[:, 0] < spatial_shape[0])
+                    & (ray_voxels[:, 1] >= 0)
+                    & (ray_voxels[:, 1] < spatial_shape[1])
+                    & (ray_voxels[:, 2] >= 0)
+                    & (ray_voxels[:, 2] < spatial_shape[2])
+                )
+            else:
+                valid = (
+                    (ray_voxels[:, 0] >= 0)
+                    & (ray_voxels[:, 0] < spatial_shape[0])
+                    & (ray_voxels[:, 1] >= 0)
+                    & (ray_voxels[:, 1] < spatial_shape[1])
+                )
+
+            ray_voxels = ray_voxels[valid]
+            if len(ray_voxels) == 0:
+                show_warning(
+                    "Ray does not intersect volume. Try clicking inside the data."
+                )
+                return None
+
+            # Deduplicate and find voxel with maximum intensity in nuclear channel
+            ray_voxels = np.unique(ray_voxels, axis=0)
+            if self.databasehandler.ndim == 4:
+                intensities = nuclear_volume[
+                    ray_voxels[:, 0], ray_voxels[:, 1], ray_voxels[:, 2]
+                ]
+            else:
+                intensities = nuclear_volume[ray_voxels[:, 0], ray_voxels[:, 1]]
+
+            best_idx = int(np.argmax(intensities))
+            best_voxel = ray_voxels[best_idx]
+            position_data = tuple(best_voxel.astype(float))
 
         # Prepare scale tuple and handle 2D vs 3D
         if self.databasehandler.ndim == 4:

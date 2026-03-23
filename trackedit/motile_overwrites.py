@@ -355,6 +355,68 @@ patch_track_labels_click_handler()
 # TrackLabels.get_status = get_status
 
 
+def create_center_view(DB_handler):
+    """Override TracksLayerGroup.center_view to convert world positions to data
+    coordinates when setting viewer.dims.current_step.
+
+    Positions in the trackgraph are stored in world (scaled) units, but
+    current_step expects voxel indices, so we divide by the layer scale.
+    """
+
+    def center_view_with_scale(self, node):
+        if self.seg_layer is None or self.seg_layer.mode == "pan_zoom":
+            location = self.tracks.get_positions([node], incl_time=True)[0].tolist()
+            assert (
+                len(location) == self.viewer.dims.ndim
+            ), f"Location {location} does not match viewer number of dims {self.viewer.dims.ndim}"
+
+            # Build per-dimension scale: dim 0 is time (unscaled)
+            if DB_handler.ndim == 4:  # (t, z, y, x)
+                scale_by_dim = {
+                    0: 1.0,
+                    1: DB_handler.z_scale,
+                    2: DB_handler.y_scale,
+                    3: DB_handler.x_scale,
+                }
+            else:  # ndim == 3: (t, y, x)
+                scale_by_dim = {
+                    0: 1.0,
+                    1: DB_handler.y_scale,
+                    2: DB_handler.x_scale,
+                }
+
+            step = list(self.viewer.dims.current_step)
+            for dim in self.viewer.dims.not_displayed:
+                scale = scale_by_dim.get(dim, 1.0)
+                step[dim] = int(location[dim] / scale + 0.5)
+            self.viewer.dims.current_step = step
+
+            # Camera centering uses world coordinates — no scale conversion needed
+            example_layer = self.points_layer
+            corner_coordinates = example_layer.corner_pixels
+            dims_displayed = self.viewer.dims.displayed
+            x_dim = dims_displayed[-1]
+            y_dim = dims_displayed[-2]
+
+            _min_x = corner_coordinates[0][x_dim]
+            _max_x = corner_coordinates[1][x_dim]
+            _min_y = corner_coordinates[0][y_dim]
+            _max_y = corner_coordinates[1][y_dim]
+
+            if not (
+                (location[x_dim] > _min_x and location[x_dim] < _max_x)
+                and (location[y_dim] > _min_y and location[y_dim] < _max_y)
+            ):
+                camera_center = self.viewer.camera.center
+                self.viewer.camera.center = (
+                    camera_center[0],
+                    location[y_dim],
+                    location[x_dim],
+                )
+
+    return center_view_with_scale
+
+
 # --- Custom keybindings ---
 
 
