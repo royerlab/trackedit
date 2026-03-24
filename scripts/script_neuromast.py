@@ -49,7 +49,6 @@ instanseg_model_path = (
     "/hpc/projects/group.royer/people/teun.huijben/data/Thibault/"
     "neuromast_model/instanseg_27527750.pt"
 )
-instanseg_device = None  # 'cuda', 'cpu', or None for auto-detect
 # *************************
 
 if __name__ == "__main__":
@@ -64,5 +63,4 @@ if __name__ == "__main__":
         annotation_mapping=annotation_mapping,
         flag_allow_adding_instanseg_cell=flag_allow_adding_instanseg_cell,
         instanseg_model_path=instanseg_model_path,
-        instanseg_device=instanseg_device,
     )

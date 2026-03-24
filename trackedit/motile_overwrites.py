@@ -13,6 +13,7 @@ from napari.utils.notifications import show_warning
 from qtpy.QtGui import QColor
 from ultrack.core.database import NodeDB, get_node_values
 
+import motile_tracker.data_views.views.tree_view.tree_widget_utils as _tree_widget_utils
 from motile_tracker.data_model.actions import ActionGroup, AddEdges, DeleteEdges
 from motile_tracker.data_model.solution_tracks import SolutionTracks
 from motile_tracker.data_model.tracks_controller import TracksController
@@ -24,6 +25,19 @@ AttrValues: TypeAlias = Sequence[AttrValue]
 Attrs: TypeAlias = Mapping[str, AttrValues]
 Node: TypeAlias = int
 Edge: TypeAlias = tuple[Node, Node]
+
+
+# Bug fix: original uses parent_map.get(current_track) which returns None for
+# missing keys, and None != 0 is always True — causing an infinite loop when
+# all root cells of a division are deleted.
+def _patched_find_root(track_id: int, parent_map: dict) -> int:
+    current_track = track_id
+    while parent_map.get(current_track, 0) != 0:
+        current_track = parent_map.get(current_track)
+    return current_track
+
+
+_tree_widget_utils.find_root = _patched_find_root
 
 
 def create_db_add_nodes(DB_handler):

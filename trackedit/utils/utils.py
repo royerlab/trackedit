@@ -396,7 +396,7 @@ def calculate_bbox_from_mask(mask):
 
 def create_cell_mask_and_bbox(
     position_scaled: np.ndarray,
-    radius_pixels: float,
+    radius_physical: float,
     ndim: int,
     scale: tuple,
     data_shape_full: tuple,
@@ -407,8 +407,8 @@ def create_cell_mask_and_bbox(
     ----------
     position_scaled : array-like
         Position in viewer coordinates (scaled)
-    radius_pixels : float
-        Radius of the sphere in pixels
+    radius_physical : float
+        Radius of the sphere in physical units (same units as scale)
     ndim : int
         Number of dimensions (3 for 2D+t, 4 for 3D+t)
     scale : tuple
@@ -435,9 +435,9 @@ def create_cell_mask_and_bbox(
             ]
         )
         radii = (
-            radius_pixels / z_scale,
-            radius_pixels / y_scale,
-            radius_pixels / x_scale,
+            radius_physical / z_scale,
+            radius_physical / y_scale,
+            radius_physical / x_scale,
         )
     else:
         y_scale, x_scale = scale
@@ -449,8 +449,8 @@ def create_cell_mask_and_bbox(
             ]
         )
         radii = (
-            radius_pixels / y_scale,
-            radius_pixels / x_scale,
+            radius_physical / y_scale,
+            radius_physical / x_scale,
         )
 
     # Calculate bounding box
