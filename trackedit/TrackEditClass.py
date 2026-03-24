@@ -1,9 +1,15 @@
 import napari
 import numpy as np
 from motile_toolbox.candidate_graph import NodeAttr
+from motile_tracker.data_model.actions import ActionGroup, AddEdges
+from napari.utils import progress
 from napari.utils.colormaps import DirectLabelColormap
 from napari.utils.notifications import show_info, show_warning
 from qtpy.QtWidgets import QTabWidget
+from scipy import ndimage
+from skimage.feature import peak_local_max
+from skimage.segmentation import watershed
+from sklearn.cluster import KMeans
 from ultrack.core.database import NodeDB, get_node_values
 from ultrack.core.interactive import add_new_node
 
@@ -132,6 +138,12 @@ class TrackEditClass:
         self.EditingMenu.duplicate_cell_button_pressed.connect(
             self.duplicate_cell_from_database
         )
+        self.EditingMenu.split_cell_button_pressed.connect(self.split_cell)
+
+        def _split_cell_shortcut(viewer=None):
+            self.split_cell(self.EditingMenu.split_method_combo.currentText())
+
+        self.viewer.bind_key("s", overwrite=True)(_split_cell_shortcut)
 
         # Connect spherical cell signal if feature is enabled
         if flag_allow_adding_spherical_cell:
@@ -912,3 +924,191 @@ class TrackEditClass:
             y_unscaled = position_spatial[0] / self.databasehandler.y_scale
             x_unscaled = position_spatial[1] / self.databasehandler.x_scale
             return (y_unscaled, x_unscaled)
+
+    # ===============================================
+    # Split cell
+    # ===============================================
+
+    def split_cell(self, method="Watershed (image)"):
+        selected = list(self.tracksviewer.selected_nodes)
+        if not selected:
+            return
+        tc = self.tracksviewer.tracks_controller
+        all_actions = []
+        with progress(selected, desc="Splitting cells") as prog:
+            for node_id in prog:
+                if method == "K-means":
+                    actions = self._split_single_cell(node_id)
+                else:
+                    seed_source = "image" if method == "Watershed (image)" else "distance"
+                    actions = self._split_single_cell_watershed(node_id, seed_source)
+                if actions:
+                    all_actions.extend(actions)
+        if all_actions:
+            tc.action_history.add_new_action(ActionGroup(tc.tracks, all_actions))
+            tc.tracks.refresh.emit()
+
+    def _split_single_cell(self, node_id: int):
+        """Split a single node into two using K-means clustering on isotropic coordinates."""
+        pickle_data = get_node_values(
+            self.databasehandler.config_adjusted.data_config,
+            [int(node_id)],
+            NodeDB.pickle,
+        )
+        time = get_node_values(
+            self.databasehandler.config_adjusted.data_config,
+            int(node_id),
+            NodeDB.t,
+        )
+        mask = pickle_data.mask
+        bbox = np.array(pickle_data.bbox)
+
+        if not mask.any():
+            return None
+
+        coords = np.argwhere(mask)
+        if len(coords) < 2:
+            show_info(f"K-means: not enough voxels in node {node_id}.")
+            return None
+
+        scale = np.array(self.databasehandler.scale)
+        coords_iso = coords * scale
+        kmeans = KMeans(n_clusters=2, random_state=42, n_init=3)
+        labels = kmeans.fit_predict(coords_iso)
+
+        cluster_masks = []
+        for label_val in [0, 1]:
+            cm = np.zeros_like(mask, dtype=bool)
+            idx = coords[labels == label_val]
+            if len(idx) == 0:
+                show_info(f"K-means: empty partition for node {node_id}.")
+                return None
+            cm[tuple(idx.T)] = True
+            cluster_masks.append(cm)
+
+        return self._finish_split(node_id, time, bbox, cluster_masks)
+
+    def _split_single_cell_watershed(self, node_id: int, seed_source: str):
+        """Split a single node into two using watershed segmentation.
+
+        Parameters
+        ----------
+        node_id : int
+            The node to split.
+        seed_source : str
+            "distance" — seed from distance transform peaks.
+            "image"    — seed from image intensity peaks.
+        """
+        pickle_data = get_node_values(
+            self.databasehandler.config_adjusted.data_config,
+            [int(node_id)],
+            NodeDB.pickle,
+        )
+        time = get_node_values(
+            self.databasehandler.config_adjusted.data_config,
+            int(node_id),
+            NodeDB.t,
+        )
+        mask = pickle_data.mask
+        bbox = np.array(pickle_data.bbox)
+
+        if not mask.any():
+            return None
+
+        scale = np.array(self.databasehandler.scale)
+
+        if seed_source == "image":
+            img = self.databasehandler.imagingArray.get_channel_data(0)[
+                time - self.databasehandler.time_window[0]
+            ]
+            ndim = mask.ndim
+            if ndim == 3:
+                z0, y0, x0, z1, y1, x1 = bbox
+                field = img[z0:z1, y0:y1, x0:x1].astype(float)
+            else:
+                y0, x0, y1, x1 = bbox
+                field = img[y0:y1, x0:x1].astype(float)
+            sigma = 1.0 / scale
+            field = ndimage.gaussian_filter(field, sigma=sigma)
+            field[~mask] = 0
+        else:  # distance
+            field = ndimage.distance_transform_edt(mask, sampling=scale)
+
+        min_distance = max(3, int(min(mask.shape) // 3))
+        peaks = np.empty((0, mask.ndim), dtype=int)
+        while min_distance >= 1:
+            peaks = peak_local_max(
+                field, min_distance=min_distance, labels=mask.astype(int)
+            )
+            if len(peaks) >= 2:
+                break
+            min_distance -= 1
+
+        if len(peaks) < 2:
+            show_info(f"Watershed: could not find 2 peaks in node {node_id}.")
+            return None
+
+        peak_values = field[tuple(peaks.T)]
+        top2_idx = np.argsort(peak_values)[-2:]
+        peaks = peaks[top2_idx]
+
+        markers = np.zeros_like(mask, dtype=np.int32)
+        markers[tuple(peaks[0])] = 1
+        markers[tuple(peaks[1])] = 2
+        ws = watershed(-field, markers, mask=mask)
+
+        cluster_masks = []
+        for label_val in [1, 2]:
+            cm = (ws == label_val) & mask
+            if not cm.any():
+                show_info(f"Watershed: empty partition for node {node_id}.")
+                return None
+            cluster_masks.append(cm)
+
+        return self._finish_split(node_id, time, bbox, cluster_masks)
+
+    def _finish_split(self, node_id: int, time: int, bbox: np.ndarray, cluster_masks: list):
+        """Delete the original node and add two new nodes from the given masks.
+
+        Returns the flat list of actions so the caller can group them with
+        actions from other splits into a single history entry.
+        """
+        tc = self.tracksviewer.tracks_controller
+
+        # Get the delete action without adding to history yet
+        delete_action = tc._delete_nodes([node_id])
+
+        # Also delete any skip edges that motile auto-added after the deletion
+        # (mirrors the logic in my_delete_nodes in motile_overwrites.py)
+        all_actions = list(delete_action.actions)
+        for action in delete_action.actions:
+            if isinstance(action, AddEdges):
+                skip_delete = tc._delete_edges(np.array(action.edges))
+                all_actions += list(skip_delete.actions)
+
+        track_ids = tc.tracks.track_id_to_node.keys()
+        max_track_id = max(track_ids) if track_ids else 0
+
+        time_in_chunk = time - self.databasehandler.time_window[0]
+        for i, cm in enumerate(cluster_masks):
+            new_id = add_new_node(
+                self.databasehandler.config_adjusted,
+                time=time,
+                mask=cm,
+                bbox=bbox,
+                include_overlaps=True,
+            )
+            fix_overlap_ancestor_ids(
+                database_path=self.databasehandler.config_adjusted.data_config.database_path,
+                new_node_id=new_id,
+                current_time=time,
+            )
+            attributes = {
+                NodeAttr.TIME.value: [time_in_chunk],
+                NodeAttr.TRACK_ID.value: [max_track_id + 1 + i],
+                "node_id": [new_id],
+            }
+            action, _ = tc._add_nodes(attributes, [np.array([0, 0, 0])])
+            all_actions.append(action)
+
+        return all_actions

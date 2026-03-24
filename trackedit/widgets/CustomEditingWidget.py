@@ -1,7 +1,7 @@
 import napari
 from PyQt5.QtGui import QIntValidator, QValidator
 from qtpy.QtCore import Signal
-from qtpy.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QPushButton
+from qtpy.QtWidgets import QComboBox, QHBoxLayout, QLabel, QLineEdit, QPushButton
 
 from motile_tracker.application_menus.editing_menu import EditingMenu
 from trackedit.DatabaseHandler import DatabaseHandler
@@ -11,6 +11,7 @@ class CustomEditingMenu(EditingMenu):
 
     add_cell_button_pressed = Signal(int)
     duplicate_cell_button_pressed = Signal(int, int)
+    split_cell_button_pressed = Signal(str)
     add_spherical_cell_toggled = Signal(bool)  # Signal for spherical cell mode toggle
     add_instanseg_cell_toggled = Signal(bool)  # Signal for InstanSeg cell mode toggle
 
@@ -65,10 +66,23 @@ class CustomEditingMenu(EditingMenu):
         duplicate_cell_layout.addWidget(QLabel("to t="))
         duplicate_cell_layout.addWidget(self.duplicate_time_input)
 
-        # Retrieve the node_box widget from the layout and insert add/duplicate cell layouts
+        # split cell
+        self.split_method_combo = QComboBox()
+        self.split_method_combo.addItems(
+            ["Watershed (image)", "Watershed (distance)", "K-means"]
+        )
+        self.split_btn = QPushButton("Split cell")
+        self.split_btn.clicked.connect(self._on_split_cell_clicked)
+
+        split_layout = QHBoxLayout()
+        split_layout.addWidget(self.split_method_combo)
+        split_layout.addWidget(self.split_btn)
+
+        # Retrieve the node_box widget from the layout and insert add/duplicate/split cell layouts
         node_box = main_layout.itemAt(1).widget()
         node_box.layout().addLayout(add_cell_layout)
         node_box.layout().addLayout(duplicate_cell_layout)
+        node_box.layout().addLayout(split_layout)
 
         # Conditionally add spherical cell button
         if self.allow_adding_spherical_cell:
@@ -105,14 +119,14 @@ class CustomEditingMenu(EditingMenu):
             [self.allow_adding_spherical_cell, self.allow_adding_instanseg_cell]
         )
         if num_extra_buttons == 0:
-            node_box.setMaximumHeight(150)  # Original height
-            self.setMaximumHeight(430)  # Original height
+            node_box.setMaximumHeight(200)  # +50 for split row
+            self.setMaximumHeight(480)
         elif num_extra_buttons == 1:
-            node_box.setMaximumHeight(200)  # One extra button
-            self.setMaximumHeight(480)  # One extra button
+            node_box.setMaximumHeight(250)
+            self.setMaximumHeight(530)
         else:  # num_extra_buttons == 2
-            node_box.setMaximumHeight(250)  # Two extra buttons
-            self.setMaximumHeight(530)  # Two extra buttons
+            node_box.setMaximumHeight(300)
+            self.setMaximumHeight(580)
 
     def update_add_cell_btn_state(self, text):
         state, _, _ = self.add_cell_input.validator().validate(text, 0)
@@ -153,3 +167,6 @@ class CustomEditingMenu(EditingMenu):
     def _on_instanseg_cell_clicked(self, checked):
         """Emit signal when InstanSeg cell button is toggled."""
         self.add_instanseg_cell_toggled.emit(checked)
+
+    def _on_split_cell_clicked(self):
+        self.split_cell_button_pressed.emit(self.split_method_combo.currentText())

@@ -85,6 +85,7 @@ def test_trackedit_widgets(
     check_time_box(time_box)
     check_editing(TV, editing_menu)
     check_add_spherical_cell(track_edit, editing_menu)
+    check_split_cell(track_edit, TV)
     check_red_flag_box(TV, red_flag_box, time_box)
     check_division_box(division_box)
     check_annotation(toAnnotateBox)
@@ -242,6 +243,72 @@ def check_add_spherical_cell(track_edit, editing_menu):
 
     # Test: Undo the addition
     track_edit.tracksviewer.undo()
+
+
+def check_split_cell(track_edit, TV):
+    """Check cell splitting functionality and single-step undo."""
+    tc = TV.tracks_controller
+
+    def graph_nodes():
+        return set(tc.tracks.graph.nodes())
+
+    # --- K-means split ---
+    node_id = 2000001
+    TV.selected_nodes.add(node_id, append=False)
+    nodes_before = graph_nodes()
+
+    track_edit.split_cell("K-means")
+
+    nodes_after = graph_nodes()
+    assert node_id not in nodes_after, "Original node should be removed after split"
+    new_nodes = nodes_after - nodes_before
+    assert len(new_nodes) == 2, f"Expected 2 new nodes, got {len(new_nodes)}"
+    assert len(nodes_after) == len(nodes_before) + 1, "Net node count should increase by 1"
+
+    # Single undo should restore the original node and remove both new ones
+    TV.undo()
+    nodes_after_undo = graph_nodes()
+    assert node_id in nodes_after_undo, "Original node should be restored after undo"
+    assert not (new_nodes & nodes_after_undo), "New nodes should be gone after undo"
+    assert nodes_after_undo == nodes_before, "Graph should match pre-split state after undo"
+
+    # --- Watershed (distance) split ---
+    node_id2 = 2000002
+    TV.selected_nodes.add(node_id2, append=False)
+    nodes_before2 = graph_nodes()
+
+    track_edit.split_cell("Watershed (distance)")
+
+    nodes_after2 = graph_nodes()
+    assert node_id2 not in nodes_after2, "Original node should be removed after watershed split"
+    new_nodes2 = nodes_after2 - nodes_before2
+    assert len(new_nodes2) == 2, f"Expected 2 new nodes, got {len(new_nodes2)}"
+
+    TV.undo()
+    nodes_after_undo2 = graph_nodes()
+    assert node_id2 in nodes_after_undo2, "Original node should be restored after undo"
+    assert nodes_after_undo2 == nodes_before2, "Graph should match pre-split state after undo"
+
+    # --- Multi-cell split (two cells at once) ---
+    node_a, node_b = 2000001, 2000002
+    TV.selected_nodes.add(node_a, append=False)
+    TV.selected_nodes.add(node_b, append=True)
+    nodes_before_multi = graph_nodes()
+
+    track_edit.split_cell("K-means")
+
+    nodes_after_multi = graph_nodes()
+    assert node_a not in nodes_after_multi, "Node A should be removed"
+    assert node_b not in nodes_after_multi, "Node B should be removed"
+    new_nodes_multi = nodes_after_multi - nodes_before_multi
+    assert len(new_nodes_multi) == 4, f"Expected 4 new nodes from splitting 2 cells, got {len(new_nodes_multi)}"
+
+    # All splits are grouped into a single undo step
+    TV.undo()
+    nodes_final = graph_nodes()
+    assert node_a in nodes_final, "Node A should be restored"
+    assert node_b in nodes_final, "Node B should be restored"
+    assert nodes_final == nodes_before_multi, "Graph should fully match pre-split state"
 
 
 def check_red_flag_box(TV, red_flag_box, time_box):
