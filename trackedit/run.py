@@ -14,7 +14,6 @@ from motile_tracker.data_views.views.layers.tracks_layer_group import TracksLaye
 from trackedit.DatabaseHandler import DatabaseHandler
 from trackedit.motile_overwrites import (
     create_center_view,
-    create_center_view,
     create_db_add_edges,
     create_db_add_nodes,
     create_db_delete_edges,
@@ -42,8 +41,8 @@ def run_trackedit(
     image_translate: Optional[Tuple[float, ...]] = None,
     viewer: Optional[napari.Viewer] = None,
     flag_show_hierarchy: bool = True,
-    flag_allow_adding_spherical_cell: bool = False,
-    adding_spherical_cell_radius: int = 10,
+    flag_allow_adding_spherical_cell: bool = True,
+    adding_spherical_cell_radius: int = 5,
     flag_allow_adding_instanseg_cell: bool = False,
     instanseg_model_path: Optional[str] = None,
     instanseg_device: Optional[str] = None,
@@ -72,7 +71,7 @@ def run_trackedit(
         viewer: Optional existing napari viewer
         flag_show_hierarchy: Show hierarchy in the viewer
         flag_allow_adding_spherical_cell: Allow adding spherical cells via button (default: False)
-        adding_spherical_cell_radius: Radius of spherical cells in pixels (default: 10)
+        adding_spherical_cell_radius: Radius of spherical cells in physical units (default: 10)
         flag_allow_adding_instanseg_cell: Allow adding InstanSeg-segmented cells via button (default: False)
         instanseg_model_path: Path to InstanSeg TorchScript model file
             (required if flag_allow_adding_instanseg_cell=True)

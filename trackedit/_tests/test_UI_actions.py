@@ -56,7 +56,7 @@ def test_trackedit_widgets(
         imaging_zarr_file="",
         imaging_channel="",
         viewer=viewer,
-        flag_allow_adding_spherical_cell=True,  # Enable spherical cell feature for testing
+        flag_allow_adding_spherical_cell=True,
     )
 
     # Get the NavigationWidget directly from TrackEdit instance
@@ -210,7 +210,7 @@ def check_add_spherical_cell(track_edit, editing_menu):
 
     # Call the method directly to add a cell
     new_node_id = track_edit.add_spherical_cell_at_position(
-        position_scaled=position, radius_pixels=10
+        position_scaled=position, radius_physical=10
     )
 
     # Verify a node was created
@@ -263,14 +263,18 @@ def check_split_cell(track_edit, TV):
     assert node_id not in nodes_after, "Original node should be removed after split"
     new_nodes = nodes_after - nodes_before
     assert len(new_nodes) == 2, f"Expected 2 new nodes, got {len(new_nodes)}"
-    assert len(nodes_after) == len(nodes_before) + 1, "Net node count should increase by 1"
+    assert (
+        len(nodes_after) == len(nodes_before) + 1
+    ), "Net node count should increase by 1"
 
     # Single undo should restore the original node and remove both new ones
     TV.undo()
     nodes_after_undo = graph_nodes()
     assert node_id in nodes_after_undo, "Original node should be restored after undo"
     assert not (new_nodes & nodes_after_undo), "New nodes should be gone after undo"
-    assert nodes_after_undo == nodes_before, "Graph should match pre-split state after undo"
+    assert (
+        nodes_after_undo == nodes_before
+    ), "Graph should match pre-split state after undo"
 
     # --- Watershed (distance) split ---
     node_id2 = 2000002
@@ -280,14 +284,18 @@ def check_split_cell(track_edit, TV):
     track_edit.split_cell("Watershed (distance)")
 
     nodes_after2 = graph_nodes()
-    assert node_id2 not in nodes_after2, "Original node should be removed after watershed split"
+    assert (
+        node_id2 not in nodes_after2
+    ), "Original node should be removed after watershed split"
     new_nodes2 = nodes_after2 - nodes_before2
     assert len(new_nodes2) == 2, f"Expected 2 new nodes, got {len(new_nodes2)}"
 
     TV.undo()
     nodes_after_undo2 = graph_nodes()
     assert node_id2 in nodes_after_undo2, "Original node should be restored after undo"
-    assert nodes_after_undo2 == nodes_before2, "Graph should match pre-split state after undo"
+    assert (
+        nodes_after_undo2 == nodes_before2
+    ), "Graph should match pre-split state after undo"
 
     # --- Multi-cell split (two cells at once) ---
     node_a, node_b = 2000001, 2000002
@@ -301,7 +309,9 @@ def check_split_cell(track_edit, TV):
     assert node_a not in nodes_after_multi, "Node A should be removed"
     assert node_b not in nodes_after_multi, "Node B should be removed"
     new_nodes_multi = nodes_after_multi - nodes_before_multi
-    assert len(new_nodes_multi) == 4, f"Expected 4 new nodes from splitting 2 cells, got {len(new_nodes_multi)}"
+    assert (
+        len(new_nodes_multi) == 4
+    ), f"Expected 4 new nodes from splitting 2 cells, got {len(new_nodes_multi)}"
 
     # All splits are grouped into a single undo step
     TV.undo()

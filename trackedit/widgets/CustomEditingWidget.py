@@ -1,7 +1,14 @@
 import napari
 from PyQt5.QtGui import QIntValidator, QValidator
 from qtpy.QtCore import Signal
-from qtpy.QtWidgets import QComboBox, QHBoxLayout, QLabel, QLineEdit, QPushButton
+from qtpy.QtWidgets import (
+    QComboBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QSpinBox,
+)
 
 from motile_tracker.application_menus.editing_menu import EditingMenu
 from trackedit.DatabaseHandler import DatabaseHandler
@@ -75,8 +82,8 @@ class CustomEditingMenu(EditingMenu):
         self.split_btn.clicked.connect(self._on_split_cell_clicked)
 
         split_layout = QHBoxLayout()
-        split_layout.addWidget(self.split_method_combo)
         split_layout.addWidget(self.split_btn)
+        split_layout.addWidget(self.split_method_combo)
 
         # Retrieve the node_box widget from the layout and insert add/duplicate/split cell layouts
         node_box = main_layout.itemAt(1).widget()
@@ -86,17 +93,25 @@ class CustomEditingMenu(EditingMenu):
 
         # Conditionally add spherical cell button
         if self.allow_adding_spherical_cell:
-            self.add_spherical_cell_btn = QPushButton(
-                f"Add Spherical Cell (R={self.adding_spherical_cell_radius}px)"
-            )
-            self.add_spherical_cell_btn.setCheckable(True)  # Toggle on/off
+            self.add_spherical_cell_btn = QPushButton("Add Spherical Cell")
+            self.add_spherical_cell_btn.setCheckable(True)
             self.add_spherical_cell_btn.setStyleSheet(
                 "QPushButton:checked { background-color: #4CAF50; color: white; }"
             )
             self.add_spherical_cell_btn.clicked.connect(self._on_spherical_cell_clicked)
 
+            self.sphere_radius_spinbox = QSpinBox()
+            self.sphere_radius_spinbox.setRange(1, 100)
+            self.sphere_radius_spinbox.setValue(self.adding_spherical_cell_radius)
+            self.sphere_radius_spinbox.setSuffix(" µm")
+            self.sphere_radius_spinbox.setFixedWidth(60)
+            self.sphere_radius_spinbox.valueChanged.connect(
+                self._on_sphere_radius_changed
+            )
+
             spherical_cell_layout = QHBoxLayout()
             spherical_cell_layout.addWidget(self.add_spherical_cell_btn)
+            spherical_cell_layout.addWidget(self.sphere_radius_spinbox)
 
             node_box.layout().addLayout(spherical_cell_layout)
 
@@ -167,6 +182,9 @@ class CustomEditingMenu(EditingMenu):
     def _on_instanseg_cell_clicked(self, checked):
         """Emit signal when InstanSeg cell button is toggled."""
         self.add_instanseg_cell_toggled.emit(checked)
+
+    def _on_sphere_radius_changed(self, value: int):
+        self.adding_spherical_cell_radius = value
 
     def _on_split_cell_clicked(self):
         self.split_cell_button_pressed.emit(self.split_method_combo.currentText())

@@ -1,7 +1,6 @@
 import napari
 import numpy as np
 from motile_toolbox.candidate_graph import NodeAttr
-from motile_tracker.data_model.actions import ActionGroup, AddEdges
 from napari.utils import progress
 from napari.utils.colormaps import DirectLabelColormap
 from napari.utils.notifications import show_info, show_warning
@@ -13,6 +12,7 @@ from sklearn.cluster import KMeans
 from ultrack.core.database import NodeDB, get_node_values
 from ultrack.core.interactive import add_new_node
 
+from motile_tracker.data_model.actions import ActionGroup, AddEdges
 from motile_tracker.data_model.solution_tracks import SolutionTracks
 from motile_tracker.data_views import TracksViewer, TreeWidget
 from trackedit.DatabaseHandler import DatabaseHandler
@@ -152,6 +152,8 @@ class TrackEditClass:
             )
             # Initialize spherical cell mode flag
             self._add_cell_mode_active = False
+            self._last_added_cell = None  # (node_id, time, track_id) for auto-linking
+            self._spherical_wants_link = False  # only True after a double-click advance
 
         # Connect InstanSeg cell signal if feature is enabled
         if flag_allow_adding_instanseg_cell:
@@ -160,6 +162,8 @@ class TrackEditClass:
             )
             # Initialize InstanSeg cell mode flag
             self._add_instanseg_mode_active = False
+            self._last_added_cell = None  # (node_id, time, track_id) for auto-linking
+            self._instanseg_wants_link = False  # only True after a double-click advance
 
         self.add_tracks()
         self.NavigationWidget.time_box.update_chunk_label()
@@ -458,15 +462,15 @@ class TrackEditClass:
             self.EditingMenu.duplicate_cell_id_input.setText("")
             self.EditingMenu.duplicate_time_input.setText("")
 
-    def add_spherical_cell_at_position(self, position_scaled, radius_pixels=10):
+    def add_spherical_cell_at_position(self, position_scaled, radius_physical=10):
         """Add a new cell with spherical segmentation at the given position.
 
         Parameters
         ----------
         position_scaled : array-like
             Position in viewer coordinates (scaled)
-        radius_pixels : float
-            Radius of the sphere in pixels (default: 10)
+        radius_physical : float
+            Radius of the sphere in physical units (same units as scale, default: 10)
 
         Returns
         -------
@@ -479,7 +483,7 @@ class TrackEditClass:
         # Create mask and bbox
         mask, bbox = create_cell_mask_and_bbox(
             position_scaled=position_scaled,
-            radius_pixels=radius_pixels,
+            radius_physical=radius_physical,
             ndim=self.databasehandler.ndim,
             scale=(
                 self.databasehandler.z_scale,
@@ -515,46 +519,73 @@ class TrackEditClass:
             return None
 
         # Add to tracking system
-        track_ids = (
-            self.NavigationWidget.tracks_viewer.tracks_controller.tracks.track_id_to_node.keys()
-        )
+        tc = self.tracksviewer.tracks_controller
+        track_ids = tc.tracks.track_id_to_node.keys()
         max_track_id = max(track_ids) if track_ids else 0
         time_in_chunk = current_time - self.databasehandler.time_window[0]
 
+        # Auto-link to previous cell only if the user double-clicked to advance here
+        link_to_prev = (
+            self._spherical_wants_link
+            and self._last_added_cell is not None
+            and current_time == self._last_added_cell[1] + 1
+        )
+        self._spherical_wants_link = False  # consume the flag
+        use_track_id = (
+            max_track_id + 1
+        )  # always fresh; edge creation handles track continuity
+
         attributes = {
             NodeAttr.TIME.value: [time_in_chunk],
-            NodeAttr.TRACK_ID.value: [max_track_id + 1],
+            NodeAttr.TRACK_ID.value: [use_track_id],
             "node_id": [new_node_id],
         }
-        self.tracksviewer.tracks_controller.add_nodes(
-            attributes, [(np.array([0, 0, 0]))]
-        )
+        nodes_action, _ = tc._add_nodes(attributes, [(np.array([0, 0, 0]))])
 
-        # Refresh and auto-disable
+        if link_to_prev:
+            edge = np.array([[self._last_added_cell[0], new_node_id]])
+            is_valid, valid_action = tc.is_valid(
+                [self._last_added_cell[0], new_node_id]
+            )
+            if is_valid:
+                edge_action = tc._add_edges(edge)
+                extra = [valid_action, edge_action] if valid_action else [edge_action]
+                action = ActionGroup(tc.tracks, [nodes_action] + extra)
+            else:
+                action = nodes_action
+        else:
+            action = nodes_action
+
+        tc.action_history.add_new_action(action)
+        tc.tracks.refresh.emit(new_node_id)
+
+        self._last_added_cell = (new_node_id, current_time, use_track_id)
+
+        # Refresh segmentation layer
         show_info(f"Added spherical cell with ID {new_node_id}")
         self.databasehandler.segments.force_refill()
         self.viewer.layers[self.databasehandler.name + "_seg"].refresh()
-
-        # Auto-disable only if button exists
-        if hasattr(self.EditingMenu, "add_spherical_cell_btn"):
-            from qtpy.QtCore import QTimer
-
-            QTimer.singleShot(
-                0,
-                lambda: (
-                    self.EditingMenu.add_spherical_cell_btn.setChecked(False),
-                    self._toggle_add_spherical_cell_mode(False),
-                ),
-            )
 
         return new_node_id
 
     def _toggle_add_spherical_cell_mode(self, checked):
         """Toggle the add spherical cell mode on/off."""
         self._add_cell_mode_active = checked
+        self._last_added_cell = None  # reset auto-link chain on every toggle
+        self._spherical_wants_link = False
 
         if checked:
-            # Only add callback if not already present
+            # Mutual exclusion: disable instanseg mode if active
+            if (
+                hasattr(self, "_add_instanseg_mode_active")
+                and self._add_instanseg_mode_active
+            ):
+                self._toggle_add_instanseg_mode(False)
+                if hasattr(self.EditingMenu, "add_instanseg_cell_btn"):
+                    self.EditingMenu.add_instanseg_cell_btn.setChecked(False)
+
+            self._suppress_double_click_zoom()
+
             if (
                 self._on_mouse_click_add_spherical_cell
                 not in self.viewer.mouse_drag_callbacks
@@ -562,8 +593,14 @@ class TrackEditClass:
                 self.viewer.mouse_drag_callbacks.append(
                     self._on_mouse_click_add_spherical_cell
                 )
+            if (
+                self._on_double_click_add_spherical_cell
+                not in self.viewer.mouse_double_click_callbacks
+            ):
+                self.viewer.mouse_double_click_callbacks.append(
+                    self._on_double_click_add_spherical_cell
+                )
         else:
-            # Remove ALL instances of the callback (in case of duplicates)
             while (
                 self._on_mouse_click_add_spherical_cell
                 in self.viewer.mouse_drag_callbacks
@@ -574,47 +611,111 @@ class TrackEditClass:
                     )
                 except ValueError:
                     break
+            while (
+                self._on_double_click_add_spherical_cell
+                in self.viewer.mouse_double_click_callbacks
+            ):
+                try:
+                    self.viewer.mouse_double_click_callbacks.remove(
+                        self._on_double_click_add_spherical_cell
+                    )
+                except ValueError:
+                    break
+
+            self._restore_double_click_zoom()
 
     def _on_mouse_click_add_spherical_cell(self, viewer, event):
-        """Handle mouse click when add cell mode is active.
-
-        Called when user clicks in viewer while add cell mode is on.
-        """
+        """Handle mouse click when add cell mode is active."""
         # Guard: only proceed if mode is actually active
         if not self._add_cell_mode_active:
             return
 
         # Only trigger on click (not drag)
         if event.type == "mouse_press":
-            # Get click position in data coordinates
-            # Position includes time dimension: (t, z, y, x) or (t, y, x)
-            position = viewer.cursor.position
+            current_time = int(viewer.cursor.position[0])
+            radius = self.EditingMenu.adding_spherical_cell_radius
 
-            # Extract spatial coordinates (remove time)
-            if self.databasehandler.ndim == 4:
-                # 4D data: (t, z, y, x) -> (z, y, x)
-                position_spatial = position[1:]
+            if self.databasehandler.imaging_flag:
+                # Use ray casting (channel 0) to find the brightest voxel along
+                # the camera ray — gives accurate 3D placement in oblique views
+                ch0 = self.databasehandler.imagingArray.get_channel_data(0)[
+                    current_time
+                ]
+                if hasattr(ch0, "compute"):
+                    ch0 = ch0.compute()
+                nuclear_volume = np.asarray(ch0)
+
+                position_data = self._find_ray_cast_position(viewer, nuclear_volume)
+                if position_data is None:
+                    return
+
+                # Convert data coords -> world coords expected by add_spherical_cell_at_position
+                if self.databasehandler.ndim == 4:
+                    scale_array = np.array(
+                        [
+                            self.databasehandler.z_scale,
+                            self.databasehandler.y_scale,
+                            self.databasehandler.x_scale,
+                        ]
+                    )
+                else:
+                    scale_array = np.array(
+                        [
+                            self.databasehandler.y_scale,
+                            self.databasehandler.x_scale,
+                        ]
+                    )
+                position_spatial = tuple(np.array(position_data) * scale_array)
             else:
-                # 3D data: (t, y, x) -> (y, x)
-                position_spatial = position[1:]
+                # No imaging data: fall back to raw cursor position
+                position_spatial = tuple(viewer.cursor.position[1:])
 
-            # Add spherical cell at clicked position
-            self.add_spherical_cell_at_position(position_spatial)
+            self.add_spherical_cell_at_position(
+                position_spatial, radius_physical=radius
+            )
 
-            # Yield to prevent further event propagation
             yield
+
+    def _on_double_click_add_spherical_cell(self, _viewer, _event):
+        """Double-click: advance to the next frame and arm auto-linking for the next cell."""
+        if not self._add_cell_mode_active:
+            return
+        self._spherical_wants_link = True
+        self._advance_one_frame()
+
+    def _suppress_double_click_zoom(self):
+        """Remove napari's default double-click-to-zoom while an add-cell mode is active."""
+        from napari.components._viewer_mouse_bindings import double_click_to_zoom
+
+        if double_click_to_zoom in self.viewer.mouse_double_click_callbacks:
+            self.viewer.mouse_double_click_callbacks.remove(double_click_to_zoom)
+
+    def _restore_double_click_zoom(self):
+        """Restore napari's default double-click-to-zoom if no add-cell mode is active."""
+        from napari.components._viewer_mouse_bindings import double_click_to_zoom
+
+        spherical_active = getattr(self, "_add_cell_mode_active", False)
+        instanseg_active = getattr(self, "_add_instanseg_mode_active", False)
+        if not spherical_active and not instanseg_active:
+            if double_click_to_zoom not in self.viewer.mouse_double_click_callbacks:
+                self.viewer.mouse_double_click_callbacks.append(double_click_to_zoom)
 
     def _toggle_add_instanseg_mode(self, checked):
         """Toggle the add InstanSeg cell mode on/off."""
         self._add_instanseg_mode_active = checked
+        self._last_added_cell = None  # reset auto-link chain on every toggle
+        self._instanseg_wants_link = False
 
         if checked:
             # Mutual exclusion: disable spherical mode if active
             if hasattr(self, "_add_cell_mode_active") and self._add_cell_mode_active:
+                self._toggle_add_spherical_cell_mode(False)
                 if hasattr(self.EditingMenu, "add_spherical_cell_btn"):
                     self.EditingMenu.add_spherical_cell_btn.setChecked(False)
 
-            # Only add callback if not already present
+            self._suppress_double_click_zoom()
+
+            # Only add callbacks if not already present
             if (
                 self._on_mouse_click_add_instanseg
                 not in self.viewer.mouse_drag_callbacks
@@ -622,8 +723,15 @@ class TrackEditClass:
                 self.viewer.mouse_drag_callbacks.append(
                     self._on_mouse_click_add_instanseg
                 )
+            if (
+                self._on_double_click_add_instanseg
+                not in self.viewer.mouse_double_click_callbacks
+            ):
+                self.viewer.mouse_double_click_callbacks.append(
+                    self._on_double_click_add_instanseg
+                )
         else:
-            # Remove ALL instances of the callback (in case of duplicates)
+            # Remove ALL instances of the callbacks (in case of duplicates)
             while (
                 self._on_mouse_click_add_instanseg in self.viewer.mouse_drag_callbacks
             ):
@@ -633,6 +741,18 @@ class TrackEditClass:
                     )
                 except ValueError:
                     break
+            while (
+                self._on_double_click_add_instanseg
+                in self.viewer.mouse_double_click_callbacks
+            ):
+                try:
+                    self.viewer.mouse_double_click_callbacks.remove(
+                        self._on_double_click_add_instanseg
+                    )
+                except ValueError:
+                    break
+
+            self._restore_double_click_zoom()
 
     def _on_mouse_click_add_instanseg(self, viewer, event):
         """Handle mouse click when InstanSeg add cell mode is active.
@@ -654,6 +774,112 @@ class TrackEditClass:
 
             # Yield to prevent further event propagation
             yield
+
+    def _find_ray_cast_position(self, viewer, nuclear_volume: np.ndarray):
+        """Find the data-space position of the brightest voxel along the camera ray.
+
+        In 2D canvas mode (no view direction), returns the cursor position directly.
+        In 3D canvas mode, casts a ray through `nuclear_volume` and returns the
+        brightest voxel as the seed point.
+
+        Parameters
+        ----------
+        viewer : napari.Viewer
+        nuclear_volume : np.ndarray
+            Single-channel spatial volume at the current time frame, shape
+            (Z, Y, X) for 3D data or (Y, X) for 2D data. Used only in 3D
+            canvas mode to find the brightest voxel along the ray.
+
+        Returns
+        -------
+        tuple of float (data-space, unscaled) or None on failure.
+        """
+        if self.databasehandler.ndim == 4:
+            scale_array = np.array(
+                [
+                    self.databasehandler.z_scale,
+                    self.databasehandler.y_scale,
+                    self.databasehandler.x_scale,
+                ]
+            )
+        else:
+            scale_array = np.array(
+                [
+                    self.databasehandler.y_scale,
+                    self.databasehandler.x_scale,
+                ]
+            )
+
+        cursor_pos_world = np.asarray(viewer.cursor.position, dtype=float)
+        cursor_spatial_world = cursor_pos_world[1:]  # drop time dimension
+        origin_data = cursor_spatial_world / scale_array
+
+        vd_world = getattr(viewer.cursor, "_view_direction", None)
+        if vd_world is None or np.allclose(vd_world, 0):
+            # 2D canvas mode: use cursor position directly
+            return tuple(np.round(origin_data).astype(float))
+
+        # 3D canvas mode: cast ray through nuclear_volume
+        vd_world = np.asarray(vd_world, dtype=float)
+        vd_spatial_world = vd_world[1:] if len(vd_world) == 4 else vd_world
+        vd_data = vd_spatial_world / scale_array
+        norm = np.linalg.norm(vd_data)
+        if norm == 0:
+            show_warning("Invalid view direction. Try clicking again.")
+            return None
+        vd_data /= norm
+
+        spatial_shape = nuclear_volume.shape
+        diag = int(np.sqrt(sum(s**2 for s in spatial_shape)))
+        t_values = np.arange(-diag, diag + 1, dtype=float)
+        ray_points = origin_data[None, :] + t_values[:, None] * vd_data[None, :]
+        ray_voxels = np.round(ray_points).astype(int)
+
+        if self.databasehandler.ndim == 4:
+            valid = (
+                (ray_voxels[:, 0] >= 0)
+                & (ray_voxels[:, 0] < spatial_shape[0])
+                & (ray_voxels[:, 1] >= 0)
+                & (ray_voxels[:, 1] < spatial_shape[1])
+                & (ray_voxels[:, 2] >= 0)
+                & (ray_voxels[:, 2] < spatial_shape[2])
+            )
+        else:
+            valid = (
+                (ray_voxels[:, 0] >= 0)
+                & (ray_voxels[:, 0] < spatial_shape[0])
+                & (ray_voxels[:, 1] >= 0)
+                & (ray_voxels[:, 1] < spatial_shape[1])
+            )
+
+        ray_voxels = ray_voxels[valid]
+        if len(ray_voxels) == 0:
+            show_warning("Ray does not intersect volume. Try clicking inside the data.")
+            return None
+
+        ray_voxels = np.unique(ray_voxels, axis=0)
+        if self.databasehandler.ndim == 4:
+            intensities = nuclear_volume[
+                ray_voxels[:, 0], ray_voxels[:, 1], ray_voxels[:, 2]
+            ]
+        else:
+            intensities = nuclear_volume[ray_voxels[:, 0], ray_voxels[:, 1]]
+
+        best_voxel = ray_voxels[int(np.argmax(intensities))]
+        return tuple(best_voxel.astype(float))
+
+    def _on_double_click_add_instanseg(self, _viewer, _event):
+        """Double-click: advance to the next frame and arm auto-linking for the next cell."""
+        if not self._add_instanseg_mode_active:
+            return
+        self._instanseg_wants_link = True
+        self._advance_one_frame()
+
+    def _advance_one_frame(self):
+        current = self.viewer.dims.current_step[0]
+        max_frame = int(self.viewer.dims.range[0].stop)
+        if current < max_frame:
+            self.viewer.dims.set_current_step(0, current + 1)
 
     def add_instanseg_cell_at_position(self, viewer, current_time):
         """Add a new cell using InstanSeg segmentation at the clicked position.
@@ -698,95 +924,10 @@ class TrackEditClass:
             volumes.append(np.asarray(ch_data))
         image_volume = np.stack(volumes, axis=0)  # (C, Z, Y, X) or (C, Y, X)
 
-        # Get view direction for ray casting (unavailable in napari's 2D canvas mode)
-        vd_world = getattr(viewer.cursor, "_view_direction", None)
-
-        # Get cursor position in world coordinates
-        cursor_pos_world = np.asarray(viewer.cursor.position, dtype=float)
-
-        # Extract spatial position (remove time dimension)
-        if self.databasehandler.ndim == 4:
-            cursor_spatial_world = cursor_pos_world[1:]  # (z, y, x)
-            scale_array = np.array(
-                [
-                    self.databasehandler.z_scale,
-                    self.databasehandler.y_scale,
-                    self.databasehandler.x_scale,
-                ]
-            )
-        else:
-            cursor_spatial_world = cursor_pos_world[1:]  # (y, x)
-            scale_array = np.array(
-                [self.databasehandler.y_scale, self.databasehandler.x_scale]
-            )
-
-        origin_data = cursor_spatial_world / scale_array
-
-        if vd_world is None or np.allclose(vd_world, 0):
-            # 2D canvas mode: no view direction available, use cursor position directly
-            position_data = tuple(np.round(origin_data).astype(float))
-        else:
-            # 3D canvas mode: cast ray and find brightest voxel along it
-            # Convert view direction to data coordinates
-            vd_world = np.asarray(vd_world, dtype=float)
-            # View direction is also 4D (time + spatial), extract only spatial components
-            vd_spatial_world = vd_world[1:] if len(vd_world) == 4 else vd_world
-            vd_data = vd_spatial_world / scale_array
-            norm = np.linalg.norm(vd_data)
-            if norm == 0:
-                show_warning("Invalid view direction. Try clicking again.")
-                return None
-            vd_data /= norm
-
-            # image_volume is (C, Z, Y, X) or (C, Y, X); spatial shape excludes channel dim
-            spatial_shape = image_volume.shape[1:]
-            nuclear_volume = image_volume[
-                0
-            ]  # use nuclear channel (idx 0) for ray casting
-
-            # Cast ray through volume in both directions
-            diag = int(np.sqrt(sum(s**2 for s in spatial_shape)))
-            t_values = np.arange(-diag, diag + 1, dtype=float)
-            ray_points = origin_data[None, :] + t_values[:, None] * vd_data[None, :]
-            ray_voxels = np.round(ray_points).astype(int)
-
-            # Keep only voxels inside the volume
-            if self.databasehandler.ndim == 4:
-                valid = (
-                    (ray_voxels[:, 0] >= 0)
-                    & (ray_voxels[:, 0] < spatial_shape[0])
-                    & (ray_voxels[:, 1] >= 0)
-                    & (ray_voxels[:, 1] < spatial_shape[1])
-                    & (ray_voxels[:, 2] >= 0)
-                    & (ray_voxels[:, 2] < spatial_shape[2])
-                )
-            else:
-                valid = (
-                    (ray_voxels[:, 0] >= 0)
-                    & (ray_voxels[:, 0] < spatial_shape[0])
-                    & (ray_voxels[:, 1] >= 0)
-                    & (ray_voxels[:, 1] < spatial_shape[1])
-                )
-
-            ray_voxels = ray_voxels[valid]
-            if len(ray_voxels) == 0:
-                show_warning(
-                    "Ray does not intersect volume. Try clicking inside the data."
-                )
-                return None
-
-            # Deduplicate and find voxel with maximum intensity in nuclear channel
-            ray_voxels = np.unique(ray_voxels, axis=0)
-            if self.databasehandler.ndim == 4:
-                intensities = nuclear_volume[
-                    ray_voxels[:, 0], ray_voxels[:, 1], ray_voxels[:, 2]
-                ]
-            else:
-                intensities = nuclear_volume[ray_voxels[:, 0], ray_voxels[:, 1]]
-
-            best_idx = int(np.argmax(intensities))
-            best_voxel = ray_voxels[best_idx]
-            position_data = tuple(best_voxel.astype(float))
+        # Find seed position via ray casting (channel 0 = nuclear channel)
+        position_data = self._find_ray_cast_position(viewer, image_volume[0])
+        if position_data is None:
+            return None
 
         # Prepare scale tuple and handle 2D vs 3D
         if self.databasehandler.ndim == 4:
@@ -866,37 +1007,52 @@ class TrackEditClass:
             return None
 
         # Add to tracking system
-        track_ids = (
-            self.NavigationWidget.tracks_viewer.tracks_controller.tracks.track_id_to_node.keys()
-        )
+        tc = self.tracksviewer.tracks_controller
+        track_ids = tc.tracks.track_id_to_node.keys()
         max_track_id = max(track_ids) if track_ids else 0
         time_in_chunk = current_time - self.databasehandler.time_window[0]
 
+        # Auto-link to previous cell only if the user double-clicked to advance here
+        link_to_prev = (
+            self._instanseg_wants_link
+            and self._last_added_cell is not None
+            and current_time == self._last_added_cell[1] + 1
+        )
+        self._instanseg_wants_link = False  # consume the flag
+        use_track_id = (
+            max_track_id + 1
+        )  # always fresh; edge creation handles track continuity
+
         attributes = {
             NodeAttr.TIME.value: [time_in_chunk],
-            NodeAttr.TRACK_ID.value: [max_track_id + 1],
+            NodeAttr.TRACK_ID.value: [use_track_id],
             "node_id": [new_node_id],
         }
-        self.tracksviewer.tracks_controller.add_nodes(
-            attributes, [(np.array([0, 0, 0]))]
-        )
+        nodes_action, _ = tc._add_nodes(attributes, [(np.array([0, 0, 0]))])
 
-        # Refresh and auto-disable
+        if link_to_prev:
+            edge = np.array([[self._last_added_cell[0], new_node_id]])
+            is_valid, valid_action = tc.is_valid(
+                [self._last_added_cell[0], new_node_id]
+            )
+            if is_valid:
+                edge_action = tc._add_edges(edge)
+                extra = [valid_action, edge_action] if valid_action else [edge_action]
+                action = ActionGroup(tc.tracks, [nodes_action] + extra)
+            else:
+                action = nodes_action
+        else:
+            action = nodes_action
+
+        tc.action_history.add_new_action(action)
+        tc.tracks.refresh.emit(new_node_id)
+
+        self._last_added_cell = (new_node_id, current_time, use_track_id)
+
+        # Refresh segmentation layer
         show_info(f"Added InstanSeg cell with ID {new_node_id}")
         self.databasehandler.segments.force_refill()
         self.viewer.layers[self.databasehandler.name + "_seg"].refresh()
-
-        # Auto-disable only if button exists
-        if hasattr(self.EditingMenu, "add_instanseg_cell_btn"):
-            from qtpy.QtCore import QTimer
-
-            QTimer.singleShot(
-                0,
-                lambda: (
-                    self.EditingMenu.add_instanseg_cell_btn.setChecked(False),
-                    self._toggle_add_instanseg_mode(False),
-                ),
-            )
 
         return new_node_id
 
@@ -940,7 +1096,9 @@ class TrackEditClass:
                 if method == "K-means":
                     actions = self._split_single_cell(node_id)
                 else:
-                    seed_source = "image" if method == "Watershed (image)" else "distance"
+                    seed_source = (
+                        "image" if method == "Watershed (image)" else "distance"
+                    )
                     actions = self._split_single_cell_watershed(node_id, seed_source)
                 if actions:
                     all_actions.extend(actions)
@@ -1067,7 +1225,9 @@ class TrackEditClass:
 
         return self._finish_split(node_id, time, bbox, cluster_masks)
 
-    def _finish_split(self, node_id: int, time: int, bbox: np.ndarray, cluster_masks: list):
+    def _finish_split(
+        self, node_id: int, time: int, bbox: np.ndarray, cluster_masks: list
+    ):
         """Delete the original node and add two new nodes from the given masks.
 
         Returns the flat list of actions so the caller can group them with
