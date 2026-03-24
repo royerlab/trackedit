@@ -462,6 +462,23 @@ class TrackEditClass:
             self.EditingMenu.duplicate_cell_id_input.setText("")
             self.EditingMenu.duplicate_time_input.setText("")
 
+    def _mask_without_overlap(self, mask: np.ndarray, bbox: np.ndarray) -> np.ndarray:
+        """Remove voxels already occupied by other cells from a new cell mask.
+
+        Reads the current segmentation array and clears any voxels that are
+        non-zero (i.e. belong to an existing cell). Always active — new cells
+        never overlap existing segmentation.
+        """
+        seg = self.databasehandler.segments.array
+        ndim = mask.ndim
+        if ndim == 3:
+            z0, y0, x0, z1, y1, x1 = bbox.astype(int)
+            occupied = seg[z0:z1, y0:y1, x0:x1] > 0
+        else:
+            y0, x0, y1, x1 = bbox.astype(int)
+            occupied = seg[y0:y1, x0:x1] > 0
+        return mask & ~occupied
+
     def add_spherical_cell_at_position(self, position_scaled, radius_physical=10):
         """Add a new cell with spherical segmentation at the given position.
 
@@ -495,6 +512,11 @@ class TrackEditClass:
             data_shape_full=self.databasehandler.data_shape_full,
         )
         if mask is None:
+            return None
+
+        mask = self._mask_without_overlap(mask, np.array(bbox))
+        if not mask.any():
+            show_warning("New cell fully overlaps existing segmentation — skipped.")
             return None
 
         # Add to database
@@ -984,6 +1006,14 @@ class TrackEditClass:
         if self.databasehandler.ndim == 3:
             mask = mask.squeeze(0)  # (Y, X)
             bbox = (bbox[0][1:], bbox[1][1:])  # Remove z from bbox
+
+        bbox_arr = np.concatenate(bbox) if isinstance(bbox, tuple) else np.asarray(bbox)
+        mask = self._mask_without_overlap(mask, bbox_arr)
+        if not mask.any():
+            show_warning(
+                "InstanSeg cell fully overlaps existing segmentation — skipped."
+            )
+            return None
 
         # Add to database
         try:
