@@ -494,7 +494,9 @@ class TrackEditClass:
         new_node_id : int or None
             Database ID of the newly created node, or None if failed
         """
-        current_time = self.viewer.dims.current_step[0]
+        current_time = (
+            self.viewer.dims.current_step[0] + self.databasehandler.time_window[0]
+        )
         self.update_chunk_from_frame(current_time)
 
         # Create mask and bbox
@@ -580,6 +582,7 @@ class TrackEditClass:
 
         tc.action_history.add_new_action(action)
         tc.tracks.refresh.emit(new_node_id)
+        self.tracksviewer.selected_nodes.add(new_node_id, append=False)
 
         self._last_added_cell = (new_node_id, current_time, use_track_id)
 
@@ -789,7 +792,7 @@ class TrackEditClass:
         if event.type == "mouse_press":
             # Get click position and time
             position = viewer.cursor.position
-            current_time = int(position[0])
+            current_time = int(position[0]) + self.databasehandler.time_window[0]
 
             # Add InstanSeg cell at clicked position (pass viewer for ray casting)
             self.add_instanseg_cell_at_position(viewer, current_time)
@@ -938,9 +941,10 @@ class TrackEditClass:
         # Get all channels at current time and stack to (C, Z, Y, X) or (C, Y, X).
         # Ray casting uses channel 0 (nuclear); all channels are fed to the model.
         imaging = self.databasehandler.imagingArray
+        time_in_chunk = current_time - self.databasehandler.time_window[0]
         volumes = []
         for ch_idx in range(imaging.n_channels):
-            ch_data = imaging.get_channel_data(ch_idx)[current_time]
+            ch_data = imaging.get_channel_data(ch_idx)[time_in_chunk]
             if hasattr(ch_data, "compute"):
                 ch_data = ch_data.compute()
             volumes.append(np.asarray(ch_data))
@@ -1076,6 +1080,7 @@ class TrackEditClass:
 
         tc.action_history.add_new_action(action)
         tc.tracks.refresh.emit(new_node_id)
+        self.tracksviewer.selected_nodes.add(new_node_id, append=False)
 
         self._last_added_cell = (new_node_id, current_time, use_track_id)
 
