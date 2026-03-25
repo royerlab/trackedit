@@ -247,10 +247,11 @@ def check_add_spherical_cell(track_edit, editing_menu):
 
 def check_split_cell(track_edit, TV):
     """Check cell splitting functionality and single-step undo."""
-    tc = TV.tracks_controller
+    # Navigate to chunk 0 (node 2000001 is at t=1, which is in chunk 0)
+    track_edit.update_chunk_from_frame(1)
 
     def graph_nodes():
-        return set(tc.tracks.graph.nodes())
+        return set(TV.tracks_controller.tracks.graph.nodes())
 
     # --- K-means split ---
     node_id = 2000001
