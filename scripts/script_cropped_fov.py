@@ -18,7 +18,7 @@ warnings.filterwarnings("ignore", category=FutureWarning, message=".*qt_viewer.*
 working_directory = Path("/home/teun.huijben/Documents/data/Ziwen/2025_07_24_A549/")
 # name of the database file to start from, or "latest" to start from the latest version, defaults to "data.db"
 db_filename_start = "latest"
-# maximum number of frames display, defaults to None (use all frames)
+# exclusive upper bound on frames to load (tmax=66 loads frames 0–65), defaults to None (use all frames)
 tmax = 66
 # (Z),Y,X, defaults to (1, 1, 1)
 scale = (0.1494, 0.1494)

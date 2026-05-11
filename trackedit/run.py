@@ -58,7 +58,7 @@ def run_trackedit(
     Args:
         working_directory: Path to working directory
         db_filename: Name of database file
-        tmax: Maximum time point
+        tmax: Exclusive upper bound on time points to load (e.g. tmax=10 loads frames 0–9)
         scale: Scale factors for each dimension
         name: Name for the tracks layer
         time_chunk: Starting time chunk
