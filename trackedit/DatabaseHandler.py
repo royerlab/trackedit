@@ -44,7 +44,7 @@ class DatabaseHandler:
         self,
         db_filename_old: str,
         working_directory: Path,
-        Tmax: int,
+        Tmax: int,  # exclusive upper bound: Tmax=10 loads frames 0–9
         scale: tuple,
         name: str,
         annotation_mapping: dict = None,
@@ -556,7 +556,7 @@ class DatabaseHandler:
         # If max time is less than current Tmax, update it
         if (
             current_max_time < self.Tmax - 1
-        ):  # Tmax of 600 means 599 is the last timepoint
+        ):  # Tmax is exclusive: Tmax=600 loads frames 0–599
             self.Tmax = current_max_time
             (
                 self.time_window,

@@ -260,6 +260,10 @@ def solution_dataframe_from_sql_with_tmax(
     database_path : str
         SQL database path (e.g. sqlite:///your.database.db)
 
+    tmax : int
+        Exclusive upper bound on time points to load. Nodes with t >= tmax are excluded
+        (e.g. tmax=10 loads frames 0–9).
+
     columns : Sequence[sqla.Column], optional
         Queried columns, MUST include NodeDB.id.
         By default (NodeDB.id, NodeDB.parent_id, NodeDB.t, NodeDB.z, NodeDB.y, NodeDB.x)

@@ -18,7 +18,7 @@ working_directory = Path(
 )
 # name of the database file to start from, or "latest" to start from the latest version, defaults to "data.db"
 db_filename_start = "latest"
-# maximum number of frames display, defaults to None (use all frames)
+# exclusive upper bound on frames to load (tmax=600 loads frames 0–599), defaults to None (use all frames)
 tmax = 600
 # (Z),Y,X, defaults to (1, 1, 1)
 scale = (0.25, 0.108, 0.108)  # microns
