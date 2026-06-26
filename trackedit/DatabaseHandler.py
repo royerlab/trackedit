@@ -188,6 +188,11 @@ class DatabaseHandler:
             )
         self.df_full = self.db_to_df(entire_database=True)
 
+        # Align Tmax with the actual data extent (last populated frame + 1)
+        # before it is logged, so the "Parameters: Tmax: ..." header matches
+        # the loaded window. log_change=False because the header records it.
+        self.check_if_tmax_changed(log_change=False)
+
         # ToDo: df_full might be very large for large datasets, but annotation/redflags/division need it
         self.nxgraph = self.df_to_nxgraph()
         self.red_flags_ignore_list = self._load_red_flags_ignore_list()
@@ -543,10 +548,17 @@ class DatabaseHandler:
                 self.imagingArray.set_time_window(self.time_window)
             self.nxgraph = self.df_to_nxgraph()
 
-    def check_if_tmax_changed(self):
+    def check_if_tmax_changed(self, log_change=True):
         """
         Checks if the max time in the database has changed.
         Called from NavigationWidget.check_if_tmax_changed()
+
+        Parameters
+        ----------
+        log_change : bool
+            If True (default), log the new Tmax to the changelog when it is
+            adjusted. Set False at init, where the value is recorded by the
+            "Parameters: Tmax: ..." header instead.
         """
         if len(self.df_full) == 0:  # If dataframe is empty
             return False, self.Tmax
@@ -557,12 +569,19 @@ class DatabaseHandler:
         if (
             current_max_time < self.Tmax - 1
         ):  # Tmax is exclusive: Tmax=600 loads frames 0–599
-            self.Tmax = current_max_time
+            # Tmax is exclusive, so to keep the last populated frame
+            # (current_max_time) loaded we need Tmax = current_max_time + 1.
+            self.Tmax = current_max_time + 1
             (
                 self.time_window,
                 self.time_chunk_starts,
                 self.num_time_chunks,
             ) = self.calc_time_window()
+            if log_change:
+                self.log(
+                    f"Tmax adjusted to {self.Tmax} "
+                    f"(data extent: last populated frame + 1)"
+                )
             return True, self.Tmax
         else:
             return False, self.Tmax
