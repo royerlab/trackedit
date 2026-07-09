@@ -72,7 +72,7 @@ preview = ["pixi-build"]
 
 [tool.pixi.pypi-dependencies]
 ultrack = { git = "https://github.com/royerlab/ultrack.git", rev = "71537e2fbdd57be5c61ec886973c56ae89b1b9e6" }
-geff = {git = "https://github.com/live-image-tracking-tools/geff.git", subdirectory = "packages/geff"}
+geff = ">=1.2.0.1.1, <1.2.0.1.2" #latest geff wants numdoceds 17, but ultrack doesn't allow this
 
 [tool.pixi.feature.editable.pypi-dependencies]
 trackedit = { path = ".", editable = true }
@@ -98,6 +98,7 @@ numpy = "<2.2"
 pre-commit = ">=4.1.0,<5"
 dask = ">=2025.2.0,<2026"
 scikit-learn = ">=1.8.0,<2"
+numcodecs = ">=0.15.1, <0.16"
 
 [tool.pixi.feature.test.dependencies]
 pytest = "*"
