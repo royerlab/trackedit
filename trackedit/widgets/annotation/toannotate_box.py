@@ -259,8 +259,8 @@ class ToAnnotateBox(NavigationBox):
                     if label_name in self.label_buttons:
                         color = label_info["color"]
                         self.label_buttons[label_name].setStyleSheet(
-                            f"background-color: rgba({int(color[0]*255)}, {int(color[1]*255)}, "
-                            f"{int(color[2]*255)}, {opacity_factor});"
+                            f"background-color: rgba({int(color[0] * 255)}, {int(color[1] * 255)}, "
+                            f"{int(color[2] * 255)}, {opacity_factor});"
                         )
 
     def _update_upon_click(self):

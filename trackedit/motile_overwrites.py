@@ -66,7 +66,7 @@ def create_db_add_nodes(DB_handler):
                 pos[1] *= DB_handler.x_scale
             else:
                 raise ValueError(
-                    f"Database should be 2D or 3D, not {DB_handler.ndim-1}D"
+                    f"Database should be 2D or 3D, not {DB_handler.ndim - 1}D"
                 )
             new_pos.append(pos)
         self.positions = np.array(new_pos)

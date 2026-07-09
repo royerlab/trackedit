@@ -92,5 +92,5 @@ class TimeBox(NavigationBox):
 
     def update_chunk_label(self):
         time_window = self.databasehandler.time_window
-        label = f"window = [{time_window[0]} : {time_window[1]-1}]"
+        label = f"window = [{time_window[0]} : {time_window[1] - 1}]"
         self.chunk_label.setText(label)

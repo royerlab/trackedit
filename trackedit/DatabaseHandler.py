@@ -99,7 +99,7 @@ class DatabaseHandler:
             allow_overwrite=self.allow_overwrite,
             work_in_existing_db=self.work_in_existing_db,
         )
-        self.db_path_new = f"sqlite:///{self.working_directory/self.db_filename_new}"
+        self.db_path_new = f"sqlite:///{self.working_directory / self.db_filename_new}"
         self.log_file = self.initialize_logfile(
             self.log_filename_new, self.work_in_existing_db
         )
@@ -126,7 +126,7 @@ class DatabaseHandler:
         )  # number of dimensions of the data, 4 for 3D+time, 3 for 2D+time
         if self.ndim != len(self.scale) + 1:
             raise ValueError(
-                f"Expected scale with {self.ndim-1} values, (Z)YX, but scale has {len(self.scale)} values."
+                f"Expected scale with {self.ndim - 1} values, (Z)YX, but scale has {len(self.scale)} values."
             )
         if self.ndim == 4:
             self.z_scale = self.scale[0]
@@ -137,7 +137,7 @@ class DatabaseHandler:
             self.y_scale = self.scale[0]
             self.x_scale = self.scale[1]
         else:
-            raise ValueError(f"Database should be 2D or 3D, not {self.ndim-1}D")
+            raise ValueError(f"Database should be 2D or 3D, not {self.ndim - 1}D")
 
         # change initial chunk depending on data shape
         if self.data_shape_full[0] < self.time_chunk_length:
@@ -533,7 +533,7 @@ class DatabaseHandler:
     def set_time_chunk(self, time_chunk):
         if time_chunk >= self.num_time_chunks:
             raise ValueError(
-                f"Time chunk {time_chunk} out of range. Maximum time chunk is {self.num_time_chunks-1}"
+                f"Time chunk {time_chunk} out of range. Maximum time chunk is {self.num_time_chunks - 1}"
             )
         else:
             self.time_chunk = time_chunk
