@@ -65,6 +65,11 @@ exclude_lines = [
   "if TYPE_CHECKING:",
 ]
 
+[tool.pytest.ini_options]
+# pytest-qt ignores the QT_API env var and its default guess imports PyQt6 first
+# (napari[all] pulls PyQt6); pin it to the conda PyQt5 to avoid the Qt5/Qt6 clash
+qt_api = "pyqt5"
+
 [tool.pixi.workspace]
 channels = ["conda-forge", "numba","gurobi","funkelab"]
 platforms = ["linux-64", "osx-arm64"]
@@ -73,6 +78,7 @@ preview = ["pixi-build"]
 [tool.pixi.pypi-dependencies]
 ultrack = { git = "https://github.com/royerlab/ultrack.git", rev = "71537e2fbdd57be5c61ec886973c56ae89b1b9e6" }
 geff = ">=1.2.0.1.1, <1.2.0.1.2" #latest geff wants numdoceds 17, but ultrack doesn't allow this
+motile = ">=0.3, <0.4" # motile 1.0 renamed costs (Appear->NodeAppearCost etc.); motile_tracker needs the old API
 
 [tool.pixi.feature.editable.pypi-dependencies]
 trackedit = { path = ".", editable = true }

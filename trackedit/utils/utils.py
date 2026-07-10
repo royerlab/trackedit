@@ -16,6 +16,7 @@ from ultrack.config.dataconfig import DataConfig
 from ultrack.core.database import NodeDB
 from ultrack.utils.array import create_zarr, large_chunk_size
 from ultrack.utils.constants import NO_PARENT
+from zarr.abc.store import Store
 from zarr.storage import StoreLike
 
 
@@ -199,7 +200,7 @@ def annotations_to_zarr(
     tracks_df : pd.DataFrame
         Tracks dataframe, must have `track_id` column and be indexed by node id.
     store_or_path : Union[None, StoreLike, Path, str], optional
-        Zarr storage or output path, if not provided zarr.TempStore is used.
+        Zarr storage or output path, if not provided a temporary store is used.
     chunks : Optional[Tuple[int]], optional
         Chunk size, if not provided it chunks time with 1 and the spatial dimensions as big as possible.
     overwrite : bool, optional
@@ -226,7 +227,7 @@ def annotations_to_zarr(
     if chunks is None:
         chunks = large_chunk_size(shape, dtype=dtype)
 
-    if isinstance(store_or_path, StoreLike):
+    if isinstance(store_or_path, Store):
         array = zarr.zeros(shape, dtype=dtype, store=store_or_path, chunks=chunks)
     else:
         array = create_zarr(
@@ -234,7 +235,7 @@ def annotations_to_zarr(
             dtype=dtype,
             store_or_path=store_or_path,
             chunks=chunks,
-            default_store_type=zarr.TempStore,
+            default_store_type=None,  # zarr v3: create_zarr falls back to a temp LocalStore
         )
 
     export_annotation_generic(config.data_config, tracks_df, array.__setitem__)
